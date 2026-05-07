@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>じぶんのロボット！</title>
+<style>
+/* ══════════════════════════
+   RESET & BASE
+══════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #06091a;
+  --bg2:      #0d1433;
+  --card:     #111830;
+  --text:     #e8f0ff;
+  --muted:    #6080c0;
+  --radius:   20px;
+}
+
+html, body {
+  height: 100%; width: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
+               'メイリオ', 'Meiryo', sans-serif;
+  overflow-x: hidden;
+  display: flex;
+  justify-content: center;
+}
+
+/* ══════════════════════════
+   STAR BACKGROUND
+══════════════════════════ */
+#stars-canvas {
+  position: fixed; inset: 0;
+  width: 100%; height: 100%;
+  z-index: 0; pointer-events: none;
+}
+
+/* ══════════════════════════
+   APP WRAPPER
+══════════════════════════ */
+#app {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 500px;
+  min-height: 100vh;
+  padding: 16px 18px 28px;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 12px;
+}
+
+/* ══════════════════════════
+   TITLE
+══════════════════════════ */
+#title {
+  font-size: 26px; font-weight: 900;
+  letter-spacing: 1px; text-align: center;
+  background: linear-gradient(90deg,
+    #ff6060, #ffaa00, #ffe000,
+    #44ff88, #00ccff, #aa66ff, #ff66cc, #ff6060);
+  background-size: 200%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: rainbow 4s linear infinite;
+}
+@keyframes rainbow { to { background-position: 200% center; } }
+
+#subtitle {
+  font-size: 12px; color: var(--muted);
+  text-align: center; margin-top: -6px;
+}
+
+/* ══════════════════════════
+   ROBOT NAME BADGE
+══════════════════════════ */
+#name-badge {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--card);
+  border: 2px solid rgba(255,255,255,.12);
+  border-radius: 999px;
+  padding: 8px 20px;
+  font-size: 18px; font-weight: 800;
+  cursor: pointer;
+  transition: border-color .2s, transform .15s;
+  user-select: none;
+}
+#name-badge:hover { border-color: #aaccff; transform: scale(1.03); }
+#name-badge:active { transform: scale(.97); }
+#robot-emoji { font-size: 22px; }
+#robot-name-display { color: #aaddff; }
+
+/* ══════════════════════════
+   NAME EDIT PANEL
+══════════════════════════ */
+#name-panel {
+  width: 100%;
+  background: var(--card);
+  border: 2px solid rgba(100,180,255,.25);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  display: none; flex-direction: column; gap: 10px;
+}
+#name-panel.open { display: flex; }
+#name-panel label {
+  font-size: 13px; font-weight: 700; color: #88bbff;
+}
+#name-input-row { display: flex; gap: 8px; }
+#name-input {
+  flex: 1;
+  background: var(--bg2);
+  border: 2px solid rgba(100,180,255,.3);
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: var(--text);
+  font-size: 18px; font-weight: 700;
+  outline: none;
+}
+#name-input:focus { border-color: #66aaff; }
+#name-set-btn {
+  padding: 10px 18px;
+  background: linear-gradient(135deg, #4488ff, #2255cc);
+  border: none; border-radius: 12px;
+  color: white; font-size: 15px; font-weight: 800;
+  cursor: pointer;
+  transition: filter .15s, transform .1s;
+}
+#name-set-btn:hover { filter: brightness(1.15); }
+#name-set-btn:active { transform: scale(.93); }
+
+/* ══════════════════════════
+   SPEECH BUBBLE
+══════════════════════════ */
+#bubble-wrap {
+  width: 100%;
+  min-height: 52px;
+  display: flex; justify-content: center; align-items: flex-end;
+}
+#speech-bubble {
+  background: var(--card);
+  border: 2px solid rgba(100,200,255,.3);
+  border-radius: 20px 20px 20px 6px;
+  padding: 13px 20px;
+  font-size: 18px; font-weight: 600; line-height: 1.55;
+  max-width: 92%; position: relative;
+  opacity: 0; transform: translateY(6px);
+  transition: opacity .3s, transform .3s;
+  pointer-events: none;
+  box-shadow: 0 0 20px rgba(100,200,255,.12);
+}
+#speech-bubble.show {
+  opacity: 1; transform: translateY(0);
+  pointer-events: auto;
+}
+#speech-bubble::after {
+  content: '';
+  position: absolute; bottom: -9px; left: 26px;
+  width: 0; height: 0;
+  border-left: 9px solid transparent;
+  border-right: 9px solid transparent;
+  border-top: 9px solid rgba(100,200,255,.3);
+}
+
+/* ══════════════════════════
+   ROBOT CANVAS
+══════════════════════════ */
+#robot-canvas {
+  cursor: pointer;
+  border-radius: 50%;
+  filter: drop-shadow(0 0 28px rgba(120,180,255,.3));
+  transition: filter .3s;
+}
+#robot-canvas:hover {
+  filter: drop-shadow(0 0 36px rgba(160,210,255,.5));
+}
+
+/* ══════════════════════════
+   STATUS
+══════════════════════════ */
+#status-bar {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; color: var(--muted);
+  min-height: 22px;
+}
+#status-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--muted); transition: background .3s;
+}
+#status-dot.listening { background: #ff4488; animation: blink .7s infinite; }
+#status-dot.thinking  { background: #ffaa00; animation: blink 1.1s infinite; }
+#status-dot.speaking  { background: #44ffaa; animation: blink .5s infinite; }
+#status-dot.ready     { background: #44aaff; }
+@keyframes blink { 0%,100%{ opacity:.3; } 50%{ opacity:1; } }
+
+/* ══════════════════════════
+   SECTION LABEL
+══════════════════════════ */
+.section-label {
+  width: 100%;
+  font-size: 12px; font-weight: 800;
+  color: var(--muted);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 0 2px;
+}
+
+/* ══════════════════════════
+   EYE COLOR PICKER
+══════════════════════════ */
+#color-picker {
+  width: 100%;
+  display: flex; flex-wrap: wrap;
+  gap: 10px; justify-content: center;
+}
+.color-btn {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  cursor: pointer;
+  position: relative;
+  transition: transform .15s, border-color .2s, box-shadow .2s;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-end;
+  padding-bottom: 0;
+}
+.color-btn:hover { transform: scale(1.12); }
+.color-btn:active { transform: scale(.94); }
+.color-btn.selected {
+  border-color: white;
+  box-shadow: 0 0 0 3px rgba(255,255,255,.4), 0 0 20px currentColor;
+  transform: scale(1.15);
+}
+.color-name {
+  position: absolute;
+  bottom: -20px;
+  font-size: 10px; font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ══════════════════════════
+   EMOTION BUTTONS
+══════════════════════════ */
+#emotion-btns {
+  width: 100%;
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+}
+.emo-btn {
+  background: var(--card);
+  border: 2px solid rgba(255,255,255,.1);
+  border-radius: 16px;
+  padding: 10px 14px;
+  cursor: pointer;
+  display: flex; flex-direction: column;
+  align-items: center; gap: 4px;
+  transition: transform .15s, border-color .2s, background .2s;
+  min-width: 64px;
+}
+.emo-btn:hover { transform: scale(1.08); border-color: rgba(255,255,255,.3); }
+.emo-btn:active { transform: scale(.94); }
+.emo-icon { font-size: 28px; }
+.emo-label { font-size: 11px; font-weight: 700; color: var(--muted); }
+
+/* ══════════════════════════
+   INPUT AREA
+══════════════════════════ */
+#input-area { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+
+#mic-row { display: flex; justify-content: center; }
+#mic-btn {
+  width: 76px; height: 76px; border-radius: 50%;
+  border: 3px solid rgba(255,80,150,.4);
+  background: rgba(255,80,150,.1);
+  font-size: 32px;
+  cursor: pointer;
+  transition: all .2s;
+  display: flex; align-items: center; justify-content: center;
+}
+#mic-btn:hover { border-color: #ff4488; background: rgba(255,80,150,.2); transform: scale(1.06); }
+#mic-btn:active { transform: scale(.94); }
+#mic-btn.listening {
+  border-color: #ff4488;
+  background: rgba(255,80,150,.25);
+  box-shadow: 0 0 0 6px rgba(255,80,150,.2), 0 0 30px rgba(255,80,150,.5);
+  animation: mic-pulse .6s ease infinite;
+}
+@keyframes mic-pulse {
+  0%,100%{ box-shadow: 0 0 0 6px rgba(255,80,150,.2), 0 0 30px rgba(255,80,150,.5); }
+  50%{ box-shadow: 0 0 0 12px rgba(255,80,150,.1), 0 0 50px rgba(255,80,150,.7); }
+}
+#mic-hint { text-align: center; font-size: 12px; color: var(--muted); }
+
+#text-row { display: flex; gap: 8px; }
+#text-input {
+  flex: 1;
+  background: var(--card);
+  border: 2px solid rgba(100,150,255,.25);
+  border-radius: 14px;
+  padding: 13px 16px;
+  color: var(--text);
+  font-size: 16px;
+  outline: none;
+  transition: border-color .2s;
+}
+#text-input:focus { border-color: #6699ff; }
+#text-input::placeholder { color: var(--muted); }
+#send-btn {
+  padding: 13px 18px;
+  background: linear-gradient(135deg, #44aaff, #2266cc);
+  border: none; border-radius: 14px;
+  color: white; font-size: 16px; font-weight: 800;
+  cursor: pointer;
+  transition: filter .15s, transform .1s;
+}
+#send-btn:hover { filter: brightness(1.1); }
+#send-btn:active { transform: scale(.94); }
+#send-btn:disabled { opacity: .4; cursor: not-allowed; transform: none; }
+
+/* ══════════════════════════
+   CONFETTI PARTICLES
+══════════════════════════ */
+.confetti-piece {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  font-size: 20px;
+  animation: confetti-fly 1.2s ease-out forwards;
+}
+@keyframes confetti-fly {
+  0%   { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(1); }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(var(--rot)) scale(.3); }
+}
+
+/* ══════════════════════════
+   SCROLL HINT
+══════════════════════════ */
+.spacer { height: 8px; flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<!-- 星空背景 -->
+<canvas id="stars-canvas"></canvas>
+
+<div id="app">
+
+  <!-- タイトル -->
+  <div id="title">じぶんのロボット！</div>
+  <div id="subtitle">AIとプログラミングで動いてるよ ✨</div>
+
+  <!-- ロボット名バッジ（タップで名前変更） -->
+  <div id="name-badge" onclick="toggleNamePanel()">
+    <span id="robot-emoji">🤖</span>
+    <span id="robot-name-display">ルーイ</span>
+    <span style="font-size:13px; color:var(--muted);">✏️ なまえをかえる</span>
+  </div>
+
+  <!-- 名前変更パネル -->
+  <div id="name-panel">
+    <label>ロボットのなまえをきめよう！</label>
+    <div id="name-input-row">
+      <input id="name-input" type="text" placeholder="なまえをいれてね" maxlength="10" />
+      <button id="name-set-btn" onclick="setName()">きめた！</button>
+    </div>
+  </div>
+
+  <!-- 吹き出し -->
+  <div id="bubble-wrap">
+    <div id="speech-bubble"><span id="bubble-text"></span></div>
+  </div>
+
+  <!-- ロボット顔 -->
+  <canvas id="robot-canvas"></canvas>
+
+  <!-- ステータス -->
+  <div id="status-bar">
+    <div id="status-dot" class="ready"></div>
+    <span id="status-text">まってるよ！</span>
+  </div>
+
+  <!-- 目の色ピッカー -->
+  <div class="section-label">👁 めのいろをえらぼう！</div>
+  <div id="color-picker"></div>
+  <div class="spacer"></div>
+
+  <!-- 気持ちボタン -->
+  <div class="section-label">😊 きもちをえらぼう！</div>
+  <div id="emotion-btns">
+    <button class="emo-btn" onclick="triggerEmotion('happy','やったー！うれしいな〜！')">
+      <span class="emo-icon">😊</span><span class="emo-label">うれしい</span>
+    </button>
+    <button class="emo-btn" onclick="triggerEmotion('excited','わあ！すごい！！')">
+      <span class="emo-icon">🤩</span><span class="emo-label">わくわく</span>
+    </button>
+    <button class="emo-btn" onclick="triggerEmotion('thinking','うーん…かんがえてるよ')">
+      <span class="emo-icon">🤔</span><span class="emo-label">かんがえてる</span>
+    </button>
+    <button class="emo-btn" onclick="triggerEmotion('surprised','えっ！びっくりした！！')">
+      <span class="emo-icon">😲</span><span class="emo-label">びっくり</span>
+    </button>
+    <button class="emo-btn" onclick="triggerEmotion('sad','うう…かなしいな…')">
+      <span class="emo-icon">😢</span><span class="emo-label">かなしい</span>
+    </button>
+  </div>
+
+  <!-- 入力エリア -->
+  <div class="section-label">💬 はなしかける！</div>
+  <div id="input-area">
+    <div id="mic-row">
+      <button id="mic-btn" title="こえでおはなし">🎤</button>
+    </div>
+    <div id="mic-hint">おおきなボタンをおして、こえでおはなしできるよ！</div>
+    <div id="text-row">
+      <input id="text-input" type="text" placeholder="もじでかいてもいいよ…" autocomplete="off" />
+      <button id="send-btn">おくる</button>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<script>
+// ════════════════════════════════════════════════
+// STAR BACKGROUND
+// ════════════════════════════════════════════════
+(function(){
+  const sc = document.getElementById('stars-canvas');
+  const sx = sc.getContext('2d');
+  sc.width  = window.innerWidth;
+  sc.height = window.innerHeight;
+
+  const stars = Array.from({length: 120}, () => ({
+    x:    Math.random() * sc.width,
+    y:    Math.random() * sc.height,
+    r:    Math.random() * 1.5 + 0.3,
+    a:    Math.random(),
+    da:   (Math.random() * .004 + .001) * (Math.random() < .5 ? 1 : -1),
+    col:  `hsl(${Math.random()*60+180},80%,85%)`,
+  }));
+
+  function drawStars() {
+    sx.clearRect(0, 0, sc.width, sc.height);
+    stars.forEach(s => {
+      s.a += s.da;
+      if (s.a > 1 || s.a < 0) s.da *= -1;
+      sx.beginPath();
+      sx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+      sx.fillStyle = s.col.replace(')', `,${s.a})`).replace('hsl', 'hsla');
+      sx.fill();
+    });
+    requestAnimationFrame(drawStars);
+  }
+  drawStars();
+  window.addEventListener('resize', () => {
+    sc.width  = window.innerWidth;
+    sc.height = window.innerHeight;
+  });
+})();
+
+
+// ════════════════════════════════════════════════
+// ROBOT RENDERER  (kids version — colorful)
+// ════════════════════════════════════════════════
+class KidsRobotRenderer {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx    = canvas.getContext('2d');
+
+    this.emotion     = 'idle';
+    this.action      = 'none';
+    this.blinkAmt    = 0;
+    this.blinking    = false;
+    this.blinkTimer  = 0;
+    this.blinkNext   = this._rndBlink();
+    this.pupilX      = 0; this.pupilY      = 0;
+    this.tPupilX     = 0; this.tPupilY     = 0;
+    this.bobPhase    = 0; this.bobY        = 0;
+    this.headTilt    = 0; this.headTiltTgt = 0;
+    this.actionTimer = 0;
+    this.talking     = false;
+    this.talkPhase   = 0;
+    this.lastTS      = 0;
+
+    // Custom eye color (null = use emotion color)
+    this.customEyeColor = null;
+
+    this.resize();
+    requestAnimationFrame(this._loop.bind(this));
+  }
+
+  resize() {
+    const size = Math.min(window.innerWidth * 0.82, 320);
+    this.canvas.width  = size;
+    this.canvas.height = size;
+    this.W = size; this.H = size;
+    this.CX = size/2; this.CY = size/2;
+  }
+
+  setEmotion(e)       { this.emotion = e; }
+  setAction(a)        { if (a !== 'none') { this.action = a; this.actionTimer = 0; } }
+  setTalking(v)       { this.talking = v; }
+  setEyeColor(hex)    { this.customEyeColor = hex; }
+  gazeAt(nx, ny)      { this.tPupilX = nx; this.tPupilY = ny; }
+
+  _rndBlink() { return 2000 + Math.random() * 5000; }
+
+  _loop(ts) {
+    const dt = Math.min(0.05, (ts - this.lastTS) / 1000);
+    this.lastTS = ts;
+    this._update(dt);
+    this._render();
+    requestAnimationFrame(this._loop.bind(this));
+  }
+
+  _update(dt) {
+    const lerp = 1 - Math.exp(-9 * dt);
+    this.pupilX += (this.tPupilX - this.pupilX) * lerp;
+    this.pupilY += (this.tPupilY - this.pupilY) * lerp;
+
+    this.bobPhase += dt * (this.talking ? 4 : 1.4);
+    this.bobY = Math.sin(this.bobPhase) * (this.W * 0.014);
+
+    this.blinkTimer += dt * 1000;
+    if (!this.blinking && this.blinkTimer > this.blinkNext) {
+      this.blinking = true; this.blinkAmt = 0;
+      this.blinkTimer = 0; this.blinkNext = this._rndBlink();
+    }
+    if (this.blinking) {
+      this.blinkAmt += dt * 10;
+      if (this.blinkAmt >= 1) { this.blinkAmt = 1; this.blinking = false; }
+    } else {
+      this.blinkAmt = Math.max(0, this.blinkAmt - dt * 10);
+    }
+
+    if (this.action !== 'none') {
+      this.actionTimer += dt;
+      if (this.action === 'nod') {
+        this.headTiltTgt = Math.sin(this.actionTimer * Math.PI / 0.3) * 0.14;
+        if (this.actionTimer > 0.7) { this.action = 'none'; this.headTiltTgt = 0; }
+      } else if (this.action === 'shake') {
+        this.headTiltTgt = Math.sin(this.actionTimer * Math.PI * 3.2) * 0.1;
+        if (this.actionTimer > 0.9) { this.action = 'none'; this.headTiltTgt = 0; }
+      }
+    }
+    this.headTilt += (this.headTiltTgt - this.headTilt) * lerp;
+    if (this.talking) this.talkPhase += dt * 12;
+  }
+
+  _render() {
+    const ctx = this.ctx;
+    const { W, CX, CY, bobY, headTilt } = this;
+
+    ctx.clearRect(0, 0, W, W);
+
+    ctx.save();
+    ctx.translate(CX, CY + bobY);
+    ctx.rotate(headTilt);
+    ctx.translate(-CX, -(CY + bobY));
+
+    this._drawHead(ctx, CX, CY + bobY);
+    this._drawEyes(ctx, CX, CY + bobY);
+    this._drawAntenna(ctx, CX, CY + bobY);
+    if (this.talking) this._drawMouth(ctx, CX, CY + bobY);
+    ctx.restore();
+  }
+
+  _emotionColors() {
+    const map = {
+      idle:      { border:'#66aaff', halo:'rgba(80,140,255,.1)',  iris1:'#55aaff', iris2:'#113388' },
+      happy:     { border:'#44ffaa', halo:'rgba(60,255,160,.1)',  iris1:'#33ffbb', iris2:'#115533' },
+      excited:   { border:'#ffee00', halo:'rgba(255,230,0,.12)',  iris1:'#ffee44', iris2:'#664400' },
+      thinking:  { border:'#aa88ff', halo:'rgba(160,120,255,.1)', iris1:'#bb99ff', iris2:'#332266' },
+      sad:       { border:'#5599ee', halo:'rgba(60,120,220,.08)', iris1:'#6699dd', iris2:'#112244' },
+      surprised: { border:'#ff9900', halo:'rgba(255,150,0,.1)',   iris1:'#ffaa22', iris2:'#553300' },
+    };
+    return map[this.emotion] ?? map.idle;
+  }
+
+  _drawHead(ctx, cx, cy) {
+    const r = this.W * 0.41;
+    const ec = this._emotionColors();
+
+    // Glow
+    const grd = ctx.createRadialGradient(cx, cy, r*.6, cx, cy, r*1.2);
+    grd.addColorStop(0, ec.halo); grd.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.beginPath(); ctx.arc(cx, cy, r*1.2, 0, Math.PI*2);
+    ctx.fillStyle = grd; ctx.fill();
+
+    // Body
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+    const bg = ctx.createRadialGradient(cx - r*.2, cy - r*.2, 0, cx, cy, r);
+    bg.addColorStop(0, '#1a2a44'); bg.addColorStop(1, '#050d1e');
+    ctx.fillStyle = bg;
+    ctx.shadowColor = ec.border; ctx.shadowBlur = 22;
+    ctx.fill(); ctx.shadowBlur = 0;
+
+    // Border
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
+    ctx.strokeStyle = ec.border; ctx.lineWidth = 2.5;
+    ctx.shadowColor = ec.border; ctx.shadowBlur = 14;
+    ctx.stroke(); ctx.shadowBlur = 0;
+  }
+
+  _drawEyes(ctx, cx, cy) {
+    const sp   = this.W * 0.21;
+    const eyeY = cy - this.W * 0.04;
+    const eyeR = this.W * 0.148;
+
+    const scaleMap = {
+      idle:0.95, happy:0.75, excited:1.2, thinking:0.68,
+      sad:0.8, surprised:1.25
+    };
+    const eyeSY = scaleMap[this.emotion] ?? 1;
+    const blink  = 1 - this.blinkAmt * 0.98;
+    const finalSY = eyeSY * blink;
+
+    this._drawOneEye(ctx, cx - sp, eyeY, eyeR, finalSY);
+    this._drawOneEye(ctx, cx + sp, eyeY, eyeR, finalSY);
+
+    if (this.emotion === 'thinking') this._drawBrows(ctx, cx, eyeY, sp, eyeR);
+    if (this.emotion === 'happy' || this.emotion === 'excited') this._drawCheeks(ctx, cx, eyeY, sp, eyeR);
+  }
+
+  _drawOneEye(ctx, x, y, r, scY) {
+    const ec = this._emotionColors();
+
+    ctx.save();
+    ctx.translate(x, y); ctx.scale(1, scY); ctx.translate(-x, -y);
+
+    // White
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.fillStyle = '#ddf0ff';
+    ctx.shadowColor = ec.border; ctx.shadowBlur = 8;
+    ctx.fill(); ctx.shadowBlur = 0;
+
+    // Clip
+    ctx.save();
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.clip();
+
+    const ir  = r * 0.62;
+    const pOff = r * 0.22;
+    const px = x + (this.emotion === 'thinking' ? -pOff*.5 : this.pupilX * pOff);
+    const py = y + (this.emotion === 'sad' ? pOff*.3 :
+                    this.emotion === 'thinking' ? -pOff*.3 : this.pupilY * pOff);
+
+    // Iris — use custom color if set
+    const iris1 = this.customEyeColor || ec.iris1;
+    const iris2 = this.customEyeColor ? this._darken(this.customEyeColor) : ec.iris2;
+
+    const ig = ctx.createRadialGradient(px - ir*.2, py - ir*.2, 0, px, py, ir);
+    ig.addColorStop(0, iris1);
+    ig.addColorStop(1, iris2);
+    ctx.beginPath(); ctx.arc(px, py, ir, 0, Math.PI*2);
+    ctx.fillStyle = ig;
+    ctx.shadowColor = iris1; ctx.shadowBlur = 10;
+    ctx.fill(); ctx.shadowBlur = 0;
+
+    // Pupil
+    const pr = ir * 0.4;
+    ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI*2);
+    ctx.fillStyle = '#00080e'; ctx.fill();
+
+    // Highlights
+    ctx.beginPath(); ctx.arc(px - pr*.38, py - pr*.38, pr*.3, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(px + pr*.2, py - pr*.1, pr*.14, 0, Math.PI*2);
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fill();
+
+    // Excited sparkles
+    if (this.emotion === 'excited') {
+      for (let i=0; i<4; i++) {
+        const a = (i/4)*Math.PI*2 + this.bobPhase * 2;
+        ctx.beginPath();
+        ctx.arc(px + Math.cos(a)*ir*.8, py + Math.sin(a)*ir*.8, 2.5, 0, Math.PI*2);
+        ctx.fillStyle = `rgba(255,240,80,${.6 + Math.sin(this.bobPhase*5+i)*.3})`;
+        ctx.fill();
+      }
+    }
+
+    ctx.restore(); // unclip
+
+    // Happy squish line
+    if (this.emotion === 'happy') {
+      ctx.beginPath();
+      ctx.ellipse(x, y + r*.9, r*.88, r*.35, 0, 0, Math.PI);
+      ctx.fillStyle = '#ddf0ff'; ctx.fill();
+    }
+
+    ctx.restore(); // unscale
+  }
+
+  _drawBrows(ctx, cx, cy, sp, r) {
+    const browY = cy - r * 1.38;
+    const draw = (bx, ang) => {
+      ctx.save(); ctx.translate(bx, browY); ctx.rotate(ang);
+      ctx.beginPath(); ctx.moveTo(-r*.65, 0); ctx.lineTo(r*.65, 0);
+      ctx.strokeStyle = '#aabbff'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+      ctx.shadowColor = '#aabbff'; ctx.shadowBlur = 5;
+      ctx.stroke(); ctx.shadowBlur = 0; ctx.restore();
+    };
+    draw(cx - sp, -0.2); draw(cx + sp, 0.3);
+  }
+
+  _drawCheeks(ctx, cx, cy, sp, r) {
+    const pulse = .25 + Math.sin(this.bobPhase*2)*.06;
+    [cx - sp*1.35, cx + sp*1.35].forEach(bx => {
+      ctx.beginPath();
+      ctx.ellipse(bx, cy + r*.85, r*.55, r*.24, 0, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(255,100,160,${pulse})`; ctx.fill();
+    });
+  }
+
+  _drawAntenna(ctx, cx, cy) {
+    const r    = this.W * 0.41;
+    const topY = cy - r;
+    const tipY = topY - this.W * 0.14;
+    const ec   = this._emotionColors();
+    const p    = .6 + Math.sin(this.bobPhase * 3.5) * .4;
+
+    ctx.beginPath(); ctx.moveTo(cx, topY); ctx.lineTo(cx, tipY);
+    ctx.strokeStyle = 'rgba(100,170,255,.5)'; ctx.lineWidth = 3;
+    ctx.shadowColor = ec.border; ctx.shadowBlur = 6; ctx.stroke(); ctx.shadowBlur = 0;
+
+    // Ball
+    ctx.beginPath(); ctx.arc(cx, tipY, this.W * 0.028, 0, Math.PI*2);
+    ctx.fillStyle = ec.border.replace(')', `,${p})`).replace('#', 'rgba(') || ec.border;
+    ctx.shadowColor = ec.border; ctx.shadowBlur = 18 * p;
+    // Direct RGBA color for the antenna ball
+    const bR = parseInt(ec.border.slice(1,3),16);
+    const bG = parseInt(ec.border.slice(3,5),16);
+    const bB = parseInt(ec.border.slice(5,7),16);
+    ctx.fillStyle = `rgba(${bR},${bG},${bB},${p})`;
+    ctx.fill(); ctx.shadowBlur = 0;
+  }
+
+  _drawMouth(ctx, cx, cy) {
+    const r  = this.W * 0.41;
+    const my = cy + r * .48;
+    const mw = r * .3;
+    const op = (Math.sin(this.talkPhase) * .5 + .5) * .4 + .06;
+    ctx.beginPath();
+    ctx.ellipse(cx, my, mw, r * op, 0, 0, Math.PI*2);
+    ctx.fillStyle = '#000d1a'; ctx.fill();
+    ctx.strokeStyle = 'rgba(100,180,255,.3)'; ctx.lineWidth = 1.5; ctx.stroke();
+  }
+
+  _darken(hex, amt = .45) {
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    return `rgb(${Math.round(r*(1-amt))},${Math.round(g*(1-amt))},${Math.round(b*(1-amt))})`;
+  }
+}
+
+
+// ════════════════════════════════════════════════
+// APP STATE & CONTROLLERS
+// ════════════════════════════════════════════════
+const robotCanvas = document.getElementById('robot-canvas');
+const bubble      = document.getElementById('speech-bubble');
+const bubText     = document.getElementById('bubble-text');
+const textInput   = document.getElementById('text-input');
+const sendBtn     = document.getElementById('send-btn');
+const micBtn      = document.getElementById('mic-btn');
+const statusDt    = document.getElementById('status-dot');
+const statusTx    = document.getElementById('status-text');
+const nameDisplay = document.getElementById('robot-name-display');
+const namePanel   = document.getElementById('name-panel');
+const nameInput   = document.getElementById('name-input');
+
+const robot = new KidsRobotRenderer(robotCanvas);
+
+let isBusy     = false;
+let robotName  = 'ルーイ';
+
+// ── Eye color palette ────────────────────────
+const COLORS = [
+  { name: 'あお',     hex: '#44aaff', dark: '#112244' },
+  { name: 'みどり',   hex: '#22ee88', dark: '#115533' },
+  { name: 'あか',     hex: '#ff5544', dark: '#661122' },
+  { name: 'オレンジ', hex: '#ff9922', dark: '#663300' },
+  { name: 'きいろ',   hex: '#ffee00', dark: '#664400' },
+  { name: 'むらさき', hex: '#cc66ff', dark: '#441166' },
+  { name: 'ピンク',   hex: '#ff66cc', dark: '#661144' },
+  { name: 'しろ',     hex: '#ddeeff', dark: '#556688' },
+];
+
+let selectedColorIdx = 0;
+
+const picker = document.getElementById('color-picker');
+COLORS.forEach((c, i) => {
+  const btn = document.createElement('div');
+  btn.className = 'color-btn' + (i === 0 ? ' selected' : '');
+  btn.style.background = c.hex;
+  btn.style.boxShadow  = `0 0 12px ${c.hex}88`;
+  btn.innerHTML = `<span class="color-name">${c.name}</span>`;
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.color-btn').forEach(b => b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedColorIdx = i;
+    robot.setEyeColor(c.hex);
+    spawnConfetti(btn.getBoundingClientRect(), 12);
+  });
+  picker.appendChild(btn);
+});
+// Set default eye color
+robot.setEyeColor(COLORS[0].hex);
+
+// ── Gaze tracking ────────────────────────────
+function updateGaze(cx, cy) {
+  const r  = robotCanvas.getBoundingClientRect();
+  const ox = r.left + r.width/2;
+  const oy = r.top  + r.height/2;
+  const dx = cx - ox, dy = cy - oy;
+  const d  = Math.sqrt(dx*dx + dy*dy) || 1;
+  const str = Math.min(1, d / (r.width * .6));
+  robot.gazeAt((dx/d)*str, (dy/d)*str);
+}
+document.addEventListener('mousemove', e => updateGaze(e.clientX, e.clientY));
+document.addEventListener('touchmove', e => {
+  updateGaze(e.touches[0].clientX, e.touches[0].clientY);
+}, { passive: true });
+
+window.addEventListener('resize', () => robot.resize());
+
+// ── Status ───────────────────────────────────
+function setStatus(state, label) {
+  statusDt.className = state;
+  statusTx.textContent = label;
+}
+function showBubble(text) {
+  bubText.textContent = text;
+  bubble.classList.add('show');
+}
+function hideBubble() { bubble.classList.remove('show'); }
+
+// ── Confetti burst ───────────────────────────
+const PIECES = ['⭐', '✨', '💫', '🌟', '🎉', '💜', '💛', '💚', '💙', '❤️'];
+function spawnConfetti(rect, count = 24) {
+  const cx = rect.left + rect.width/2;
+  const cy = rect.top  + rect.height/2;
+  for (let i=0; i<count; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.textContent = PIECES[Math.floor(Math.random() * PIECES.length)];
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = 60 + Math.random() * 140;
+    el.style.cssText = `
+      left: ${cx}px; top: ${cy}px;
+      --dx: ${Math.cos(angle)*dist}px;
+      --dy: ${Math.sin(angle)*dist - 40}px;
+      --rot: ${(Math.random()-.5)*720}deg;
+      font-size: ${14 + Math.random()*14}px;
+      animation-delay: ${Math.random()*.2}s;
+      animation-duration: ${.9 + Math.random()*.5}s;
+    `;
+    document.body.appendChild(el);
+    el.addEventListener('animationend', () => el.remove());
+  }
+}
+
+// ── TTS ──────────────────────────────────────
+function speak(text, onEnd) {
+  if (!window.speechSynthesis) { onEnd?.(); return; }
+  window.speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'ja-JP'; u.rate = 1.0; u.pitch = 1.35;
+  const voices = speechSynthesis.getVoices();
+  const v = voices.find(v => v.lang === 'ja-JP' && /female|kyoko|haruka/i.test(v.name))
+         || voices.find(v => v.lang === 'ja-JP');
+  if (v) u.voice = v;
+  u.onstart = () => { robot.setTalking(true); };
+  u.onend = u.onerror = () => { robot.setTalking(false); onEnd?.(); };
+  speechSynthesis.speak(u);
+}
+
+// ── Send message ─────────────────────────────
+async function sendMessage(text) {
+  if (isBusy || !text.trim()) return;
+  isBusy = true;
+  sendBtn.disabled = true;
+  textInput.value = '';
+
+  setStatus('thinking', 'かんがえてる…');
+  robot.setEmotion('thinking');
+  hideBubble();
+
+  try {
+    const res  = await fetch('/api/kids/chat', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ message: text }),
+    });
+    const data = await res.json();
+
+    robot.setEmotion(data.emotion || 'idle');
+    if (data.action && data.action !== 'none') robot.setAction(data.action);
+    showBubble(data.message || '…');
+
+    // Confetti for excited/happy
+    if (['excited', 'happy'].includes(data.emotion)) {
+      const r = robotCanvas.getBoundingClientRect();
+      spawnConfetti(r, 18);
+    }
+
+    setStatus('speaking', 'はなしてるよ！');
+    speak(data.message || '', () => {
+      setStatus('ready', 'まってるよ！');
+      isBusy = false; sendBtn.disabled = false;
+    });
+
+  } catch (e) {
+    robot.setEmotion('sad');
+    showBubble('あれ？うまくいかなかったよ…もういちど！');
+    setStatus('ready', 'まってるよ！');
+    isBusy = false; sendBtn.disabled = false;
+  }
+}
+
+sendBtn.addEventListener('click', () => sendMessage(textInput.value));
+textInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') sendMessage(textInput.value);
+});
+
+// ── Name panel ───────────────────────────────
+function toggleNamePanel() {
+  namePanel.classList.toggle('open');
+  if (namePanel.classList.contains('open')) nameInput.focus();
+}
+
+async function setName() {
+  const n = nameInput.value.trim();
+  if (!n) return;
+  try {
+    const res  = await fetch('/api/kids/name', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ name: n }),
+    });
+    const data = await res.json();
+    robotName = data.name;
+    nameDisplay.textContent = robotName;
+    nameInput.value = '';
+    namePanel.classList.remove('open');
+    robot.setEmotion('excited'); robot.setAction('nod');
+    const msg = `やあ！これからは${robotName}だよ！よろしくね！`;
+    showBubble(msg); speak(msg);
+    // Big confetti!
+    const r = robotCanvas.getBoundingClientRect();
+    spawnConfetti(r, 32);
+  } catch { /* ignore */ }
+}
+nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') setName(); });
+
+// ── Emotion trigger ──────────────────────────
+function triggerEmotion(em, msg) {
+  robot.setEmotion(em);
+  showBubble(msg);
+  speak(msg);
+  if (['excited', 'happy', 'surprised'].includes(em)) {
+    const r = robotCanvas.getBoundingClientRect();
+    spawnConfetti(r, 14);
+  }
+}
+
+// ── Voice recognition ────────────────────────
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (SR) {
+  const rec = new SR();
+  rec.lang = 'ja-JP'; rec.continuous = false; rec.interimResults = false;
+
+  rec.onstart = () => {
+    setStatus('listening', 'きいてるよ！');
+    micBtn.classList.add('listening');
+    robot.setEmotion('happy');
+    hideBubble();
+  };
+  rec.onresult = e => {
+    const t = e.results[0][0].transcript;
+    textInput.value = t;
+    setTimeout(() => sendMessage(t), 200);
+  };
+  rec.onend   = () => { micBtn.classList.remove('listening'); if (!isBusy) setStatus('ready', 'まってるよ！'); };
+  rec.onerror = e => {
+    micBtn.classList.remove('listening');
+    setStatus('ready', 'まってるよ！');
+    if (e.error !== 'no-speech') showBubble('マイクがつかえなかったよ。もじでかいてね！');
+  };
+  micBtn.addEventListener('click', () => {
+    if (isBusy) return;
+    window.speechSynthesis?.cancel();
+    rec.start();
+  });
+} else {
+  micBtn.style.opacity = '.3';
+  micBtn.title = 'このブラウザは音声非対応';
+}
+
+// ── Canvas interactions ───────────────────────
+robotCanvas.addEventListener('click', () => {
+  robot.blink?.();
+  const msgs = [
+    'ねえねえ、なにかはなそうよ！',
+    'こちょこちょ！くすぐったいよ！',
+    'えへへ、なあに？',
+    'ぼくのこと、さわった？！',
+  ];
+  const m = msgs[Math.floor(Math.random() * msgs.length)];
+  robot.setEmotion('happy');
+  showBubble(m); speak(m);
+  const r = robotCanvas.getBoundingClientRect();
+  spawnConfetti(r, 8);
+});
+
+robotCanvas.addEventListener('dblclick', () => {
+  robot.setEmotion('surprised');
+  const m = 'わあ！ふたかいもさわった！びっくりしたよ！';
+  showBubble(m); speak(m);
+  const r = robotCanvas.getBoundingClientRect();
+  spawnConfetti(r, 22);
+});
+
+// ── Voices on iOS ────────────────────────────
+if (window.speechSynthesis) speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+
+// ── Initial greeting ─────────────────────────
+window.addEventListener('load', async () => {
+  try {
+    const res  = await fetch('/api/kids/greet');
+    const data = await res.json();
+    robot.setEmotion(data.emotion || 'excited');
+    robot.setAction(data.action  || 'nod');
+    showBubble(data.message);
+    setTimeout(() => {
+      speak(data.message);
+      const r = robotCanvas.getBoundingClientRect();
+      spawnConfetti(r, 20);
+    }, 600);
+  } catch {
+    robot.setEmotion('excited'); robot.setAction('nod');
+    showBubble('やあ！ぼくルーイだよ！なんでもきいてね〜！');
+  }
+  setStatus('ready', 'まってるよ！');
+});
+</script>
+</body>
+</html>
