@@ -90,7 +90,7 @@ def chat():
         import anthropic
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         response = client.messages.create(
-            model="claude-opus-4-7",
+            model="claude-haiku-4-5",
             max_tokens=512,
             system=SYSTEM_PROMPT,
             messages=history,
@@ -206,7 +206,7 @@ def kids_chat():
         import anthropic
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         response = client.messages.create(
-            model="claude-opus-4-7",
+            model="claude-haiku-4-5",
             max_tokens=256,
             system=system,
             messages=history,
