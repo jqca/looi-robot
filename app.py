@@ -77,8 +77,8 @@ def debug_info():
     result = {
         "api_key": key_status,
         "python_version": sys.version,
-        "model_adult": "claude-3-5-haiku-20241022",
-        "model_kids": "claude-3-5-haiku-20241022",
+        "model_adult": "claude-haiku-4-5-20251001",
+        "model_kids": "claude-haiku-4-5-20251001",
     }
 
     if key:
@@ -94,7 +94,7 @@ def debug_info():
 
         # 各モデルで接続テスト
         test_models = [
-            "claude-3-5-haiku-20241022",
+            "claude-haiku-4-5-20251001",
             "claude-3-haiku-20240307",
             "claude-3-sonnet-20240229",
             "claude-3-opus-20240229",
@@ -161,7 +161,7 @@ def chat():
         import anthropic
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         response = client.messages.create(
-            model="claude-3-5-haiku-20241022",
+            model="claude-haiku-4-5-20251001",
             max_tokens=512,
             system=SYSTEM_PROMPT,
             messages=history,
@@ -285,7 +285,7 @@ def kids_chat():
         import anthropic
         client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         response = client.messages.create(
-            model="claude-3-5-haiku-20241022",
+            model="claude-haiku-4-5-20251001",
             max_tokens=256,
             system=system,
             messages=history,
