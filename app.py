@@ -82,20 +82,41 @@ def debug_info():
     }
 
     if key:
+        import anthropic
+        client = anthropic.Anthropic(api_key=key)
+
+        # 利用可能なモデル一覧を取得
         try:
-            import anthropic
-            client = anthropic.Anthropic(api_key=key)
-            resp = client.messages.create(
-                model="claude-3-5-haiku-20241022",
-                max_tokens=20,
-                messages=[{"role": "user", "content": "hello"}],
-            )
-            result["api_test"] = "OK"
-            result["api_response"] = resp.content[0].text
+            models_page = client.models.list()
+            result["available_models"] = [m.id for m in models_page.data]
         except Exception as e:
+            result["available_models"] = f"取得失敗: {e}"
+
+        # 各モデルで接続テスト
+        test_models = [
+            "claude-3-5-haiku-20241022",
+            "claude-3-haiku-20240307",
+            "claude-3-sonnet-20240229",
+            "claude-3-opus-20240229",
+            "claude-3-5-sonnet-20241022",
+        ]
+        result["model_tests"] = {}
+        for m in test_models:
+            try:
+                resp = client.messages.create(
+                    model=m,
+                    max_tokens=10,
+                    messages=[{"role": "user", "content": "hi"}],
+                )
+                result["model_tests"][m] = "OK"
+                result["api_test"] = "OK"
+                result["working_model"] = m
+                break  # 最初に動いたモデルで終了
+            except Exception as e:
+                result["model_tests"][m] = str(e)[:80]
+
+        if "api_test" not in result:
             result["api_test"] = "FAILED"
-            result["api_error"] = str(e)
-            result["api_traceback"] = traceback.format_exc()
 
     return jsonify(result)
 
