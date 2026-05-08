@@ -224,7 +224,7 @@ class EyeRenderer {
       idle:      { hRatio: 1.00,                  tilt: 0,                       shape: 'ellipse' }, // ● 正円
       happy:     { hRatio: 0,                     tilt: 0,                       shape: 'arc'     }, // ◠ 笑い目
       excited:   { hRatio: 1.15,                  tilt: 0,                       shape: 'ellipse' }, // 縦に少し大きい
-      thinking:  { hRatio: isRight?0.65:0.50,     tilt: isRight?-0.20:0.20,      shape: 'ellipse' }, // 丸いまま細める
+      thinking:  { hRatio: isRight?0.70:0.45,     tilt: 0,                       shape: 'ellipse' }, // 右目大きめ・左目細め（考え中）
       sad:       { hRatio: 0.70,                  tilt: isRight?-0.26:0.26,      shape: 'ellipse' }, // 丸いまま傾く
       surprised: { hRatio: 1.30,                  tilt: 0,                       shape: 'ellipse' }, // 縦長の大きな円
       angry:     { hRatio: 0.16,                  tilt: isRight?0.40:-0.40,      shape: 'rect'   },  // 細い横線
