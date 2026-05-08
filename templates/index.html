@@ -83,7 +83,6 @@
 
   <div id="status-bar">
     <div id="status-dot" class="ready"></div>
-    <span id="status-text">タップして話す</span>
     <span id="reset-hint" title="リセット">⟳</span>
   </div>
 </div>
@@ -269,7 +268,6 @@ class EyeRenderer {
 // ════════════════════════════════════════════════════
 const canvas    = document.getElementById('robot-canvas');
 const statusDt  = document.getElementById('status-dot');
-const statusTx  = document.getElementById('status-text');
 const resetHint = document.getElementById('reset-hint');
 
 const robot = new EyeRenderer(canvas);
@@ -277,9 +275,8 @@ let isBusy = false, recognition = null;
 
 window.addEventListener('resize', () => robot.resize());
 
-function setStatus(state, label) {
+function setStatus(state) {
   statusDt.className = state;
-  statusTx.textContent = label;
 }
 
 // ── TTS（Edge TTS / NanamiNeural） ──────────────────
@@ -315,7 +312,7 @@ function speak(text, onEnd) {
 async function sendMessage(text) {
   if (isBusy || !text.trim()) return;
   isBusy = true;
-  setStatus('thinking', '💭 考え中…');
+  setStatus('thinking');
   robot.setEmotion('thinking');
   try {
     const res  = await fetch('/api/chat', {
@@ -325,19 +322,19 @@ async function sendMessage(text) {
     const data = await res.json();
     robot.setEmotion(data.emotion || 'idle');
     if (data.action && data.action !== 'none') robot.setAction(data.action);
-    setStatus('speaking', '🔊 話し中…');
+    setStatus('speaking');
     speak(data.message || '', () => {
       isBusy = false;
       if (continuousMode) {
-        setStatus('listening', '👂 聞いてるよ…');
+        setStatus('listening');
         setTimeout(() => startListening(), 600);
       } else {
-        setStatus('ready', 'タップして話す');
+        setStatus('ready');
       }
     });
   } catch {
     robot.setEmotion('sad');
-    setStatus('ready', 'タップして話す');
+    setStatus('ready');
     isBusy = false;
   }
 }
@@ -348,7 +345,7 @@ async function doReset() {
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   if (continuousMode) { continuousMode = false; updateContMode(); }
   robot.setEmotion('idle');
-  setStatus('ready', 'タップして話す');
+  setStatus('ready');
   isBusy = false;
   setTimeout(() => sendMessage('こんにちは！'), 300);
 }
@@ -363,7 +360,7 @@ function updateContMode() {
     canvas.classList.add('continuous');
   } else {
     canvas.classList.remove('continuous', 'listening-once');
-    if (!isBusy) setStatus('ready', 'タップして話す');
+    if (!isBusy) setStatus('ready');
   }
 }
 
@@ -381,7 +378,7 @@ if (SpeechRec) {
   recognition.onstart = () => {
     listeningActive = true;
     canvas.classList.add('listening-once');
-    setStatus('listening', '👂 聞いてるよ…');
+    setStatus('listening');
     robot.setEmotion('happy');
   };
   recognition.onresult = e => {
@@ -394,7 +391,7 @@ if (SpeechRec) {
     listeningActive = false;
     canvas.classList.remove('listening-once');
     if (continuousMode && !isBusy) setTimeout(() => startListening(), 400);
-    else if (!continuousMode && !isBusy) setStatus('ready', 'タップして話す');
+    else if (!continuousMode && !isBusy) setStatus('ready');
   };
   recognition.onerror = e => {
     listeningActive = false;
@@ -442,7 +439,7 @@ if (SpeechRec) {
   });
 
 } else {
-  setStatus('ready', '音声認識非対応ブラウザ');
+  setStatus('ready');
 }
 
 // ── 初回挨拶 ─────────────────────────────────────────
@@ -456,7 +453,7 @@ window.addEventListener('load', async () => {
   } catch {
     robot.setEmotion('excited');
   }
-  setStatus('ready', 'タップして話す');
+  setStatus('ready');
 });
 </script>
 </body>
