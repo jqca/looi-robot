@@ -197,8 +197,8 @@ class EyeRenderer {
   _drawEyes(ctx, cx, cy) {
     const W   = this.W;
     const em  = this.emotion;
-    const sp  = W * 0.220;
-    const hw  = W * 0.145;
+    const sp  = W * 0.200;
+    const hw  = W * 0.100;
     const bSY = 1 - this.blinkAmt * 0.97;
 
     const yOff = {
@@ -220,14 +220,14 @@ class EyeRenderer {
     const col = this._color();
 
     const P = {
-      sleep:     { hRatio: 0.05,                  tilt: 0,                       shape: 'ellipse' }, // 閉じた目
-      idle:      { hRatio: 0.38,                  tilt: 0,                       shape: 'ellipse' },
-      happy:     { hRatio: 0,                     tilt: 0,                       shape: 'arc'     },
-      excited:   { hRatio: 0.75,                  tilt: 0,                       shape: 'ellipse' },
-      thinking:  { hRatio: isRight?0.26:0.18,     tilt: isRight?-0.22:0.22,      shape: 'ellipse' },
-      sad:       { hRatio: 0.35,                  tilt: isRight?-0.28:0.28,      shape: 'ellipse' },
-      surprised: { hRatio: 1.05,                  tilt: 0,                       shape: 'ellipse' },
-      angry:     { hRatio: 0.14,                  tilt: isRight?0.40:-0.40,      shape: 'rect'   },
+      sleep:     { hRatio: 0.07,                  tilt: 0,                       shape: 'ellipse' }, // 閉じた目
+      idle:      { hRatio: 1.00,                  tilt: 0,                       shape: 'ellipse' }, // ● 正円
+      happy:     { hRatio: 0,                     tilt: 0,                       shape: 'arc'     }, // ◠ 笑い目
+      excited:   { hRatio: 1.15,                  tilt: 0,                       shape: 'ellipse' }, // 縦に少し大きい
+      thinking:  { hRatio: isRight?0.65:0.50,     tilt: isRight?-0.20:0.20,      shape: 'ellipse' }, // 丸いまま細める
+      sad:       { hRatio: 0.70,                  tilt: isRight?-0.26:0.26,      shape: 'ellipse' }, // 丸いまま傾く
+      surprised: { hRatio: 1.30,                  tilt: 0,                       shape: 'ellipse' }, // 縦長の大きな円
+      angry:     { hRatio: 0.16,                  tilt: isRight?0.40:-0.40,      shape: 'rect'   },  // 細い横線
     };
     const p = P[em] ?? P.idle;
 
