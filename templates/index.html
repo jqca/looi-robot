@@ -352,8 +352,9 @@ function wakeUp() {
   setStatus('speaking');
   speak('おはよう！何でも話しかけてね！', () => {
     robot.setEmotion('idle');
-    setStatus('ready');
     resetSleepTimer();
+    // 挨拶後すぐ聞き始める
+    setTimeout(() => startListening(), 500);
   });
 }
 
@@ -417,19 +418,15 @@ async function sendMessage(text) {
     setStatus('speaking');
     speak(data.message || '', () => {
       isBusy = false;
-      if (continuousMode) {
-        setStatus('listening');
-        setTimeout(() => startListening(), 600);
-      } else {
-        setStatus('ready');
-      }
       resetSleepTimer();
+      // 返事が終わったら自動で聞き始める
+      setTimeout(() => startListening(), 600);
     });
   } catch {
     robot.setEmotion('sad');
-    setStatus('ready');
     isBusy = false;
     resetSleepTimer();
+    setTimeout(() => startListening(), 800);
   }
 }
 
@@ -448,8 +445,8 @@ async function doReset() {
   setStatus('speaking');
   speak('リセットしたよ！また話しかけてね！', () => {
     robot.setEmotion('idle');
-    setStatus('ready');
     resetSleepTimer();
+    setTimeout(() => startListening(), 500);
   });
 }
 resetHint.addEventListener('click', doReset);
@@ -491,51 +488,45 @@ if (SpeechRec) {
   recognition.onend = () => {
     listeningActive = false;
     canvas.classList.remove('listening-once');
-    if (continuousMode && !isBusy && !sleeping) setTimeout(() => startListening(), 400);
-    else if (!continuousMode && !isBusy && !sleeping) setStatus('ready');
+    // 起きている＆処理中でなければ自動で聞き直す
+    if (!isBusy && !sleeping) setTimeout(() => startListening(), 400);
   };
   recognition.onerror = e => {
     listeningActive = false;
     canvas.classList.remove('listening-once');
     if (e.error === 'no-speech') {
-      if (continuousMode && !isBusy && !sleeping) setTimeout(() => startListening(), 400);
+      if (!isBusy && !sleeping) setTimeout(() => startListening(), 400);
       return;
     }
-    continuousMode = false; updateContMode();
+    // 重大エラーは少し間を置いてリトライ
+    if (!isBusy && !sleeping) setTimeout(() => startListening(), 1000);
   };
 
   // ── キャンバス操作 ──────────────────────────────────
-  //  スリープ中  : 短押し/長押しどちらも → 起動
-  //  起動中 短押し: 一回聞く（連続中なら解除）
-  //  起動中 長押し: 連続モード ON/OFF
+  //  スリープ中  : タップ/長押し → 起動
+  //  起動中 タップ: 割り込み（話し中・聞き中を止めて聞き直し）
+  //  起動中 長押し: 寝かせる
   let pressTimer = null;
   canvas.addEventListener('pointerdown', () => {
     pressTimer = setTimeout(() => {
       pressTimer = null;
       if (sleeping) { wakeUp(); return; }
-      // 長押し → 連続モード切替
-      if (!continuousMode) {
-        continuousMode = true; updateContMode();
-        if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-        if (!isBusy) startListening();
-      } else {
-        continuousMode = false; updateContMode();
-        try { recognition.abort(); } catch(e) {}
-      }
+      // 長押し → スリープ
+      goToSleep();
     }, 600);
   });
   canvas.addEventListener('pointerup', () => {
     if (pressTimer) {
       clearTimeout(pressTimer); pressTimer = null;
       if (sleeping) { wakeUp(); return; }
-      if (continuousMode) {
-        continuousMode = false; updateContMode();
-        try { recognition.abort(); } catch(e) {}
-      } else {
-        if (isBusy) return;
-        if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-        if (!listeningActive) startListening();
-      }
+      // タップ → 今の動作を割り込んで聞き直し
+      if (currentAudio) { currentAudio.pause(); currentAudio = null; robot.setTalking(false); }
+      try { recognition.abort(); } catch(e) {}
+      isBusy = false;
+      listeningActive = false;
+      canvas.classList.remove('listening-once');
+      resetSleepTimer();
+      setTimeout(() => startListening(), 300);
     }
   });
   canvas.addEventListener('pointercancel', () => {
