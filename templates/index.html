@@ -714,26 +714,43 @@ function hideBubble() {
   bubble.classList.remove('show');
 }
 
-// ── TTS ─────────────────────────────────────────────
+// ── TTS（Edge TTS / ja-JP-NanamiNeural） ─────────────
+let currentAudio = null;
+
 function speak(text, onEnd) {
-  if (!window.speechSynthesis) { onEnd?.(); return; }
-  window.speechSynthesis.cancel();
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+  }
 
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang  = 'ja-JP'; u.rate = 1.05; u.pitch = 1.2;
-  // prefer female voice
-  const voices = speechSynthesis.getVoices();
-  const ja = voices.find(v => v.lang === 'ja-JP' && v.name.includes('Female'))
-          || voices.find(v => v.lang === 'ja-JP');
-  if (ja) u.voice = ja;
+  fetch('/api/tts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  })
+  .then(r => {
+    if (!r.ok) throw new Error('TTS failed');
+    return r.blob();
+  })
+  .then(blob => {
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    currentAudio = audio;
 
-  u.onstart = () => { robot.setTalking(true); isSpeaking = true; };
-  u.onend   = u.onerror = () => {
-    robot.setTalking(false); isSpeaking = false;
-    onEnd?.();
-  };
-  currentUtterance = u;
-  speechSynthesis.speak(u);
+    audio.onplay  = () => { robot.setTalking(true);  isSpeaking = true; };
+    audio.onended = () => {
+      robot.setTalking(false); isSpeaking = false;
+      URL.revokeObjectURL(url); currentAudio = null;
+      onEnd?.();
+    };
+    audio.onerror = () => {
+      robot.setTalking(false); isSpeaking = false;
+      URL.revokeObjectURL(url); currentAudio = null;
+      onEnd?.();
+    };
+    audio.play().catch(() => { robot.setTalking(false); onEnd?.(); });
+  })
+  .catch(() => { robot.setTalking(false); isSpeaking = false; onEnd?.(); });
 }
 
 // ── Send message ─────────────────────────────────────

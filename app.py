@@ -10,8 +10,9 @@ import json
 import sys
 import logging
 import traceback
+import asyncio
 
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, make_response
 
 if sys.platform == "win32":
     import ctypes
@@ -207,6 +208,35 @@ def chat():
             "error_detail": str(e),
             "traceback": tb,
         })
+
+
+@app.route("/api/tts", methods=["POST"])
+def tts():
+    """Edge TTS で音声生成（ja-JP-NanamiNeural）"""
+    data = request.get_json() or {}
+    text = data.get("text", "").strip()
+    voice = data.get("voice", "ja-JP-NanamiNeural")
+    if not text:
+        return jsonify({"error": "テキストが空です"}), 400
+
+    async def _generate():
+        import edge_tts
+        communicate = edge_tts.Communicate(text, voice)
+        audio = b""
+        async for chunk in communicate.stream():
+            if chunk["type"] == "audio":
+                audio += chunk["data"]
+        return audio
+
+    try:
+        audio_data = asyncio.run(_generate())
+        resp = make_response(audio_data)
+        resp.headers["Content-Type"] = "audio/mpeg"
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
+    except Exception as e:
+        logger.error(f"[tts] error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/reset", methods=["POST"])

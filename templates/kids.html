@@ -874,19 +874,36 @@ function spawnConfetti(rect, count = 24) {
   }
 }
 
-// ── TTS ──────────────────────────────────────
+// ── TTS（Edge TTS / ja-JP-NanamiNeural） ─────
+let currentAudio = null;
+
 function speak(text, onEnd) {
-  if (!window.speechSynthesis) { onEnd?.(); return; }
-  window.speechSynthesis.cancel();
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = 'ja-JP'; u.rate = 1.0; u.pitch = 1.35;
-  const voices = speechSynthesis.getVoices();
-  const v = voices.find(v => v.lang === 'ja-JP' && /female|kyoko|haruka/i.test(v.name))
-         || voices.find(v => v.lang === 'ja-JP');
-  if (v) u.voice = v;
-  u.onstart = () => { robot.setTalking(true); };
-  u.onend = u.onerror = () => { robot.setTalking(false); onEnd?.(); };
-  speechSynthesis.speak(u);
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+
+  fetch('/api/tts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  })
+  .then(r => { if (!r.ok) throw new Error('TTS failed'); return r.blob(); })
+  .then(blob => {
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    currentAudio = audio;
+    audio.onplay  = () => robot.setTalking(true);
+    audio.onended = () => {
+      robot.setTalking(false);
+      URL.revokeObjectURL(url); currentAudio = null;
+      onEnd?.();
+    };
+    audio.onerror = () => {
+      robot.setTalking(false);
+      URL.revokeObjectURL(url); currentAudio = null;
+      onEnd?.();
+    };
+    audio.play().catch(() => { robot.setTalking(false); onEnd?.(); });
+  })
+  .catch(() => { robot.setTalking(false); onEnd?.(); });
 }
 
 // ── Send message ─────────────────────────────
