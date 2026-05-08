@@ -439,221 +439,324 @@ class RobotRenderer {
   _render() {
     const ctx = this.ctx;
     const { W, H, CX, CY } = this;
-
     ctx.clearRect(0, 0, W, H);
-
-    // Rotate for nod/shake
     ctx.save();
     ctx.translate(CX, CY + this.bobY);
     ctx.rotate(this.headTilt);
     ctx.translate(-CX, -(CY + this.bobY));
+    const cy = CY + this.bobY;
+    this._drawCircleBg(ctx, CX, cy);
+    this._drawHair(ctx, CX, cy);
+    this._drawFaceSkin(ctx, CX, cy);
+    this._drawEyes(ctx, CX, cy);
+    this._drawBrows(ctx, CX, cy);
+    this._drawNose(ctx, CX, cy);
+    this._drawMouth(ctx, CX, cy);
+    this._drawCheeks(ctx, CX, cy);
+    this._drawRing(ctx, CX, cy);
+    ctx.restore();
+  }
 
-    this._drawHead(ctx, CX, CY + this.bobY);
-    this._drawEyes(ctx, CX, CY + this.bobY);
-    this._drawAntenna(ctx, CX, CY + this.bobY);
-    if (this.talking) this._drawMouth(ctx, CX, CY + this.bobY);
+  _drawCircleBg(ctx, cx, cy) {
+    const r  = this.W * 0.42;
+    const ec = this._emotionColor();
+    const gg = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r * 1.25);
+    gg.addColorStop(0, ec.halo1);
+    gg.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.beginPath(); ctx.arc(cx, cy, r * 1.25, 0, Math.PI * 2);
+    ctx.fillStyle = gg; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fillStyle = '#04060f'; ctx.fill();
+  }
+
+  _drawHair(ctx, cx, cy) {
+    const W = this.W, r = W * 0.42;
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+
+    // Hair base fill
+    const hg = ctx.createLinearGradient(cx, cy - r, cx + W * 0.1, cy + r * 0.4);
+    hg.addColorStop(0,   '#1e1840');
+    hg.addColorStop(0.5, '#110e2a');
+    hg.addColorStop(1,   '#07060f');
+    ctx.beginPath(); ctx.arc(cx, cy - W * 0.06, r, 0, Math.PI * 2);
+    ctx.fillStyle = hg; ctx.fill();
+
+    // Left side hair strand
+    ctx.beginPath();
+    ctx.moveTo(cx - W * 0.24, cy - W * 0.32);
+    ctx.bezierCurveTo(cx - W * 0.40, cy - W * 0.05, cx - W * 0.42, cy + W * 0.14, cx - W * 0.32, cy + W * 0.36);
+    ctx.bezierCurveTo(cx - W * 0.28, cy + W * 0.42, cx - W * 0.20, cy + W * 0.38, cx - W * 0.18, cy + W * 0.24);
+    ctx.bezierCurveTo(cx - W * 0.22, cy + W * 0.08, cx - W * 0.20, cy - W * 0.08, cx - W * 0.16, cy - W * 0.28);
+    ctx.fillStyle = '#0e0b22'; ctx.fill();
+
+    // Right side hair strand
+    ctx.beginPath();
+    ctx.moveTo(cx + W * 0.24, cy - W * 0.32);
+    ctx.bezierCurveTo(cx + W * 0.40, cy - W * 0.05, cx + W * 0.42, cy + W * 0.14, cx + W * 0.32, cy + W * 0.36);
+    ctx.bezierCurveTo(cx + W * 0.28, cy + W * 0.42, cx + W * 0.20, cy + W * 0.38, cx + W * 0.18, cy + W * 0.24);
+    ctx.bezierCurveTo(cx + W * 0.22, cy + W * 0.08, cx + W * 0.20, cy - W * 0.08, cx + W * 0.16, cy - W * 0.28);
+    ctx.fillStyle = '#0e0b22'; ctx.fill();
+
+    // Bangs
+    ctx.beginPath();
+    ctx.moveTo(cx - r, cy - W * 0.08);
+    ctx.bezierCurveTo(cx - W * 0.32, cy - W * 0.44, cx - W * 0.10, cy - W * 0.46, cx, cy - W * 0.44);
+    ctx.bezierCurveTo(cx + W * 0.10, cy - W * 0.46, cx + W * 0.32, cy - W * 0.44, cx + r, cy - W * 0.08);
+    ctx.bezierCurveTo(cx + r, cy - W * 0.14, cx + W * 0.20, cy - W * 0.24, cx + W * 0.10, cy - W * 0.24);
+    ctx.bezierCurveTo(cx + W * 0.04, cy - W * 0.24, cx, cy - W * 0.24, cx - W * 0.04, cy - W * 0.24);
+    ctx.bezierCurveTo(cx - W * 0.10, cy - W * 0.24, cx - W * 0.20, cy - W * 0.24, cx - r, cy - W * 0.14);
+    ctx.fillStyle = '#16133a'; ctx.fill();
+
+    // Hair shimmer highlight
+    ctx.beginPath();
+    ctx.ellipse(cx - W * 0.04, cy - W * 0.30, W * 0.09, W * 0.035, -0.25, 0, Math.PI * 2);
+    const sh = ctx.createRadialGradient(cx - W * 0.04, cy - W * 0.30, 0, cx - W * 0.04, cy - W * 0.30, W * 0.09);
+    sh.addColorStop(0, 'rgba(120,100,220,0.28)');
+    sh.addColorStop(1, 'rgba(80,60,160,0)');
+    ctx.fillStyle = sh; ctx.fill();
 
     ctx.restore();
   }
 
-  _drawHead(ctx, cx, cy) {
-    const r = this.W * 0.41;
-
-    // Glow halo
-    const glowGrad = ctx.createRadialGradient(cx, cy, r * 0.6, cx, cy, r * 1.15);
-    const col = this._emotionColor();
-    glowGrad.addColorStop(0, col.halo1);
-    glowGrad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.beginPath(); ctx.arc(cx, cy, r * 1.15, 0, Math.PI * 2);
-    ctx.fillStyle = glowGrad; ctx.fill();
-
-    // Head body
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    const bg = ctx.createRadialGradient(cx - r*.25, cy - r*.25, 0, cx, cy, r);
-    bg.addColorStop(0, '#18293c'); bg.addColorStop(1, '#040b12');
-    ctx.fillStyle = bg;
-    ctx.shadowColor = col.border; ctx.shadowBlur = 18;
-    ctx.fill();
-
-    // Border ring
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.strokeStyle = col.border; ctx.lineWidth = 2;
-    ctx.shadowColor = col.border; ctx.shadowBlur = 16;
-    ctx.stroke(); ctx.shadowBlur = 0;
-
-    // Inner ring detail
-    ctx.beginPath(); ctx.arc(cx, cy, r * .88, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(0,212,255,.07)'; ctx.lineWidth = 1;
-    ctx.stroke();
+  _drawFaceSkin(ctx, cx, cy) {
+    const W = this.W;
+    const fg = ctx.createRadialGradient(cx - W * 0.05, cy - W * 0.16, 0, cx, cy + W * 0.04, W * 0.40);
+    fg.addColorStop(0,   '#faeee8');
+    fg.addColorStop(0.55,'#f2e0d6');
+    fg.addColorStop(1,   '#e8d0c4');
+    ctx.beginPath();
+    ctx.ellipse(cx, cy + W * 0.02, W * 0.27, W * 0.355, 0, 0, Math.PI * 2);
+    ctx.fillStyle = fg;
+    ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 10;
+    ctx.fill(); ctx.shadowBlur = 0;
+    // Soft temple shading
+    ['left','right'].forEach(side => {
+      const sx = side === 'left' ? cx - W * 0.20 : cx + W * 0.20;
+      const sg = ctx.createRadialGradient(sx, cy - W * 0.08, 0, sx, cy - W * 0.08, W * 0.12);
+      sg.addColorStop(0, 'rgba(160,100,90,0.12)');
+      sg.addColorStop(1, 'rgba(160,100,90,0)');
+      ctx.beginPath(); ctx.ellipse(sx, cy - W * 0.08, W * 0.12, W * 0.10, 0, 0, Math.PI * 2);
+      ctx.fillStyle = sg; ctx.fill();
+    });
   }
 
   _drawEyes(ctx, cx, cy) {
-    const spacing = this.W * 0.21;
-    const eyeY    = cy - this.W * 0.04;
-    const eyeR    = this.W * 0.145;
-    const em      = this.emotion;
-
-    // Eye vertical scale by emotion
-    const scaleMap = {
-      idle:0.95, happy:0.78, excited:1.18, thinking:0.7,
-      sad:0.82,  surprised:1.22, angry:0.6
-    };
-    const eyeScY = scaleMap[em] ?? 1;
-    // Blink multiplies on top
-    const blinkScale = 1 - this.blinkAmt * 0.98;
-    const finalSY = eyeScY * blinkScale;
-
-    this._drawOneEye(ctx, cx - spacing, eyeY, eyeR, finalSY, em, false);
-    this._drawOneEye(ctx, cx + spacing, eyeY, eyeR, finalSY, em, true);
-
-    // Eyebrows for angry / thinking
-    if (em === 'angry' || em === 'thinking') {
-      this._drawBrows(ctx, cx, eyeY, spacing, eyeR, em);
-    }
-    // Cheek blush for happy / excited
-    if (em === 'happy' || em === 'excited') {
-      this._drawCheeks(ctx, cx, eyeY, spacing, eyeR);
-    }
+    const W  = this.W;
+    const em = this.emotion;
+    const sp  = W * 0.148;
+    const eyeY = cy - W * 0.075;
+    const rx = W * 0.110, ry = W * 0.076;
+    const blinkSY = 1 - this.blinkAmt * 0.98;
+    const scaleMap = { idle:0.92, happy:0.62, excited:1.18, thinking:0.70, sad:0.72, surprised:1.28, angry:0.55 };
+    const finalSY  = (scaleMap[em] ?? 1) * blinkSY;
+    this._drawOneEye(ctx, cx - sp, eyeY, rx, ry, finalSY, em, false);
+    this._drawOneEye(ctx, cx + sp, eyeY, rx, ry, finalSY, em, true);
   }
 
-  _drawOneEye(ctx, x, y, r, scY, em, isRight) {
+  _drawOneEye(ctx, x, y, rx, ry, scY, em, isRight) {
+    const W  = this.W;
+    const ec = this._emotionColor();
     ctx.save();
     ctx.translate(x, y); ctx.scale(1, scY); ctx.translate(-x, -y);
 
-    const ec = this._emotionColor();
-
-    // White
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = '#d8f0ff';
-    ctx.shadowColor = ec.border; ctx.shadowBlur = 10;
+    // Eye white
+    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+    ctx.fillStyle = '#f8f2f0';
+    ctx.shadowColor = 'rgba(0,0,0,0.2)'; ctx.shadowBlur = 4;
     ctx.fill(); ctx.shadowBlur = 0;
 
-    // Clip iris+pupil inside eye
+    // Clip for iris
     ctx.save();
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.clip();
+    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.clip();
 
-    // Iris
-    const ir  = r * 0.62;
-    const pOff = r * 0.22;
+    const ir   = ry * 0.88;
+    const pOff = ry * 0.22;
     const pxOff = em === 'thinking' ? -pOff * 0.6 : this.pupilX * pOff;
-    const pyOff = em === 'sad' ? pOff * 0.3 :
-                  em === 'thinking' ? -pOff * 0.4 : this.pupilY * pOff;
-    const px = x + pxOff;
-    const py = y + pyOff;
+    const pyOff = em === 'sad' ? pOff * 0.35 : this.pupilY * pOff;
+    const px = x + pxOff, py = y + pyOff;
 
-    const ig = ctx.createRadialGradient(px - ir*.25, py - ir*.25, 0, px, py, ir);
-    ig.addColorStop(0, ec.iris1);
-    ig.addColorStop(1, ec.iris2);
+    const ig = ctx.createRadialGradient(px - ir * .3, py - ir * .3, 0, px, py, ir);
+    ig.addColorStop(0,   ec.iris1);
+    ig.addColorStop(0.65,ec.iris2);
+    ig.addColorStop(1,   '#000a12');
     ctx.beginPath(); ctx.arc(px, py, ir, 0, Math.PI * 2);
-    ctx.fillStyle = ig;
-    ctx.shadowColor = ec.iris1; ctx.shadowBlur = 8;
+    ctx.fillStyle = ig; ctx.shadowColor = ec.iris1; ctx.shadowBlur = 8;
     ctx.fill(); ctx.shadowBlur = 0;
 
     // Pupil
-    const pr = ir * 0.41;
+    const pr = ir * 0.38;
     ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2);
-    ctx.fillStyle = '#000d1a'; ctx.fill();
-
-    // Highlight ×2
-    ctx.beginPath(); ctx.arc(px - pr*.38, py - pr*.38, pr*.3, 0, Math.PI*2);
+    ctx.fillStyle = '#000810'; ctx.fill();
+    // Highlights
+    ctx.beginPath(); ctx.arc(px - pr * .42, py - pr * .42, pr * .32, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(px + pr*.18, py - pr*.12, pr*.13, 0, Math.PI*2);
-    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.fill();
-
-    // Excited sparkle
+    ctx.beginPath(); ctx.arc(px + pr * .20, py - pr * .10, pr * .14, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,255,255,.50)'; ctx.fill();
+    // Excited sparkles
     if (em === 'excited') {
       for (let i = 0; i < 4; i++) {
         const a = (i / 4) * Math.PI * 2 + this.bobPhase;
-        const sx = px + Math.cos(a) * ir * .82;
-        const sy = py + Math.sin(a) * ir * .82;
-        ctx.beginPath(); ctx.arc(sx, sy, 2, 0, Math.PI*2);
-        ctx.fillStyle = 'rgba(255,255,180,.8)'; ctx.fill();
+        ctx.beginPath(); ctx.arc(px + Math.cos(a) * ir * .84, py + Math.sin(a) * ir * .84, 2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,160,.8)'; ctx.fill();
       }
     }
-
-    ctx.restore(); // unclip
-
-    // Happy arc (bottom squish line)
+    // Happy lower fill
     if (em === 'happy') {
       ctx.beginPath();
-      ctx.ellipse(x, y + r * 0.85, r * .9, r * .38, 0, 0, Math.PI);
-      ctx.fillStyle = '#d8f0ff'; ctx.fill();
+      ctx.ellipse(x, y + ry * 0.82, rx * .98, ry * .44, 0, 0, Math.PI);
+      ctx.fillStyle = '#f8f2f0'; ctx.fill();
     }
+    ctx.restore(); // unclip
+
+    // Upper eyelid thick line (lashes effect)
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx * 1.01, ry * 1.01, 0, Math.PI * 0.88, Math.PI * 0.12, true);
+    ctx.strokeStyle = em === 'angry' ? '#881100' : '#180620';
+    ctx.lineWidth = W * 0.022; ctx.lineCap = 'round';
+    ctx.stroke();
+    // Individual lash tips
+    const lashData = isRight
+      ? [{a:Math.PI*1.10,l:W*.022,c:-.28},{a:Math.PI*1.04,l:W*.026,c:-.16},{a:Math.PI*0.96,l:W*.026,c:.16},{a:Math.PI*0.90,l:W*.022,c:.28}]
+      : [{a:Math.PI*1.10,l:W*.022,c:.28},{a:Math.PI*1.04,l:W*.026,c:.16},{a:Math.PI*0.96,l:W*.026,c:-.16},{a:Math.PI*0.90,l:W*.022,c:-.28}];
+    lashData.forEach(({a, l, c}) => {
+      const lx = x + Math.cos(a) * rx, ly = y + Math.sin(a) * ry;
+      const ex = lx + Math.cos(a + c * .5) * l, ey = ly + Math.sin(a + c * .5) * l - l * .35;
+      ctx.beginPath(); ctx.moveTo(lx, ly);
+      ctx.quadraticCurveTo(lx + c * W * .012, ly - l * .5, ex, ey);
+      ctx.strokeStyle = '#180620'; ctx.lineWidth = W * .006; ctx.lineCap = 'round'; ctx.stroke();
+    });
+    // Lower lash line (thin)
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx * 1.01, ry * 1.01, 0, Math.PI * 0.08, Math.PI * 0.92, false);
+    ctx.strokeStyle = 'rgba(80,40,60,0.22)'; ctx.lineWidth = W * 0.007; ctx.stroke();
 
     ctx.restore(); // unscale
   }
 
-  _drawBrows(ctx, cx, cy, sp, r, em) {
-    const browY = cy - r * 1.38;
-    const draw = (bx, ang) => {
+  _drawBrows(ctx, cx, cy) {
+    const W  = this.W;
+    const em = this.emotion;
+    const sp  = W * 0.148;
+    const by  = cy - W * 0.163;
+    const bw  = W * 0.105;
+    const tiltMap = { idle:0, happy:-.04, excited:-.10, thinking:-.14, sad:.22, surprised:-.14, angry:.30 };
+    const tilt = tiltMap[em] ?? 0;
+    const col  = em === 'angry' ? '#aa1800' : '#1c0a26';
+
+    const drawBrow = (bx, t) => {
       ctx.save();
-      ctx.translate(bx, browY); ctx.rotate(ang);
+      ctx.translate(bx, by); ctx.rotate(t);
       ctx.beginPath();
-      ctx.moveTo(-r*.7, 0); ctx.lineTo(r*.7, 0);
-      ctx.strokeStyle = em === 'angry' ? '#ff5533' : '#00bbdd';
-      ctx.lineWidth = 4; ctx.lineCap = 'round';
-      ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = 6;
-      ctx.stroke(); ctx.shadowBlur = 0;
+      ctx.moveTo(-bw, W * .014);
+      ctx.quadraticCurveTo(-bw * .15, -W * .018, bw * .85, W * .006);
+      ctx.strokeStyle = col; ctx.lineWidth = W * .014; ctx.lineCap = 'round';
+      ctx.shadowColor = col; ctx.shadowBlur = 3; ctx.stroke(); ctx.shadowBlur = 0;
       ctx.restore();
     };
-    if (em === 'angry') {
-      draw(cx - sp,  0.32);
-      draw(cx + sp, -0.32);
-    } else {
-      draw(cx - sp, -0.18);
-      draw(cx + sp,  0.3);
+    drawBrow(cx - sp, -tilt);
+    drawBrow(cx + sp,  tilt);
+    // Raised inner brow for thinking
+    if (em === 'thinking') {
+      ctx.save();
+      ctx.translate(cx - sp, by - W * .010); ctx.rotate(.14);
+      ctx.beginPath(); ctx.moveTo(-bw * .3, 0); ctx.lineTo(bw * .3, 0);
+      ctx.strokeStyle = col; ctx.lineWidth = W * .008; ctx.lineCap = 'round'; ctx.stroke();
+      ctx.restore();
     }
   }
 
-  _drawCheeks(ctx, cx, cy, sp, r) {
-    const cheekY = cy + r * 0.82;
-    const pulse  = 0.28 + Math.sin(this.bobPhase * 2) * 0.06;
-    [cx - sp * 1.32, cx + sp * 1.32].forEach(bx => {
+  _drawNose(ctx, cx, cy) {
+    const W = this.W;
+    // Subtle nose tip shadow
+    const ng = ctx.createRadialGradient(cx, cy + W * .07, 0, cx, cy + W * .07, W * .035);
+    ng.addColorStop(0, 'rgba(180,110,90,.22)');
+    ng.addColorStop(1, 'rgba(180,110,90,0)');
+    ctx.beginPath(); ctx.ellipse(cx, cy + W * .07, W * .035, W * .022, 0, 0, Math.PI * 2);
+    ctx.fillStyle = ng; ctx.fill();
+    // Nostrils
+    [-1, 1].forEach(s => {
       ctx.beginPath();
-      ctx.ellipse(bx, cheekY, r*.52, r*.25, 0, 0, Math.PI*2);
-      ctx.fillStyle = `rgba(255,100,160,${pulse})`;
-      ctx.fill();
+      ctx.ellipse(cx + s * W * .022, cy + W * .078, W * .010, W * .007, s * .4, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(140,80,70,.16)'; ctx.fill();
     });
   }
 
-  _drawAntenna(ctx, cx, cy) {
-    const headR = this.W * 0.41;
-    const baseY = cy - headR;
-    const tipY  = baseY - this.W * 0.13;
-    const p     = 0.65 + Math.sin(this.bobPhase * 3.2) * 0.35;
+  _drawMouth(ctx, cx, cy) {
+    const W  = this.W;
+    const em = this.emotion;
+    const my = cy + W * 0.188;
+    const mw = W * 0.095;
 
+    if (this.talking) {
+      const open = (Math.sin(this.talkPhase) * .5 + .5) * .34 + .07;
+      ctx.beginPath(); ctx.ellipse(cx, my, mw, W * open, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#b05868'; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx, my + W * open * .22, mw * .78, W * open * .62, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#5a0f1e'; ctx.fill();
+      ctx.beginPath(); ctx.ellipse(cx, my - W * open * .38, mw, W * open * .32, 0, Math.PI, 0, false);
+      ctx.fillStyle = '#cc6878'; ctx.fill();
+      return;
+    }
+
+    if (em === 'surprised') {
+      ctx.beginPath(); ctx.ellipse(cx, my + W * .04, mw * .58, W * .072, 0, 0, Math.PI * 2);
+      ctx.fillStyle = '#501018'; ctx.fill();
+      ctx.strokeStyle = '#c06070'; ctx.lineWidth = W * .010; ctx.stroke();
+      return;
+    }
+
+    const smileMap = { idle:.04, happy:.20, excited:.24, thinking:-.02, sad:-.14, angry:-.10 };
+    const smile    = smileMap[em] ?? .04;
+    // Upper lip (M-shape)
     ctx.beginPath();
-    ctx.moveTo(cx, baseY); ctx.lineTo(cx, tipY);
-    ctx.strokeStyle = 'rgba(0,180,210,.6)'; ctx.lineWidth = 3;
-    ctx.shadowColor = '#00d4ff'; ctx.shadowBlur = 8; ctx.stroke(); ctx.shadowBlur = 0;
-
-    ctx.beginPath(); ctx.arc(cx, tipY, this.W * 0.026, 0, Math.PI*2);
-    ctx.fillStyle = `rgba(0,212,255,${p})`;
-    ctx.shadowColor = '#00d4ff'; ctx.shadowBlur = 16 * p;
-    ctx.fill(); ctx.shadowBlur = 0;
+    ctx.moveTo(cx - mw, my);
+    ctx.bezierCurveTo(cx - mw * .48, my - W * .018, cx - mw * .14, my - W * .024, cx, my - W * .010);
+    ctx.bezierCurveTo(cx + mw * .14, my - W * .024, cx + mw * .48, my - W * .018, cx + mw, my);
+    ctx.bezierCurveTo(cx + mw * .68, my + W * smile, cx - mw * .68, my + W * smile, cx - mw, my);
+    ctx.fillStyle = '#c06878'; ctx.fill();
+    // Lip highlight
+    ctx.beginPath(); ctx.ellipse(cx, my + W * smile * .28, mw * .42, W * .007, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,180,190,.32)'; ctx.fill();
+    ctx.beginPath(); ctx.ellipse(cx, my - W * .012, mw * .20, W * .005, 0, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(255,210,210,.24)'; ctx.fill();
   }
 
-  _drawMouth(ctx, cx, cy) {
-    const headR = this.W * 0.41;
-    const mY  = cy + headR * 0.48;
-    const mW  = headR * 0.35;
-    const open = (Math.sin(this.talkPhase) * .5 + .5) * 0.45 + 0.05;
+  _drawCheeks(ctx, cx, cy) {
+    const W  = this.W;
+    const em = this.emotion;
+    if (!['happy','excited','surprised'].includes(em)) return;
+    const sp  = W * 0.148;
+    const a   = 0.16 + Math.sin(this.bobPhase * 2) * .04;
+    [cx - sp * 1.18, cx + sp * 1.18].forEach(bx => {
+      const cg = ctx.createRadialGradient(bx, cy + W * .06, 0, bx, cy + W * .06, W * .085);
+      cg.addColorStop(0, `rgba(255,110,140,${a})`);
+      cg.addColorStop(1, 'rgba(255,110,140,0)');
+      ctx.beginPath(); ctx.ellipse(bx, cy + W * .06, W * .085, W * .055, 0, 0, Math.PI * 2);
+      ctx.fillStyle = cg; ctx.fill();
+    });
+  }
 
-    ctx.beginPath();
-    ctx.ellipse(cx, mY, mW, headR * open, 0, 0, Math.PI * 2);
-    ctx.fillStyle = '#001122'; ctx.fill();
-    ctx.strokeStyle = 'rgba(0,212,255,.4)'; ctx.lineWidth = 1.5; ctx.stroke();
+  _drawRing(ctx, cx, cy) {
+    const r  = this.W * 0.42;
+    const ec = this._emotionColor();
+    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.strokeStyle = ec.border; ctx.lineWidth = 2.5;
+    ctx.shadowColor = ec.border; ctx.shadowBlur = 20;
+    ctx.stroke(); ctx.shadowBlur = 0;
+    ctx.beginPath(); ctx.arc(cx, cy, r * .88, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0,212,255,.06)'; ctx.lineWidth = 1; ctx.stroke();
   }
 
   _emotionColor() {
     const map = {
-      idle:      { border:'#00d4ff', halo1:'rgba(0,212,255,.06)', iris1:'#00e5ff', iris2:'#004466' },
-      happy:     { border:'#00ffcc', halo1:'rgba(0,255,180,.08)', iris1:'#00ffaa', iris2:'#006644' },
-      excited:   { border:'#aaff00', halo1:'rgba(160,255,0,.08)', iris1:'#ccff44', iris2:'#446600' },
-      thinking:  { border:'#8888ff', halo1:'rgba(140,140,255,.06)', iris1:'#aaaaff', iris2:'#222266' },
-      sad:       { border:'#4488cc', halo1:'rgba(60,120,200,.06)', iris1:'#6699ee', iris2:'#112244' },
-      surprised: { border:'#ffcc00', halo1:'rgba(255,200,0,.08)', iris1:'#ffdd55', iris2:'#664400' },
-      angry:     { border:'#ff4400', halo1:'rgba(255,80,0,.08)', iris1:'#ff6633', iris2:'#660000' },
+      idle:      { border:'#00d4ff', halo1:'rgba(0,212,255,.07)',  iris1:'#00e5ff', iris2:'#004466' },
+      happy:     { border:'#00ffcc', halo1:'rgba(0,255,180,.09)',  iris1:'#00ffaa', iris2:'#006644' },
+      excited:   { border:'#aaff00', halo1:'rgba(160,255,0,.09)',  iris1:'#ccff44', iris2:'#446600' },
+      thinking:  { border:'#8888ff', halo1:'rgba(140,140,255,.07)',iris1:'#aaaaff', iris2:'#222266' },
+      sad:       { border:'#4488cc', halo1:'rgba(60,120,200,.07)', iris1:'#6699ee', iris2:'#112244' },
+      surprised: { border:'#ffcc00', halo1:'rgba(255,200,0,.09)',  iris1:'#ffdd55', iris2:'#664400' },
+      angry:     { border:'#ff4400', halo1:'rgba(255,80,0,.09)',   iris1:'#ff6633', iris2:'#660000' },
     };
     return map[this.emotion] ?? map.idle;
   }
