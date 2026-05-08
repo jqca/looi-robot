@@ -574,11 +574,11 @@ function startWakeWordListening() {
     const res        = e.results[0][0];
     const text       = res.transcript;
     const confidence = res.confidence;
-    // ② 信頼度が低い誤検出を除外
-    if (confidence >= WAKE_CONFIDENCE_MIN && WAKE_WORDS.test(text)) {
-      console.log(`[wake] "${text}" confidence=${confidence.toFixed(2)}`);
-      wakeUp();
-    }
+    // ② confidence=0はブラウザ未採点（≠低信頼度）なので通過させる
+    // 採点済み(>0)の場合のみ閾値チェック
+    const ok = (confidence === 0 || confidence >= WAKE_CONFIDENCE_MIN);
+    console.log(`[wake] "${text}" conf=${confidence.toFixed(2)} ok=${ok}`);
+    if (ok && WAKE_WORDS.test(text)) wakeUp();
   };
   sr.onend = () => {
     if (sleeping && sleepRecRef === sr)
