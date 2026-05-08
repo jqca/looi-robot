@@ -42,33 +42,42 @@
   #robot-canvas.continuous { animation: canvas-ring 2s infinite; }
   #robot-canvas.continuous.listening-once { animation: canvas-ring .8s infinite; }
 
-  /* ── ステータス ── */
+  /* ── ステータスバー ── */
   #status-bar {
     display: flex; align-items: center; gap: 8px;
-    font-size: 13px; color: #6a8fa8; flex-shrink: 0;
-    user-select: none;
+    font-size: 12px; color: #6a8fa8; flex-shrink: 0;
+    user-select: none; height: 20px;
   }
   #status-dot {
-    width: 6px; height: 6px; border-radius: 50%;
+    width: 7px; height: 7px; border-radius: 50%;
     background: #1a3a55; transition: background .4s; flex-shrink: 0;
   }
   @keyframes blink-dot {
     0%,100%{ opacity:.4; transform:scale(1); }
-    50%    { opacity:1;  transform:scale(1.4); }
+    50%    { opacity:1;  transform:scale(1.5); }
   }
-  #status-dot.listening { background:#ff4488; animation:blink-dot .8s infinite; }
-  #status-dot.thinking  { background:#aaaaff; animation:blink-dot 1.2s infinite; }
-  #status-dot.speaking  { background:#88ccee; animation:blink-dot .6s infinite; }
+  /* ⑨ 強化されたステータス表示 */
+  #status-dot.listening { background:#ff4488; animation:blink-dot .7s infinite; }
+  #status-dot.thinking  { background:#aaaaff; animation:blink-dot 1.3s infinite; }
+  #status-dot.speaking  { background:#88ccee; animation:blink-dot .5s infinite; }
   #status-dot.ready     { background:#3a6a88; }
   #status-dot.sleeping  { background:#1a3a55; }
 
+  /* ⑨ マイクラベル（録音中のみ表示） */
+  #mic-label {
+    font-size: 11px; color: #ff4488;
+    opacity: 0; transition: opacity .3s;
+    letter-spacing: .03em;
+  }
+  #mic-label.visible { opacity: 1; }
+
   /* 極小リセット */
   #reset-hint {
-    margin-left: 6px; font-size: 15px;
-    opacity: 0.15; cursor: pointer;
+    margin-left: 4px; font-size: 14px;
+    opacity: 0.12; cursor: pointer;
     transition: opacity .2s; line-height: 1;
   }
-  #reset-hint:hover  { opacity: 0.55; }
+  #reset-hint:hover  { opacity: 0.50; }
   #reset-hint:active { opacity: 0.90; }
 </style>
 </head>
@@ -78,13 +87,15 @@
   <canvas id="robot-canvas"></canvas>
   <div id="status-bar">
     <div id="status-dot" class="sleeping"></div>
+    <!-- ⑨ プライバシー表示：録音中ラベル -->
+    <span id="mic-label">● REC</span>
     <span id="reset-hint" title="リセット">⟳</span>
   </div>
 </div>
 
 <script>
 // ════════════════════════════════════════════════════
-// EYE RENDERER
+// EYE RENDERER  ─  ⑧ 感情連動まばたき・マイクロトレモア
 // ════════════════════════════════════════════════════
 class EyeRenderer {
   constructor(canvas) {
@@ -106,6 +117,10 @@ class EyeRenderer {
     this.talkPhase    = 0;
     this.excitedPhase = 0;
     this.excitedY     = 0;
+    // ⑧ マイクロトレモア
+    this.tremorPhase  = 0;
+    this.tremorX      = 0;
+    this.tremorY      = 0;
     this.resize();
     requestAnimationFrame(this._loop.bind(this));
   }
@@ -121,7 +136,20 @@ class EyeRenderer {
   setAction(a)  { if (a === 'none') return; this.action = a; this.actionTimer = 0; }
   blink()       { if (!this.blinking) { this.blinking = true; this.blinkAmt = 0; } }
 
-  _rndBlink() { return 2800 + Math.random() * 5000; }
+  // ⑧ 感情ごとにまばたき間隔を変える
+  _rndBlink() {
+    const rates = {
+      idle:      [3000, 5000],
+      happy:     [1800, 3500],
+      excited:   [1200, 2500],
+      thinking:  [5000, 9000],  // 集中中は瞬きが少ない
+      sad:       [4000, 8000],
+      surprised: [7000,12000],  // 驚き目は瞬きしにくい
+      angry:     [1500, 3000],
+    };
+    const [min, range] = rates[this.emotion] || [3000, 5000];
+    return min + Math.random() * range;
+  }
 
   _loop(ts) {
     const dt = Math.min(0.05, (ts - this.lastTS) / 1000);
@@ -135,7 +163,7 @@ class EyeRenderer {
     const isSleep = this.emotion === 'sleep';
     const lerp = 1 - Math.exp(-8 * dt);
 
-    // ボブ（スリープ中は超スロー・低振幅）
+    // ボブ
     const bobSpeed = isSleep ? 0.35 : this.talking ? 4.0 : 1.0;
     const bobAmp   = isSleep ? 0.004 : 0.010;
     this.bobPhase += dt * bobSpeed;
@@ -150,7 +178,22 @@ class EyeRenderer {
       this.excitedY += (0 - this.excitedY) * Math.min(1, dt * 10);
     }
 
-    // 瞬き（スリープ中は無効）
+    // ⑧ マイクロトレモア（感情ごとに振幅変化）
+    const tremorAmps = {
+      excited: 0.0025,
+      angry:   0.0055,
+      sad:     0,
+      idle:    0,
+      thinking:0.0008,
+      happy:   0.0005,
+      surprised:0.0015,
+    };
+    const amp = tremorAmps[this.emotion] || 0;
+    this.tremorPhase += dt * 28;
+    this.tremorX = amp * Math.sin(this.tremorPhase * 2.3) * this.W;
+    this.tremorY = amp * Math.cos(this.tremorPhase * 1.7) * this.W;
+
+    // ⑧ 感情連動まばたき
     if (!isSleep) {
       this.blinkTimer += dt * 1000;
       if (!this.blinking && this.blinkTimer > this.blinkNext) {
@@ -187,10 +230,11 @@ class EyeRenderer {
     const { ctx, W, CX, CY } = this;
     ctx.clearRect(0, 0, W, W);
     ctx.save();
-    ctx.translate(CX, CY + this.bobY);
+    // ⑧ トレモアをトランスレートに反映
+    ctx.translate(CX + this.tremorX, CY + this.bobY + this.tremorY);
     ctx.rotate(this.headTilt);
-    ctx.translate(-CX, -(CY + this.bobY));
-    this._drawEyes(ctx, CX, CY + this.bobY);
+    ctx.translate(-(CX + this.tremorX), -(CY + this.bobY + this.tremorY));
+    this._drawEyes(ctx, CX + this.tremorX, CY + this.bobY + this.tremorY);
     ctx.restore();
   }
 
@@ -220,14 +264,14 @@ class EyeRenderer {
     const col = this._color();
 
     const P = {
-      sleep:     { hRatio: 0.07,                  tilt: 0,                       shape: 'ellipse' }, // 閉じた目
-      idle:      { hRatio: 1.00,                  tilt: 0,                       shape: 'ellipse' }, // ● 正円
-      happy:     { hRatio: 0,                     tilt: 0,                       shape: 'arc'     }, // ◠ 笑い目
-      excited:   { hRatio: 1.15,                  tilt: 0,                       shape: 'ellipse' }, // 縦に少し大きい
-      thinking:  { hRatio: isRight?0.70:0.45,     tilt: 0,                       shape: 'ellipse' }, // 右目大きめ・左目細め（考え中）
-      sad:       { hRatio: 0.70,                  tilt: isRight?-0.26:0.26,      shape: 'ellipse' }, // 丸いまま傾く
-      surprised: { hRatio: 1.30,                  tilt: 0,                       shape: 'ellipse' }, // 縦長の大きな円
-      angry:     { hRatio: 0.16,                  tilt: isRight?0.40:-0.40,      shape: 'rect'   },  // 細い横線
+      sleep:     { hRatio: 0.07,               tilt: 0,                  shape: 'ellipse' },
+      idle:      { hRatio: 1.00,               tilt: 0,                  shape: 'ellipse' },
+      happy:     { hRatio: 0,                  tilt: 0,                  shape: 'arc'     },
+      excited:   { hRatio: 1.15,               tilt: 0,                  shape: 'ellipse' },
+      thinking:  { hRatio: isRight?0.70:0.45,  tilt: 0,                  shape: 'ellipse' },
+      sad:       { hRatio: 0.70,               tilt: isRight?-0.26:0.26, shape: 'ellipse' },
+      surprised: { hRatio: 1.30,               tilt: 0,                  shape: 'ellipse' },
+      angry:     { hRatio: 0.16,               tilt: isRight?0.40:-0.40, shape: 'rect'   },
     };
     const p = P[em] ?? P.idle;
 
@@ -235,8 +279,6 @@ class EyeRenderer {
     ctx.translate(x, y);
     ctx.scale(1, blinkSY);
     ctx.rotate(p.tilt);
-
-    // スリープ中は薄く描画
     ctx.globalAlpha = (em === 'sleep') ? 0.30 : 1.0;
 
     if (p.shape === 'arc') {
@@ -276,49 +318,135 @@ class EyeRenderer {
 // ════════════════════════════════════════════════════
 const canvas    = document.getElementById('robot-canvas');
 const statusDt  = document.getElementById('status-dot');
+const micLabel  = document.getElementById('mic-label');    // ⑨
 const resetHint = document.getElementById('reset-hint');
 
 const robot = new EyeRenderer(canvas);
 window.addEventListener('resize', () => robot.resize());
 
-let isBusy    = false;
-let recognition    = null;   // 会話用
-let sleepRecRef    = null;   // 起動ワード用
+let isBusy         = false;
+let recognition    = null;
+let sleepRecRef    = null;
 let sleeping       = true;
 let continuousMode = false;
 let listeningActive= false;
 let sleepTimer     = null;
+let proactiveTimer = null;  // ⑦
 let currentAudio   = null;
 
-const SLEEP_MS   = 300_000; // 5分間操作なしで自動スリープ
-const WAKE_WORDS = /起きて|おきて|おはよ|ルーイ|ねえ|スタート/;
-const SLEEP_WORDS= /おやすみ|寝て|ねて|バイバイ|またね|終わり|おわり/;
+const SLEEP_MS      = 300_000; // 5分
+const PROACTIVE_MS  = 120_000; // ⑦ 2分無言でプロアクティブ発言
 
-function setStatus(state) { statusDt.className = state; }
+// ② 拡張ウェイクワード＋信頼度閾値
+const WAKE_WORDS         = /起きて|おきて|起こして|おこして|おはよ|ルーイ|るーい|ねえ|ねぇ|スタート|起動|きどう/;
+const WAKE_CONFIDENCE_MIN = 0.50;
+const SLEEP_WORDS         = /おやすみ|寝て|ねて|バイバイ|またね|終わり|おわり/;
 
-// ── 記憶（localStorage） ─────────────────────────────
-const MEMORY_KEY = 'looi_memory';
-function getMemory()        { return JSON.parse(localStorage.getItem(MEMORY_KEY) || '[]'); }
-function addMemory(fact)    {
+// ① 思考中フレーズ
+const THINKING_PHRASES = [
+  'うーん…', 'えっと…', 'ちょっと待ってね！', 'んんん…', '考えてみる！', 'なるほど…'
+];
+
+// ⑨ ステータス表示（マイクラベル付き）
+function setStatus(state) {
+  statusDt.className = state;
+  if (state === 'listening') {
+    micLabel.classList.add('visible');
+  } else {
+    micLabel.classList.remove('visible');
+  }
+}
+
+// ════════════════════════════════════════════════════
+// ⑥ 3層記憶システム
+// ════════════════════════════════════════════════════
+const FACT_KEY  = 'looi_memory';   // 事実記憶
+const PROC_KEY  = 'looi_proc';     // 手続き記憶（話題パターン）
+const EMO_KEY   = 'looi_emo';      // 感情記憶
+
+// 事実記憶
+function getMemory() { return JSON.parse(localStorage.getItem(FACT_KEY) || '[]'); }
+function addMemory(fact) {
   if (!fact || fact.length < 3) return;
   const mem = getMemory();
   if (!mem.includes(fact)) {
     mem.push(fact);
-    if (mem.length > 30) mem.shift();   // 最大30件
-    localStorage.setItem(MEMORY_KEY, JSON.stringify(mem));
-    console.log('[memory] 覚えた:', fact);
+    if (mem.length > 30) mem.shift();
+    localStorage.setItem(FACT_KEY, JSON.stringify(mem));
+    console.log('[memory:fact]', fact);
   }
 }
-function clearMemory()      { localStorage.removeItem(MEMORY_KEY); }
 
-// ── TTS ──────────────────────────────────────────────
+// 手続き記憶：話題×時間帯を蓄積
+function trackProc(text) {
+  const procs = JSON.parse(localStorage.getItem(PROC_KEY) || '[]');
+  procs.push({ text: text.slice(0, 30), hour: new Date().getHours(), ts: Date.now() });
+  if (procs.length > 200) procs.shift();
+  localStorage.setItem(PROC_KEY, JSON.stringify(procs));
+}
+function getTopTopics() {
+  const procs = JSON.parse(localStorage.getItem(PROC_KEY) || '[]');
+  const counts = {};
+  procs.forEach(p => {
+    const key = p.text.slice(0, 10);
+    counts[key] = (counts[key] || 0) + 1;
+  });
+  return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(e=>e[0]);
+}
+
+// 感情記憶：最近の会話の感情傾向
+function trackEmo(emotion) {
+  const emos = JSON.parse(localStorage.getItem(EMO_KEY) || '[]');
+  emos.push({ emotion, ts: Date.now() });
+  if (emos.length > 60) emos.shift();
+  localStorage.setItem(EMO_KEY, JSON.stringify(emos));
+}
+function getRecentMood() {
+  const emos = JSON.parse(localStorage.getItem(EMO_KEY) || '[]').slice(-15);
+  if (emos.length < 3) return null;
+  const pos = emos.filter(e => ['happy','excited'].includes(e.emotion)).length;
+  const neg = emos.filter(e => ['sad','angry'].includes(e.emotion)).length;
+  if (pos > neg + 3) return 'ポジティブな会話が続いている';
+  if (neg > pos + 3) return '少し落ち込んだ話題が続いている';
+  return null;
+}
+
+function clearAllMemory() {
+  [FACT_KEY, PROC_KEY, EMO_KEY].forEach(k => localStorage.removeItem(k));
+}
+
+// ════════════════════════════════════════════════════
+// ⑤ TTS（ブラウザ音声合成フォールバック付き）
+// ════════════════════════════════════════════════════
+
+// ⑤ ブラウザ内蔵TTSフォールバック
+function speakFallback(text, onEnd) {
+  if (!window.speechSynthesis) { onEnd?.(); return; }
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = 'ja-JP'; utt.rate = 1.1; utt.pitch = 1.05;
+  utt.onstart = () => robot.setTalking(true);
+  utt.onend   = () => { robot.setTalking(false); onEnd?.(); };
+  utt.onerror = () => { robot.setTalking(false); onEnd?.(); };
+  // ⑤ 音声が見つからない場合に備えてタイムアウト
+  setTimeout(() => {
+    if (!window.speechSynthesis.speaking) { robot.setTalking(false); onEnd?.(); }
+  }, 8000);
+  window.speechSynthesis.speak(utt);
+}
+
 function speak(text, onEnd) {
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  // ⑤ オフライン確認
+  if (!navigator.onLine) {
+    speakFallback(text, onEnd);
+    return;
+  }
   fetch('/api/tts', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text }),
   })
-  .then(r => { if (!r.ok) throw new Error(); return r.blob(); })
+  .then(r => { if (!r.ok) throw new Error('tts_err'); return r.blob(); })
   .then(blob => {
     const url   = URL.createObjectURL(blob);
     const audio = new Audio(url);
@@ -336,19 +464,33 @@ function speak(text, onEnd) {
     };
     audio.play().catch(() => { robot.setTalking(false); onEnd?.(); });
   })
-  .catch(() => { robot.setTalking(false); onEnd?.(); });
+  .catch(() => {
+    robot.setTalking(false);
+    // ⑤ Edge TTS失敗時はブラウザTTSで代替
+    speakFallback(text, onEnd);
+  });
 }
 
-// ── スリープ管理 ──────────────────────────────────────
+// ════════════════════════════════════════════════════
+// スリープ管理
+// ════════════════════════════════════════════════════
 function resetSleepTimer() {
   clearTimeout(sleepTimer);
   sleepTimer = setTimeout(goToSleep, SLEEP_MS);
 }
 
+// ⑦ プロアクティブタイマー
+function resetProactiveTimer() {
+  clearTimeout(proactiveTimer);
+  if (!sleeping) proactiveTimer = setTimeout(doProactiveChat, PROACTIVE_MS);
+}
+
 function goToSleep() {
+  clearTimeout(proactiveTimer); // ⑦
   sleeping = true;
   clearTimeout(sleepTimer);
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
   try { recognition?.abort(); } catch(e) {}
   continuousMode = false;
   canvas.classList.remove('continuous', 'listening-once');
@@ -358,6 +500,17 @@ function goToSleep() {
   startWakeWordListening();
 }
 
+// ⑦ 時刻に応じた挨拶
+function getTimeGreeting() {
+  const h = new Date().getHours();
+  if (h < 4)  return 'まだ起きてるの！？夜更かしだね〜！';
+  if (h < 11) return 'おはよう！今日も元気にいこう！';
+  if (h < 14) return 'こんにちは！お昼はもう食べた？';
+  if (h < 18) return 'こんにちは！今日はどんな感じ？';
+  if (h < 22) return 'こんばんは！お疲れさまでした！';
+  return 'もう夜遅いよ〜！ゆっくり休んでね！';
+}
+
 function wakeUp() {
   if (!sleeping) return;
   sleeping = false;
@@ -365,15 +518,41 @@ function wakeUp() {
   robot.setEmotion('excited');
   robot.setAction('nod');
   setStatus('speaking');
-  speak('おはよう！何でも話しかけてね！', () => {
+  speak(getTimeGreeting(), () => { // ⑦ 時刻別挨拶
     robot.setEmotion('idle');
     resetSleepTimer();
-    // 挨拶後すぐ聞き始める
+    resetProactiveTimer(); // ⑦
     setTimeout(() => startListening(), 500);
   });
 }
 
-// ── 起動ワード検出（バックグラウンド常時聴取） ─────────
+// ⑦ プロアクティブ発話（2分無言で話しかける）
+const PROACTIVE_MSGS = [
+  'ねえねえ！最近どう？',
+  '何か気になることある？',
+  'ヒマ〜！なんか話しかけてほしいな！',
+  '今日の天気、気になる？',
+  '面白いこと、何か知ってる？',
+  'そういえば、何か用事あった？',
+];
+function doProactiveChat() {
+  if (sleeping || isBusy) return;
+  const msg = PROACTIVE_MSGS[Math.floor(Math.random() * PROACTIVE_MSGS.length)];
+  isBusy = true;
+  robot.setEmotion('happy');
+  setStatus('speaking');
+  speak(msg, () => {
+    isBusy = false;
+    robot.setEmotion('idle');
+    resetSleepTimer();
+    resetProactiveTimer(); // ⑦ 次のプロアクティブをセット
+    setTimeout(() => startListening(), 500);
+  });
+}
+
+// ════════════════════════════════════════════════════
+// ② ウェイクワード検出（信頼度スコア付き）
+// ════════════════════════════════════════════════════
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
 
 function stopWakeWordListening() {
@@ -392,8 +571,14 @@ function startWakeWordListening() {
   sr.interimResults = false;
 
   sr.onresult = e => {
-    const text = e.results[0][0].transcript;
-    if (WAKE_WORDS.test(text)) wakeUp();
+    const res        = e.results[0][0];
+    const text       = res.transcript;
+    const confidence = res.confidence;
+    // ② 信頼度が低い誤検出を除外
+    if (confidence >= WAKE_CONFIDENCE_MIN && WAKE_WORDS.test(text)) {
+      console.log(`[wake] "${text}" confidence=${confidence.toFixed(2)}`);
+      wakeUp();
+    }
   };
   sr.onend = () => {
     if (sleeping && sleepRecRef === sr)
@@ -406,7 +591,9 @@ function startWakeWordListening() {
   try { sr.start(); } catch(e) {}
 }
 
-// ── 会話 ────────────────────────────────────────────
+// ════════════════════════════════════════════════════
+// 会話
+// ════════════════════════════════════════════════════
 async function sendMessage(text) {
   if (sleeping || isBusy || !text.trim()) return;
   resetSleepTimer();
@@ -423,15 +610,32 @@ async function sendMessage(text) {
   isBusy = true;
   setStatus('thinking');
   robot.setEmotion('thinking');
-  try {
-    const res  = await fetch('/api/chat', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text, memory: getMemory() }),
-    });
-    const data = await res.json();
 
-    // 新しく覚えたことがあれば記憶に追加
+  // ① 即座に思考中フレーズを発話（API待機中）
+  const thinkPhrase = THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)];
+  speak(thinkPhrase, null); // コールバックなし＝APIが返ったら中断
+
+  // ⑥ 手続き記憶に話題を記録
+  trackProc(text);
+
+  try {
+    const res = await fetch('/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: text,
+        memory:  getMemory(),             // 事実記憶
+        proc:    getTopTopics(),           // ⑥ 手続き記憶
+        mood:    getRecentMood(),          // ⑥ 感情記憶
+      }),
+    });
+
+    // ① 思考中フレーズを止めて本返答へ
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; robot.setTalking(false); }
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+    const data = await res.json();
     if (data.remember) addMemory(data.remember);
+    trackEmo(data.emotion || 'idle');  // ⑥ 感情記録
 
     robot.setEmotion(data.emotion || 'idle');
     if (data.action && data.action !== 'none') robot.setAction(data.action);
@@ -439,23 +643,41 @@ async function sendMessage(text) {
     speak(data.message || '', () => {
       isBusy = false;
       resetSleepTimer();
-      setTimeout(() => startListening(), 600);
+      resetProactiveTimer();             // ⑦
+      setTimeout(() => startListening(), 1200); // ③ エコー消えるまで待つ
     });
-  } catch {
+  } catch(err) {
+    // ① 思考中フレーズを止める
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; robot.setTalking(false); }
+    if (window.speechSynthesis) window.speechSynthesis.cancel();
+
+    // ⑤ ネットワークエラー時のフレンドリーメッセージ
+    const errMsgs = [
+      'ごめん、ネットが不安定みたい！もう一回話しかけてね',
+      'あれ、繋がらなかったみたい〜！少し待ってみて？',
+    ];
+    const errMsg = errMsgs[Math.floor(Math.random() * errMsgs.length)];
     robot.setEmotion('sad');
-    isBusy = false;
-    resetSleepTimer();
-    setTimeout(() => startListening(), 800);
+    setStatus('speaking');
+    speak(errMsg, () => {
+      isBusy = false;
+      resetSleepTimer();
+      setTimeout(() => startListening(), 1200); // ③
+    });
   }
 }
 
-// ── リセット ─────────────────────────────────────────
+// ════════════════════════════════════════════════════
+// リセット
+// ════════════════════════════════════════════════════
 async function doReset() {
-  await fetch('/api/reset', { method: 'POST' });
-  clearMemory();
+  try { await fetch('/api/reset', { method: 'POST' }); } catch(e) {}
+  clearAllMemory(); // ⑥ 全3層記憶をクリア
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  if (window.speechSynthesis) window.speechSynthesis.cancel();
   stopWakeWordListening();
   clearTimeout(sleepTimer);
+  clearTimeout(proactiveTimer); // ⑦
   try { recognition?.abort(); } catch(e) {}
   continuousMode = false;
   canvas.classList.remove('continuous', 'listening-once');
@@ -466,31 +688,25 @@ async function doReset() {
   speak('リセットしたよ！また話しかけてね！', () => {
     robot.setEmotion('idle');
     resetSleepTimer();
+    resetProactiveTimer(); // ⑦
     setTimeout(() => startListening(), 500);
   });
 }
 resetHint.addEventListener('click', doReset);
 
-// ── 会話用音声認識 ────────────────────────────────────
+// ════════════════════════════════════════════════════
+// 会話用音声認識
+// ════════════════════════════════════════════════════
 function startListening() {
   if (!recognition || listeningActive || isBusy || sleeping) return;
   try { recognition.start(); } catch(e) {}
-}
-
-function updateContMode() {
-  if (continuousMode) {
-    canvas.classList.add('continuous');
-  } else {
-    canvas.classList.remove('continuous', 'listening-once');
-    if (!isBusy) setStatus('ready');
-  }
 }
 
 if (SpeechRec) {
   recognition = new SpeechRec();
   recognition.lang = 'ja-JP';
   recognition.continuous = false;
-  recognition.interimResults = false;
+  recognition.interimResults = true; // ④ バックチャネル用に有効化
 
   recognition.onstart = () => {
     listeningActive = true;
@@ -498,19 +714,30 @@ if (SpeechRec) {
     setStatus('listening');
     robot.setEmotion('happy');
   };
+
   recognition.onresult = e => {
+    const lastResult = e.results[e.results.length - 1];
+
+    // ④ インテリム結果：ユーザーが話し始めた瞬間に反応
+    if (!lastResult.isFinal) {
+      robot.setEmotion('happy'); // 話しているのを認識中
+      return;
+    }
+
+    // 確定結果
     listeningActive = false;
     canvas.classList.remove('listening-once');
-    const text = e.results[0][0].transcript;
+    const text = lastResult[0].transcript;
     resetSleepTimer();
-    setTimeout(() => sendMessage(text), 200);
+    setTimeout(() => sendMessage(text), 150);
   };
+
   recognition.onend = () => {
     listeningActive = false;
     canvas.classList.remove('listening-once');
-    // 起きている＆処理中でなければ自動で聞き直す
     if (!isBusy && !sleeping) setTimeout(() => startListening(), 400);
   };
+
   recognition.onerror = e => {
     listeningActive = false;
     canvas.classList.remove('listening-once');
@@ -518,20 +745,15 @@ if (SpeechRec) {
       if (!isBusy && !sleeping) setTimeout(() => startListening(), 400);
       return;
     }
-    // 重大エラーは少し間を置いてリトライ
     if (!isBusy && !sleeping) setTimeout(() => startListening(), 1000);
   };
 
   // ── キャンバス操作 ──────────────────────────────────
-  //  スリープ中  : タップ/長押し → 起動
-  //  起動中 タップ: 割り込み（話し中・聞き中を止めて聞き直し）
-  //  起動中 長押し: 寝かせる
   let pressTimer = null;
   canvas.addEventListener('pointerdown', () => {
     pressTimer = setTimeout(() => {
       pressTimer = null;
       if (sleeping) { wakeUp(); return; }
-      // 長押し → スリープ
       goToSleep();
     }, 600);
   });
@@ -539,13 +761,14 @@ if (SpeechRec) {
     if (pressTimer) {
       clearTimeout(pressTimer); pressTimer = null;
       if (sleeping) { wakeUp(); return; }
-      // タップ → 今の動作を割り込んで聞き直し
       if (currentAudio) { currentAudio.pause(); currentAudio = null; robot.setTalking(false); }
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
       try { recognition.abort(); } catch(e) {}
       isBusy = false;
       listeningActive = false;
       canvas.classList.remove('listening-once');
       resetSleepTimer();
+      resetProactiveTimer(); // ⑦
       setTimeout(() => startListening(), 300);
     }
   });
@@ -557,7 +780,29 @@ if (SpeechRec) {
   setStatus('ready');
 }
 
-// ── 初期化（スリープ状態でスタート） ─────────────────
+// ⑤ オフライン/オンライン検出
+window.addEventListener('offline', () => {
+  if (!sleeping && !isBusy) {
+    isBusy = true;
+    robot.setEmotion('sad');
+    speakFallback('あれ、ネットが切れちゃった！つながったら教えてね', () => {
+      isBusy = false;
+      robot.setEmotion('idle');
+      setTimeout(() => startListening(), 800);
+    });
+  }
+});
+window.addEventListener('online', () => {
+  if (!sleeping && !isBusy) {
+    robot.setEmotion('excited');
+    speakFallback('ネット復活したよ！また話しかけてね！', () => {
+      robot.setEmotion('idle');
+      setTimeout(() => startListening(), 500);
+    });
+  }
+});
+
+// ── 初期化 ─────────────────────────────────────────
 window.addEventListener('load', () => {
   robot.setEmotion('sleep');
   setStatus('sleeping');

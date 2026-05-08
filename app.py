@@ -216,16 +216,22 @@ def do_web_search(query: str) -> str:
 # ─────────────────────────────────────────────────────
 # 記憶付きシステムプロンプトを動的構築
 # ─────────────────────────────────────────────────────
-def _build_system(memory: list) -> str:
-    if not memory:
-        return BASE_SYSTEM_PROMPT
-    mem_lines = "\n".join(f"- {f}" for f in memory[:20])
-    return BASE_SYSTEM_PROMPT + f"""
+def _build_system(memory: list, proc: list = None, mood: str = None) -> str:
+    """3層記憶（事実・手続き・感情）をシステムプロンプトに統合"""
+    parts = [BASE_SYSTEM_PROMPT]
 
-【記憶しているユーザー情報】
-{mem_lines}
+    if memory:
+        mem_lines = "\n".join(f"- {f}" for f in memory[:20])
+        parts.append(f"\n【事実記憶：ユーザー情報】\n{mem_lines}\n名前など知っている情報は自然に使ってください。")
 
-上記の情報を自然に会話へ活かしてください（名前で呼びかけるなど）。"""
+    if proc:
+        proc_lines = "、".join(proc[:3])
+        parts.append(f"\n【手続き記憶：よく話す話題】\n{proc_lines}\n関連する話題には積極的に話を広げてください。")
+
+    if mood:
+        parts.append(f"\n【感情記憶：最近の傾向】\n{mood}\nこの傾向を踏まえた対応をしてください。")
+
+    return "".join(parts)
 
 
 # ─────────────────────────────────────────────────────
@@ -319,7 +325,9 @@ def chat():
 
     data        = request.get_json() or {}
     user_msg    = data.get("message", "").strip()
-    memory      = data.get("memory", [])          # フロントエンドから記憶を受け取る
+    memory      = data.get("memory", [])   # 事実記憶
+    proc        = data.get("proc",   [])   # ⑥ 手続き記憶
+    mood        = data.get("mood",   None) # ⑥ 感情記憶
 
     if not user_msg:
         return jsonify({"error": "メッセージが空です"}), 400
@@ -331,12 +339,12 @@ def chat():
     if len(history) > 40:
         history = history[-40:]
 
-    logger.debug(f"[chat] user={user_msg[:30]} memory={len(memory)}件")
+    logger.debug(f"[chat] user={user_msg[:30]} memory={len(memory)}件 proc={proc} mood={mood}")
 
     try:
         import anthropic
         client  = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        system  = _build_system(memory)
+        system  = _build_system(memory, proc=proc, mood=mood)  # ⑥ 3層記憶
         response = _run_with_search(client, history, system, max_tokens=512)
         raw_text = _extract_text(response)
         logger.debug(f"[chat] raw={raw_text[:80]}")
