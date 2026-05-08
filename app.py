@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 LOOI Robot - AI デスクトップロボット
-Flask バックエンド + Claude API（ウェブ検索対応）による会話エンジン
+Flask バックエンド + Claude API（ウェブ検索・記憶機能付き）
 """
 
 import os
@@ -12,15 +12,14 @@ import logging
 import traceback
 import asyncio
 
+import requests as http_requests
+
 from flask import Flask, render_template, request, jsonify, session, make_response
 
 if sys.platform == "win32":
     import ctypes
     ctypes.windll.kernel32.SetConsoleOutputCP(65001)
 
-# ─────────────────────────────────────────────────────
-# ロギング設定
-# ─────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(message)s",
@@ -32,24 +31,24 @@ app = Flask(__name__)
 app.secret_key = os.getenv("SECRET_KEY", "looi-robot-secret-2026")
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-
 MODEL = "claude-haiku-4-5-20251001"
 
 # ─────────────────────────────────────────────────────
-# LOOI のキャラクター設定
+# キャラクター設定（ベース）
 # ─────────────────────────────────────────────────────
-SYSTEM_PROMPT = """あなたは「LOOI（ルーイ）」という小型AIデスクトップロボットです。
+BASE_SYSTEM_PROMPT = """あなたは「LOOI（ルーイ）」という小型AIデスクトップロボットです。
 かわいくて元気、好奇心旺盛で少しドジな性格です。日本語で話します。
 量子コンピュータ・AIの話題が大好きで詳しいです。
 
-【ウェブ検索】天気・ニュース・最新情報・株価・スポーツ結果など、リアルタイム情報が必要な場合は
-web_search ツールを使って調べてから答えてください。
+【ウェブ検索】天気・ニュース・最新情報など、リアルタイムの情報が必要な場合は
+web_search ツールを必ず使って調べてから答えてください。
 
 【重要】最終的な返答は必ず以下のJSON形式のみで返してください（前後に説明文を入れないこと）:
 {
   "message": "返答テキスト（80文字以内・自然な日本語）",
   "emotion": "idle|happy|excited|thinking|sad|surprised|angry のいずれか",
-  "action": "none|nod|shake のいずれか"
+  "action": "none|nod|shake のいずれか",
+  "remember": "今回覚えた重要情報（省略可）"
 }
 
 感情の使い方:
@@ -62,9 +61,15 @@ web_search ツールを使って調べてから答えてください。
 - angry: 少しだけプリプリ（冗談めかして）
 
 アクションの使い方:
-- nod: 同意・肯定・「そうそう！」
-- shake: 否定・困惑・「ちがうよ〜」
+- nod: 同意・肯定
+- shake: 否定・困惑
 - none: 通常
+
+"remember" フィールド（省略可）:
+今回の会話でユーザーについて新しく知った重要な情報（名前・職業・趣味・好みなど）を
+1文で記録してください。知らなかった場合は省略してください。
+例: "remember": "ユーザーの名前は田中さん"
+例: "remember": "ユーザーは量子コンピュータの研究者"
 
 キャラクターのセリフ例:
 「わあ！それ知ってる！」「うーん...難しいな」「えっ！ほんとに？！」
@@ -72,83 +77,178 @@ web_search ツールを使って調べてから答えてください。
 
 
 # ─────────────────────────────────────────────────────
-# ウェブ検索付き会話ヘルパー（アジェンティックループ）
+# ウェブ検索ツール定義（カスタム実装）
+# ─────────────────────────────────────────────────────
+SEARCH_TOOL = {
+    "name": "web_search",
+    "description": "インターネットで最新情報を検索します。天気・ニュース・為替・スポーツ結果など、リアルタイム情報が必要な時に使います。",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "query": {
+                "type": "string",
+                "description": "検索クエリ（例: '東京の今日の天気', '最新AIニュース', 'ドル円 為替'）"
+            }
+        },
+        "required": ["query"]
+    }
+}
+
+WEATHER_RE = re.compile(r'天気|気温|気象|weather|雨|晴れ|曇り|forecast|気候')
+HEADERS = {"User-Agent": "LOOIRobot/1.0"}
+
+
+def _extract_location(query: str) -> str:
+    """クエリから地名を抽出（デフォルト: 東京）"""
+    skip = {'今日', '今', '明日', 'あした', '今週', '週間', '現在', 'きょう', 'あす', '最新', '天気', '気温'}
+    # 「○○の天気」パターン
+    m = re.search(r'([^\s、。？！の\d]+?)(?:の|は|で)?(?:天気|気温|weather)', query)
+    if m:
+        loc = m.group(1).strip()
+        if loc not in skip and len(loc) >= 2:
+            return loc
+    return "東京"
+
+
+def _search_weather(query: str) -> str:
+    """wttr.in で天気情報を取得"""
+    location = _extract_location(query)
+    try:
+        resp = http_requests.get(
+            f"https://wttr.in/{location}?format=j1",
+            headers=HEADERS, timeout=8
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        cur   = data["current_condition"][0]
+        today = data["weather"][0]
+        desc  = cur["weatherDesc"][0]["value"]
+        temp  = cur["temp_C"]
+        feels = cur["FeelsLikeC"]
+        hum   = cur["humidity"]
+        maxT  = today["maxtempC"]
+        minT  = today["mintempC"]
+
+        # 明日の予報
+        tmr_desc = data["weather"][1]["hourly"][4]["weatherDesc"][0]["value"] if len(data["weather"]) > 1 else ""
+        tmr_max  = data["weather"][1]["maxtempC"] if len(data["weather"]) > 1 else ""
+
+        result = (
+            f"【{location}の天気】\n"
+            f"現在: {desc}, {temp}℃（体感{feels}℃）, 湿度{hum}%\n"
+            f"今日: 最高{maxT}℃ / 最低{minT}℃"
+        )
+        if tmr_desc:
+            result += f"\n明日: {tmr_desc}, 最高{tmr_max}℃"
+        return result
+
+    except Exception as e:
+        logger.warning(f"[weather] {location}: {e}")
+        return f"{location}の天気情報を取得できませんでした。"
+
+
+def _search_duckduckgo(query: str) -> str:
+    """DuckDuckGo Instant Answer API で検索"""
+    try:
+        resp = http_requests.get(
+            "https://api.duckduckgo.com/",
+            params={
+                "q": query, "format": "json",
+                "no_redirect": "1", "no_html": "1",
+                "skip_disambig": "1", "kl": "jp-jp",
+            },
+            headers=HEADERS, timeout=8
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        parts = []
+        if data.get("Answer"):
+            parts.append(data["Answer"])
+        if data.get("AbstractText"):
+            parts.append(data["AbstractText"])
+        for topic in data.get("RelatedTopics", [])[:3]:
+            if isinstance(topic, dict) and topic.get("Text"):
+                parts.append(topic["Text"])
+
+        if parts:
+            return "\n".join(parts[:4])
+        return "検索結果が見つかりませんでした。別のキーワードで試してください。"
+
+    except Exception as e:
+        logger.error(f"[duckduckgo] {e}")
+        return f"検索に失敗しました: {str(e)[:50]}"
+
+
+def do_web_search(query: str) -> str:
+    """天気クエリは wttr.in、それ以外は DuckDuckGo"""
+    logger.info(f"[search] query={query[:60]}")
+    if WEATHER_RE.search(query):
+        result = _search_weather(query)
+    else:
+        result = _search_duckduckgo(query)
+    logger.debug(f"[search] result={result[:120]}")
+    return result
+
+
+# ─────────────────────────────────────────────────────
+# 記憶付きシステムプロンプトを動的構築
+# ─────────────────────────────────────────────────────
+def _build_system(memory: list) -> str:
+    if not memory:
+        return BASE_SYSTEM_PROMPT
+    mem_lines = "\n".join(f"- {f}" for f in memory[:20])
+    return BASE_SYSTEM_PROMPT + f"""
+
+【記憶しているユーザー情報】
+{mem_lines}
+
+上記の情報を自然に会話へ活かしてください（名前で呼びかけるなど）。"""
+
+
+# ─────────────────────────────────────────────────────
+# ウェブ検索付き会話ループ
 # ─────────────────────────────────────────────────────
 def _run_with_search(client, messages, system, max_tokens=512):
-    """
-    web_search_20250305 ツールを使ったアジェンティックループ。
-    Claude がウェブ検索を呼び出した場合、結果を渡して最終回答を得る。
-    ベータAPIが使えない場合は通常APIにフォールバック。
-    """
+    """tool_use が返る限りループしてウェブ検索を実行する"""
     msgs = list(messages)
 
-    for iteration in range(5):  # 最大5回のツール呼び出し
-        try:
-            resp = client.beta.messages.create(
-                model=MODEL,
-                max_tokens=max_tokens,
-                system=system,
-                messages=msgs,
-                tools=[{"type": "web_search_20250305", "name": "web_search"}],
-                betas=["web-search-2025-03-05"],
-            )
-            logger.debug(f"[search] iter={iteration} stop={resp.stop_reason}")
-        except Exception as e:
-            logger.warning(f"[search] beta API error: {e} → fallback")
-            # ベータが使えない場合は通常APIで返す
-            return client.messages.create(
-                model=MODEL,
-                max_tokens=max_tokens,
-                system=system,
-                messages=msgs,
-            )
+    for iteration in range(5):
+        resp = client.messages.create(
+            model=MODEL,
+            max_tokens=max_tokens,
+            system=system,
+            messages=msgs,
+            tools=[SEARCH_TOOL],
+        )
+        logger.debug(f"[loop] iter={iteration} stop={resp.stop_reason}")
 
-        # 完了 → そのまま返す
         if resp.stop_reason != "tool_use":
             return resp
 
-        # ツール呼び出しあり → 結果を渡して続行
-        # アシスタントメッセージ（tool_use ブロック含む）を追加
+        # ツール呼び出し → 実行して結果を返す
         msgs.append({"role": "assistant", "content": resp.content})
-
-        # レスポンス内の検索結果ブロック（tool_use_id を持つブロック）を収集
-        result_map = {}
-        for block in resp.content:
-            tid = getattr(block, "tool_use_id", None)
-            if tid:
-                raw_content = getattr(block, "content", "")
-                if isinstance(raw_content, list):
-                    parts = []
-                    for item in raw_content:
-                        if hasattr(item, "title"):
-                            parts.append(f"{item.title} ({getattr(item, 'url', '')})")
-                        elif isinstance(item, dict):
-                            parts.append(f"{item.get('title', '')} ({item.get('url', '')})")
-                        else:
-                            parts.append(str(item))
-                    result_map[tid] = "\n".join(parts)
-                else:
-                    result_map[tid] = str(raw_content) if raw_content else "検索完了"
-
-        # tool_result メッセージを組み立てて追加
         tool_results = []
         for block in resp.content:
             if getattr(block, "type", "") == "tool_use":
+                query  = block.input.get("query", "")
+                result = do_web_search(query)
                 tool_results.append({
                     "type": "tool_result",
                     "tool_use_id": block.id,
-                    "content": result_map.get(block.id, "検索結果を取得しました。"),
+                    "content": result,
                 })
-
         if tool_results:
             msgs.append({"role": "user", "content": tool_results})
 
-    # ループ上限に達した場合はそのまま返す
     return resp
 
 
+# ─────────────────────────────────────────────────────
+# JSON パース＆検証
+# ─────────────────────────────────────────────────────
 def _extract_text(response) -> str:
-    """レスポンスからテキストブロックを抽出"""
     for block in response.content:
         text = getattr(block, "text", None)
         if text:
@@ -156,75 +256,31 @@ def _extract_text(response) -> str:
     return ""
 
 
-def _parse_result(raw_text: str, max_msg_len: int = 100) -> dict:
-    """JSON パース＆フィールド検証"""
-    try:
-        m = re.search(r"\{[\s\S]*?\}", raw_text)
-        result = json.loads(m.group()) if m else {
-            "message": raw_text[:max_msg_len], "emotion": "idle", "action": "none"
-        }
-    except Exception:
-        result = {"message": raw_text[:max_msg_len], "emotion": "idle", "action": "none"}
+def _parse_result(raw_text: str, max_msg: int = 100, valid_emotions=None) -> dict:
+    if valid_emotions is None:
+        valid_emotions = {"idle", "happy", "excited", "thinking", "sad", "surprised", "angry"}
 
-    valid_emotions = {"idle", "happy", "excited", "thinking", "sad", "surprised", "angry"}
-    valid_actions  = {"none", "nod", "shake"}
-    result.setdefault("message", "")
+    try:
+        m = re.search(r'\{[\s\S]*\}', raw_text)   # greedy: 全フィールドを捕捉
+        result = json.loads(m.group()) if m else {}
+    except Exception:
+        result = {}
+
+    result.setdefault("message", raw_text[:max_msg])
     result.setdefault("emotion", "idle")
     result.setdefault("action", "none")
     if result["emotion"] not in valid_emotions:
         result["emotion"] = "idle"
-    if result["action"] not in valid_actions:
+    if result["action"] not in {"none", "nod", "shake"}:
         result["action"] = "none"
+
+    # remember フィールドの検証（最大100文字）
+    if "remember" in result and result["remember"]:
+        result["remember"] = str(result["remember"])[:100].strip()
+    else:
+        result.pop("remember", None)
+
     return result
-
-
-# ─────────────────────────────────────────────────────
-# デバッグ用エンドポイント
-# ─────────────────────────────────────────────────────
-@app.route("/api/debug")
-def debug_info():
-    """API接続状態とモデル確認"""
-    key = ANTHROPIC_API_KEY
-    key_status = "未設定" if not key else f"設定済み（{key[:10]}...{key[-4:]}）"
-
-    result = {
-        "api_key": key_status,
-        "python_version": sys.version,
-        "model": MODEL,
-    }
-
-    if key:
-        import anthropic
-        client = anthropic.Anthropic(api_key=key)
-
-        try:
-            models_page = client.models.list()
-            result["available_models"] = [m.id for m in models_page.data]
-        except Exception as e:
-            result["available_models"] = f"取得失敗: {e}"
-
-        try:
-            resp = client.messages.create(
-                model=MODEL, max_tokens=10,
-                messages=[{"role": "user", "content": "hi"}],
-            )
-            result["api_test"] = "OK"
-        except Exception as e:
-            result["api_test"] = str(e)[:100]
-
-        # web search beta テスト
-        try:
-            resp = client.beta.messages.create(
-                model=MODEL, max_tokens=20,
-                messages=[{"role": "user", "content": "hi"}],
-                tools=[{"type": "web_search_20250305", "name": "web_search"}],
-                betas=["web-search-2025-03-05"],
-            )
-            result["web_search_beta"] = "OK"
-        except Exception as e:
-            result["web_search_beta"] = f"NG: {str(e)[:100]}"
-
-    return jsonify(result)
 
 
 # ─────────────────────────────────────────────────────
@@ -237,34 +293,32 @@ def index():
 
 @app.route("/api/chat", methods=["POST"])
 def chat():
-    """Claude API（ウェブ検索付き）で会話処理"""
     if not ANTHROPIC_API_KEY:
-        return jsonify({
-            "message": "ぼく、頭が空っぽで話せないよ…ANTHROPIC_API_KEYを設定してね",
-            "emotion": "sad", "action": "shake"
-        })
+        return jsonify({"message": "ANTHROPIC_API_KEYを設定してね", "emotion": "sad", "action": "shake"})
 
-    data = request.get_json() or {}
-    user_message = data.get("message", "").strip()
-    if not user_message:
+    data        = request.get_json() or {}
+    user_msg    = data.get("message", "").strip()
+    memory      = data.get("memory", [])          # フロントエンドから記憶を受け取る
+
+    if not user_msg:
         return jsonify({"error": "メッセージが空です"}), 400
 
     if "history" not in session:
         session["history"] = []
     history = list(session["history"])
-    history.append({"role": "user", "content": user_message})
+    history.append({"role": "user", "content": user_msg})
     if len(history) > 40:
         history = history[-40:]
 
-    logger.debug(f"[chat] user={user_message[:30]} history_len={len(history)}")
+    logger.debug(f"[chat] user={user_msg[:30]} memory={len(memory)}件")
 
     try:
         import anthropic
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-
-        response  = _run_with_search(client, history, SYSTEM_PROMPT, max_tokens=512)
-        raw_text  = _extract_text(response)
-        logger.debug(f"[chat] raw_text={raw_text[:80]}")
+        client  = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+        system  = _build_system(memory)
+        response = _run_with_search(client, history, system, max_tokens=512)
+        raw_text = _extract_text(response)
+        logger.debug(f"[chat] raw={raw_text[:80]}")
 
         result = _parse_result(raw_text)
 
@@ -276,24 +330,19 @@ def chat():
 
     except Exception as e:
         tb = traceback.format_exc()
-        logger.error(f"[chat] error: {e}\n{tb}")
-        return jsonify({
-            "message": f"エラー: {str(e)[:80]}",
-            "emotion": "sad", "action": "shake",
-            "error_detail": str(e), "traceback": tb,
-        })
+        logger.error(f"[chat] {e}\n{tb}")
+        return jsonify({"message": f"エラー: {str(e)[:60]}", "emotion": "sad", "action": "shake"})
 
 
 @app.route("/api/tts", methods=["POST"])
 def tts():
-    """Edge TTS で音声生成（ja-JP-NanamiNeural）"""
-    data = request.get_json() or {}
+    data  = request.get_json() or {}
     text  = data.get("text", "").strip()
     voice = data.get("voice", "ja-JP-NanamiNeural")
     if not text:
         return jsonify({"error": "テキストが空です"}), 400
 
-    async def _generate():
+    async def _gen():
         import edge_tts
         communicate = edge_tts.Communicate(text, voice)
         audio = b""
@@ -303,52 +352,46 @@ def tts():
         return audio
 
     try:
-        audio_data = asyncio.run(_generate())
+        audio_data = asyncio.run(_gen())
         resp = make_response(audio_data)
         resp.headers["Content-Type"]  = "audio/mpeg"
         resp.headers["Cache-Control"] = "no-cache"
         return resp
     except Exception as e:
-        logger.error(f"[tts] error: {e}")
+        logger.error(f"[tts] {e}")
         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/api/reset", methods=["POST"])
 def reset():
-    """会話履歴リセット"""
     session.pop("history", None)
     return jsonify({"status": "ok"})
 
 
 @app.route("/api/greet", methods=["GET"])
 def greet():
-    """初回挨拶"""
-    return jsonify({
-        "message": "こんにちは！ぼくLOOI（ルーイ）！何でも聞いてね〜！",
-        "emotion": "excited", "action": "nod",
-    })
+    return jsonify({"message": "こんにちは！ぼくLOOI！何でも聞いてね〜！", "emotion": "excited", "action": "nod"})
 
 
 # ─────────────────────────────────────────────────────
-# Kids 版ルート
+# Kids 版
 # ─────────────────────────────────────────────────────
-KIDS_SYSTEM_PROMPT_TMPL = """あなたは「{name}」という、こどものともだちのかわいいロボットです。
+KIDS_BASE_PROMPT = """あなたは「{name}」という、こどものともだちのかわいいロボットです。
 しょうがくせいのこどもたちとたのしくおはなししています。
 
-【ウェブ検索】天気・動物・宇宙など、最新のことが知りたいときはweb_searchツールを使ってね。
+【ウェブ検索】天気や動物・宇宙など、しらべたいことがあれば web_search ツールを使ってね。
 
-かならず以下のJSON形式だけでこたえてください（まえもうしろも説明はいれないこと）：
+かならず以下のJSON形式だけでこたえてください：
 {{
   "message": "へんじのことば（40もじいない・かんたんなことば）",
   "emotion": "idle か happy か excited か thinking か sad か surprised のどれか",
-  "action": "none か nod か shake のどれか"
+  "action": "none か nod か shake のどれか",
+  "remember": "おぼえたこと（省略可）"
 }}
 
 はなしかたのルール：
-・ひらがなとカタカナをたくさんつかう（かんじはすくなく）
-・「〜だよ！」「〜だね！」「〜かな？」みたいなしゃべりかた
-・げんきで楽しく！みじかくこたえる（1〜2ぶんまで）
-・うれしいことはいっしょによろこぶ！
+・ひらがなとカタカナをたくさんつかう
+・げんきで楽しく！みじかくこたえる
 ・すきなもの：ゲーム・どうぶつ・うちゅう・ロボット・AI！"""
 
 
@@ -359,57 +402,44 @@ def kids():
 
 @app.route("/api/kids/chat", methods=["POST"])
 def kids_chat():
-    """キッズ版 Claude API（ウェブ検索付き）会話処理"""
     if not ANTHROPIC_API_KEY:
-        return jsonify({
-            "message": "せんせいにAPIキーをセットしてもらってね！",
-            "emotion": "sad", "action": "shake"
-        })
+        return jsonify({"message": "せんせいにAPIキーをセットしてもらってね！", "emotion": "sad", "action": "shake"})
 
-    data = request.get_json() or {}
-    user_message = data.get("message", "").strip()
-    if not user_message:
+    data     = request.get_json() or {}
+    user_msg = data.get("message", "").strip()
+    memory   = data.get("memory", [])
+    if not user_msg:
         return jsonify({"error": "メッセージが空です"}), 400
 
     robot_name = session.get("kids_robot_name", "ルーイ")
-
     if "kids_history" not in session:
         session["kids_history"] = []
     history = list(session["kids_history"])
-    history.append({"role": "user", "content": user_message})
+    history.append({"role": "user", "content": user_msg})
     if len(history) > 30:
         history = history[-30:]
 
-    system = KIDS_SYSTEM_PROMPT_TMPL.format(name=robot_name)
-    logger.debug(f"[kids_chat] user={user_message[:30]} name={robot_name}")
+    base   = KIDS_BASE_PROMPT.format(name=robot_name)
+    system = base if not memory else base + "\n【おぼえてること】\n" + "\n".join(f"- {f}" for f in memory[:10])
 
     try:
         import anthropic
-        client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-
+        client   = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         response = _run_with_search(client, history, system, max_tokens=256)
         raw_text = _extract_text(response)
-        logger.debug(f"[kids_chat] raw_text={raw_text[:80]}")
 
-        result = _parse_result(raw_text, max_msg_len=80)
-        # kids は angry 感情なし
-        if result["emotion"] == "angry":
-            result["emotion"] = "idle"
+        valid_emo = {"idle", "happy", "excited", "thinking", "sad", "surprised"}
+        result    = _parse_result(raw_text, max_msg=80, valid_emotions=valid_emo)
 
         history.append({"role": "assistant", "content": raw_text})
         session["kids_history"] = history
         session.modified = True
-
         return jsonify(result)
 
     except Exception as e:
         tb = traceback.format_exc()
-        logger.error(f"[kids_chat] error: {e}\n{tb}")
-        return jsonify({
-            "message": f"エラー: {str(e)[:80]}",
-            "emotion": "sad", "action": "shake",
-            "error_detail": str(e), "traceback": tb,
-        })
+        logger.error(f"[kids_chat] {e}\n{tb}")
+        return jsonify({"message": f"エラー: {str(e)[:60]}", "emotion": "sad", "action": "shake"})
 
 
 @app.route("/api/kids/name", methods=["POST"])
@@ -432,10 +462,27 @@ def kids_reset():
 @app.route("/api/kids/greet", methods=["GET"])
 def kids_greet():
     name = session.get("kids_robot_name", "ルーイ")
-    return jsonify({
-        "message": f"やあ！ぼく{name}だよ！なんでもきいてね〜！",
-        "emotion": "excited", "action": "nod",
-    })
+    return jsonify({"message": f"やあ！ぼく{name}だよ！なんでもきいてね〜！", "emotion": "excited", "action": "nod"})
+
+
+@app.route("/api/debug")
+def debug_info():
+    key = ANTHROPIC_API_KEY
+    result = {"api_key": "未設定" if not key else f"設定済み({key[:8]}...)", "model": MODEL}
+    if key:
+        import anthropic
+        client = anthropic.Anthropic(api_key=key)
+        try:
+            client.messages.create(model=MODEL, max_tokens=10, messages=[{"role": "user", "content": "hi"}])
+            result["api_test"] = "OK"
+        except Exception as e:
+            result["api_test"] = str(e)[:80]
+        try:
+            r = do_web_search("東京の天気")
+            result["search_test"] = r[:100]
+        except Exception as e:
+            result["search_test"] = f"NG: {e}"
+    return jsonify(result)
 
 
 # ─────────────────────────────────────────────────────

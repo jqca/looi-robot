@@ -290,11 +290,26 @@ let listeningActive= false;
 let sleepTimer     = null;
 let currentAudio   = null;
 
-const SLEEP_MS   = 60_000;   // 60秒無操作でスリープ
+const SLEEP_MS   = 60_000;
 const WAKE_WORDS = /起きて|おきて|おはよ|ルーイ|ねえ|スタート/;
 const SLEEP_WORDS= /おやすみ|寝て|ねて|バイバイ|またね|終わり|おわり/;
 
 function setStatus(state) { statusDt.className = state; }
+
+// ── 記憶（localStorage） ─────────────────────────────
+const MEMORY_KEY = 'looi_memory';
+function getMemory()        { return JSON.parse(localStorage.getItem(MEMORY_KEY) || '[]'); }
+function addMemory(fact)    {
+  if (!fact || fact.length < 3) return;
+  const mem = getMemory();
+  if (!mem.includes(fact)) {
+    mem.push(fact);
+    if (mem.length > 30) mem.shift();   // 最大30件
+    localStorage.setItem(MEMORY_KEY, JSON.stringify(mem));
+    console.log('[memory] 覚えた:', fact);
+  }
+}
+function clearMemory()      { localStorage.removeItem(MEMORY_KEY); }
 
 // ── TTS ──────────────────────────────────────────────
 function speak(text, onEnd) {
@@ -410,16 +425,19 @@ async function sendMessage(text) {
   try {
     const res  = await fetch('/api/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message: text }),
+      body: JSON.stringify({ message: text, memory: getMemory() }),
     });
     const data = await res.json();
+
+    // 新しく覚えたことがあれば記憶に追加
+    if (data.remember) addMemory(data.remember);
+
     robot.setEmotion(data.emotion || 'idle');
     if (data.action && data.action !== 'none') robot.setAction(data.action);
     setStatus('speaking');
     speak(data.message || '', () => {
       isBusy = false;
       resetSleepTimer();
-      // 返事が終わったら自動で聞き始める
       setTimeout(() => startListening(), 600);
     });
   } catch {
@@ -433,6 +451,7 @@ async function sendMessage(text) {
 // ── リセット ─────────────────────────────────────────
 async function doReset() {
   await fetch('/api/reset', { method: 'POST' });
+  clearMemory();
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   stopWakeWordListening();
   clearTimeout(sleepTimer);
