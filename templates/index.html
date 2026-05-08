@@ -19,30 +19,8 @@
   #app {
     width: 100%; max-width: 480px; height: 100vh;
     display: flex; flex-direction: column; align-items: center;
+    justify-content: center;
     padding: 20px 16px 36px; gap: 20px;
-  }
-
-  /* ── 吹き出し ── */
-  #bubble-wrap {
-    width: 100%; min-height: 64px; flex-shrink: 0;
-    display: flex; justify-content: center; align-items: flex-end;
-  }
-  #speech-bubble {
-    background: rgba(10,20,32,.88);
-    border: 1px solid rgba(255,255,255,.09);
-    border-radius: 18px 18px 18px 4px;
-    padding: 12px 20px; font-size: 15px; line-height: 1.65;
-    max-width: 92%; position: relative;
-    transition: opacity .35s, transform .35s;
-    opacity: 0; transform: translateY(8px); pointer-events: none;
-  }
-  #speech-bubble.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
-  #speech-bubble::after {
-    content: ''; position: absolute;
-    bottom: -8px; left: 22px; width: 0; height: 0;
-    border-left: 8px solid transparent;
-    border-right: 8px solid transparent;
-    border-top: 8px solid rgba(255,255,255,.09);
   }
 
   /* ── キャンバス ── */
@@ -101,10 +79,6 @@
 <body>
 
 <div id="app">
-  <div id="bubble-wrap">
-    <div id="speech-bubble"><span id="bubble-text"></span></div>
-  </div>
-
   <canvas id="robot-canvas"></canvas>
 
   <div id="status-bar">
@@ -294,8 +268,6 @@ class EyeRenderer {
 // APP CONTROLLER
 // ════════════════════════════════════════════════════
 const canvas    = document.getElementById('robot-canvas');
-const bubble    = document.getElementById('speech-bubble');
-const bubText   = document.getElementById('bubble-text');
 const statusDt  = document.getElementById('status-dot');
 const statusTx  = document.getElementById('status-text');
 const resetHint = document.getElementById('reset-hint');
@@ -309,8 +281,6 @@ function setStatus(state, label) {
   statusDt.className = state;
   statusTx.textContent = label;
 }
-function showBubble(text) { bubText.textContent = text; bubble.classList.add('show'); }
-function hideBubble()     { bubble.classList.remove('show'); }
 
 // ── TTS（Edge TTS / NanamiNeural） ──────────────────
 let currentAudio = null;
@@ -355,7 +325,6 @@ async function sendMessage(text) {
     const data = await res.json();
     robot.setEmotion(data.emotion || 'idle');
     if (data.action && data.action !== 'none') robot.setAction(data.action);
-    showBubble(data.message || '…');
     setStatus('speaking', '🔊 話し中…');
     speak(data.message || '', () => {
       isBusy = false;
@@ -368,7 +337,6 @@ async function sendMessage(text) {
     });
   } catch {
     robot.setEmotion('sad');
-    showBubble('通信エラー…もう一度試してね');
     setStatus('ready', 'タップして話す');
     isBusy = false;
   }
@@ -379,7 +347,7 @@ async function doReset() {
   await fetch('/api/reset', { method: 'POST' });
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   if (continuousMode) { continuousMode = false; updateContMode(); }
-  hideBubble(); robot.setEmotion('idle');
+  robot.setEmotion('idle');
   setStatus('ready', 'タップして話す');
   isBusy = false;
   setTimeout(() => sendMessage('こんにちは！'), 300);
@@ -415,7 +383,6 @@ if (SpeechRec) {
     canvas.classList.add('listening-once');
     setStatus('listening', '👂 聞いてるよ…');
     robot.setEmotion('happy');
-    hideBubble();
   };
   recognition.onresult = e => {
     listeningActive = false;
@@ -485,10 +452,8 @@ window.addEventListener('load', async () => {
     const data = await res.json();
     robot.setEmotion(data.emotion || 'excited');
     robot.setAction(data.action  || 'nod');
-    showBubble(data.message);
     setTimeout(() => speak(data.message), 500);
   } catch {
-    showBubble('こんにちは！何でも話しかけてね〜！');
     robot.setEmotion('excited');
   }
   setStatus('ready', 'タップして話す');
