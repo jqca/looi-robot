@@ -413,6 +413,7 @@ async function sendMessage(text) {
 
   // 寝かしつけワード
   if (SLEEP_WORDS.test(text)) {
+    isBusy = true;
     robot.setEmotion('sad');
     setStatus('speaking');
     speak('おやすみ〜！またね！', goToSleep);
