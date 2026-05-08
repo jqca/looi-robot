@@ -47,28 +47,6 @@
     position: relative;
   }
 
-  /* ══════════════════════════════════════
-     TITLE
-  ══════════════════════════════════════ */
-  #title-bar {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-  #title-bar h1 {
-    font-size: 22px;
-    font-weight: 800;
-    letter-spacing: 3px;
-    background: linear-gradient(135deg, var(--accent), var(--accent2));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-  }
-  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); animation: pulse 1.6s ease infinite; }
-  .dot:last-child { animation-delay: 0.4s; background: var(--accent2); }
   @keyframes pulse { 0%,100%{ opacity:.4; transform:scale(1); } 50%{ opacity:1; transform:scale(1.3); } }
 
   /* ══════════════════════════════════════
@@ -155,26 +133,6 @@
     flex-direction: column;
     gap: 10px;
   }
-  #input-row {
-    display: flex;
-    gap: 8px;
-  }
-  #text-input {
-    flex: 1;
-    background: var(--bg2);
-    border: 1px solid rgba(0,212,255,.25);
-    border-radius: 12px;
-    padding: 12px 16px;
-    color: var(--text);
-    font-size: 15px;
-    outline: none;
-    transition: border-color .2s, box-shadow .2s;
-  }
-  #text-input:focus {
-    border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(0,212,255,.12);
-  }
-  #text-input::placeholder { color: var(--muted); }
 
   /* ══════════════════════════════════════
      BUTTONS
@@ -193,17 +151,6 @@
     -webkit-user-select: none;
   }
   .btn:active { transform: scale(.94); }
-
-  #send-btn {
-    background: linear-gradient(135deg, var(--accent), #0099bb);
-    color: #001a2e;
-    padding: 12px 20px;
-    font-size: 15px;
-    border-radius: 12px;
-    min-width: 72px;
-  }
-  #send-btn:hover { filter: brightness(1.1); }
-  #send-btn:disabled { opacity: .4; cursor: not-allowed; }
 
   #btn-row {
     display: flex;
@@ -290,13 +237,6 @@
 <div id="scan-overlay"></div>
 
 <div id="app">
-  <!-- タイトル -->
-  <div id="title-bar">
-    <div class="dot"></div>
-    <h1>LOOI</h1>
-    <div class="dot"></div>
-  </div>
-
   <!-- 吹き出し -->
   <div id="bubble-wrap">
     <div id="speech-bubble">
@@ -304,7 +244,7 @@
     </div>
   </div>
 
-  <!-- ロボット顔 -->
+  <!-- 顔 -->
   <canvas id="robot-canvas"></canvas>
 
   <!-- ステータス -->
@@ -313,19 +253,10 @@
     <span id="status-text">待機中</span>
   </div>
 
-  <!-- 入力エリア -->
+  <!-- 操作ボタン -->
   <div id="input-area">
-    <div id="input-row">
-      <input id="text-input" type="text" placeholder="LOOIに話しかける..." autocomplete="off" />
-      <button id="send-btn" class="btn">送信</button>
-    </div>
     <div id="btn-row">
-      <button id="mic-btn" class="round-btn btn" title="音声入力">🎤</button>
-      <button onclick="testEmotion('happy')" class="round-btn btn" title="happy">😊</button>
-      <button onclick="testEmotion('excited')" class="round-btn btn" title="excited">🤩</button>
-      <button onclick="testEmotion('thinking')" class="round-btn btn" title="thinking">🤔</button>
-      <button onclick="testEmotion('surprised')" class="round-btn btn" title="surprised">😲</button>
-      <button onclick="testEmotion('angry')" class="round-btn btn" title="angry">😤</button>
+      <button id="mic-btn" class="round-btn btn" title="タップして話す（長押しで連続モード）">🎤</button>
       <button id="reset-btn" class="round-btn btn" title="会話リセット">🔄</button>
     </div>
   </div>
@@ -768,8 +699,6 @@ class RobotRenderer {
 const canvas   = document.getElementById('robot-canvas');
 const bubble   = document.getElementById('speech-bubble');
 const bubText  = document.getElementById('bubble-text');
-const textIn   = document.getElementById('text-input');
-const sendBtn  = document.getElementById('send-btn');
 const micBtn   = document.getElementById('mic-btn');
 const resetBtn = document.getElementById('reset-btn');
 const statusDt = document.getElementById('status-dot');
@@ -777,10 +706,8 @@ const statusTx = document.getElementById('status-text');
 
 const robot = new RobotRenderer(canvas);
 
-let isBusy    = false;
-let isSpeaking = false;
+let isBusy      = false;
 let recognition = null;
-let currentUtterance = null;
 
 // ── Pupil tracking (mouse + touch) ─────────────────
 function updateGaze(clientX, clientY) {
@@ -860,8 +787,6 @@ function speak(text, onEnd) {
 async function sendMessage(text) {
   if (isBusy || !text.trim()) return;
   isBusy = true;
-  sendBtn.disabled = true;
-  textIn.value = '';
 
   setStatus('thinking', '考え中…');
   robot.setEmotion('thinking');
@@ -882,7 +807,6 @@ async function sendMessage(text) {
     setStatus('speaking', '話し中…');
     speak(data.message || '', () => {
       isBusy = false;
-      sendBtn.disabled = false;
       if (continuousMode) {
         setStatus('listening', '聞いてるよ…');
         setTimeout(() => startListening(), 600);
@@ -896,13 +820,8 @@ async function sendMessage(text) {
     showBubble('通信エラーが起きたよ…もう一度試してね');
     setStatus('ready', '待機中');
     isBusy = false;
-    sendBtn.disabled = false;
   }
 }
-
-// ── Send on button / Enter ───────────────────────────
-sendBtn.addEventListener('click', () => sendMessage(textIn.value));
-textIn.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey) sendMessage(textIn.value); });
 
 // ── Reset ────────────────────────────────────────────
 resetBtn.addEventListener('click', async () => {
@@ -915,22 +834,6 @@ resetBtn.addEventListener('click', async () => {
   sendBtn.disabled = false;
   setTimeout(() => sendMessage('こんにちは！'), 300);
 });
-
-// ── Emotion test buttons ─────────────────────────────
-function testEmotion(em) {
-  robot.setEmotion(em);
-  const msgs = {
-    happy:     'やったー！うれしいな〜！',
-    excited:   'わあ！すごい！量子コンピュータの話？！',
-    thinking:  'うーん…なるほど、少し考えてみるね',
-    surprised: 'えっ！！そうなの？！',
-    angry:     'もう！ちょっと！（プリプリ）',
-    sad:       'うう…悲しいな…',
-    idle:      'ふふ、何を話そうかな',
-  };
-  showBubble(msgs[em] || 'ふむふむ');
-  speak(msgs[em] || 'ふむふむ');
-}
 
 // ── Voice recognition ────────────────────────────────
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
