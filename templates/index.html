@@ -86,7 +86,6 @@
 <div id="app">
   <canvas id="robot-canvas"></canvas>
   <div id="status-bar">
-    <div id="status-dot" class="sleeping"></div>
     <span id="mic-label"></span>
     <span id="reset-hint" title="リセット">⟳</span>
   </div>
@@ -316,7 +315,7 @@ class EyeRenderer {
 // APP CONTROLLER
 // ════════════════════════════════════════════════════
 const canvas    = document.getElementById('robot-canvas');
-const statusDt  = document.getElementById('status-dot');
+const statusDt  = { className: '' }; // ステータスドット削除済み（ダミー）
 const micLabel  = document.getElementById('mic-label');    // ⑨
 const resetHint = document.getElementById('reset-hint');
 
