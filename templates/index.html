@@ -5,20 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>LOOI Robot</title>
 <style>
-  /* ══════════════════════════════════════
-     BASE
-  ══════════════════════════════════════ */
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   :root {
-    --bg:       #020b12;
-    --bg2:      #0a1a26;
-    --accent:   #00d4ff;
-    --accent2:  #00ffcc;
-    --text:     #cce8f4;
-    --muted:    #4a7a99;
-    --danger:   #ff4455;
-    --radius:   16px;
+    --bg:    #020b12;
+    --bg2:   #0a1a26;
+    --accent:#00d4ff;
+    --text:  #cce8f4;
+    --muted: #4a7a99;
   }
 
   html, body {
@@ -27,209 +21,91 @@
     color: var(--text);
     font-family: 'Segoe UI', 'Noto Sans JP', sans-serif;
     overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    display: flex; align-items: center; justify-content: center;
   }
 
-  /* ══════════════════════════════════════
-     APP LAYOUT
-  ══════════════════════════════════════ */
   #app {
-    width: 100%;
-    max-width: 480px;
-    height: 100vh;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 12px 16px 20px;
-    gap: 10px;
-    position: relative;
+    width: 100%; max-width: 480px; height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 16px 16px 24px; gap: 12px;
   }
 
-  @keyframes pulse { 0%,100%{ opacity:.4; transform:scale(1); } 50%{ opacity:1; transform:scale(1.3); } }
-
-  /* ══════════════════════════════════════
-     SPEECH BUBBLE
-  ══════════════════════════════════════ */
+  /* ── 吹き出し ── */
   #bubble-wrap {
-    width: 100%;
-    min-height: 56px;
-    flex-shrink: 0;
-    display: flex;
-    justify-content: center;
-    align-items: flex-end;
+    width: 100%; min-height: 60px; flex-shrink: 0;
+    display: flex; justify-content: center; align-items: flex-end;
   }
   #speech-bubble {
     background: var(--bg2);
     border: 1px solid rgba(0,212,255,.3);
     border-radius: 18px 18px 18px 4px;
-    padding: 12px 18px;
-    font-size: 15px;
-    line-height: 1.6;
-    max-width: 90%;
-    position: relative;
+    padding: 12px 18px; font-size: 15px; line-height: 1.6;
+    max-width: 90%; position: relative;
     box-shadow: 0 0 20px rgba(0,212,255,.1);
     transition: opacity .3s, transform .3s;
-    opacity: 0;
-    transform: translateY(6px);
-    pointer-events: none;
+    opacity: 0; transform: translateY(6px); pointer-events: none;
   }
-  #speech-bubble.show {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-  }
+  #speech-bubble.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
   #speech-bubble::after {
-    content: '';
-    position: absolute;
-    bottom: -8px; left: 24px;
-    width: 0; height: 0;
+    content: ''; position: absolute;
+    bottom: -8px; left: 24px; width: 0; height: 0;
     border-left: 8px solid transparent;
     border-right: 8px solid transparent;
     border-top: 8px solid rgba(0,212,255,.3);
   }
 
-  /* ══════════════════════════════════════
-     CANVAS (ROBOT FACE)
-  ══════════════════════════════════════ */
+  /* ── キャンバス ── */
   #robot-canvas {
-    flex-shrink: 0;
-    cursor: crosshair;
+    flex-shrink: 0; cursor: crosshair;
     border-radius: 50%;
-    filter: drop-shadow(0 0 24px rgba(0,212,255,.25));
+    filter: drop-shadow(0 0 28px rgba(0,212,255,.22));
     touch-action: none;
   }
 
-  /* ══════════════════════════════════════
-     STATUS
-  ══════════════════════════════════════ */
+  /* ── ステータス ── */
   #status-bar {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 12px;
-    color: var(--muted);
-    flex-shrink: 0;
-    min-height: 20px;
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; color: var(--muted); flex-shrink: 0; min-height: 20px;
   }
   #status-dot {
     width: 7px; height: 7px; border-radius: 50%;
-    background: var(--muted);
-    transition: background .3s;
+    background: var(--muted); transition: background .3s;
   }
-  #status-dot.listening { background: #ff4488; animation: pulse .8s infinite; }
-  #status-dot.thinking  { background: #ffaa00; animation: pulse 1.2s infinite; }
-  #status-dot.speaking  { background: var(--accent2); animation: pulse .6s infinite; }
-  #status-dot.ready     { background: var(--accent); }
+  @keyframes blink { 0%,100%{opacity:.4;transform:scale(1)} 50%{opacity:1;transform:scale(1.3)} }
+  #status-dot.listening { background:#ff4488; animation:blink .8s infinite; }
+  #status-dot.thinking  { background:#ffaa00; animation:blink 1.2s infinite; }
+  #status-dot.speaking  { background:var(--accent); animation:blink .6s infinite; }
+  #status-dot.ready     { background:var(--accent); }
 
-  /* ══════════════════════════════════════
-     INPUT AREA
-  ══════════════════════════════════════ */
-  #input-area {
-    width: 100%;
-    flex-shrink: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  /* ══════════════════════════════════════
-     BUTTONS
-  ══════════════════════════════════════ */
-  .btn {
-    border: none;
-    border-radius: 12px;
-    cursor: pointer;
-    font-weight: 700;
-    transition: all .15s;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 6px;
-    user-select: none;
-    -webkit-user-select: none;
-  }
-  .btn:active { transform: scale(.94); }
-
-  #btn-row {
-    display: flex;
-    gap: 10px;
-    justify-content: center;
-  }
+  /* ── ボタン ── */
+  #btn-row { display:flex; gap:14px; justify-content:center; }
 
   .round-btn {
-    width: 52px; height: 52px;
-    border-radius: 50%;
-    font-size: 22px;
-    border: 2px solid rgba(0,212,255,.2);
-    background: var(--bg2);
-    color: var(--text);
-    cursor: pointer;
-    transition: all .2s;
-    display: flex; align-items: center; justify-content: center;
+    width:60px; height:60px; border-radius:50%; font-size:24px;
+    border:2px solid rgba(0,212,255,.2); background:var(--bg2);
+    color:var(--text); cursor:pointer; transition:all .2s;
+    display:flex; align-items:center; justify-content:center;
+    user-select:none; -webkit-user-select:none;
   }
-  .round-btn:hover { border-color: var(--accent); background: rgba(0,212,255,.08); }
-  .round-btn:active { transform: scale(.92); }
+  .round-btn:hover  { border-color:var(--accent); background:rgba(0,212,255,.08); }
+  .round-btn:active { transform:scale(.92); }
 
   #mic-btn {
-    width: 64px; height: 64px;
-    font-size: 26px;
-    border: 2px solid rgba(255,68,136,.3);
-    background: rgba(255,68,136,.08);
-    color: #ff88bb;
+    width:70px; height:70px; font-size:28px;
+    border-color:rgba(255,68,136,.35);
+    background:rgba(255,68,136,.08); color:#ff88bb;
   }
-  #mic-btn.listening {
-    border-color: #ff4488;
-    background: rgba(255,68,136,.2);
-    box-shadow: 0 0 20px rgba(255,68,136,.4);
-    animation: mic-pulse .6s ease infinite;
-  }
-  #mic-btn.continuous {
-    border-color: #ff4488;
-    background: rgba(255,68,136,.15);
-    box-shadow: 0 0 0 0 rgba(255,68,136,.5);
-    animation: continuous-ring 1.6s ease infinite;
-  }
-  #mic-btn.continuous.listening {
-    animation: mic-pulse .6s ease infinite, continuous-ring 1.6s ease infinite;
-  }
-  #mic-btn:hover { border-color: #ff4488; background: rgba(255,68,136,.15); }
-  @keyframes mic-pulse { 0%,100%{ box-shadow: 0 0 20px rgba(255,68,136,.4); } 50%{ box-shadow: 0 0 32px rgba(255,68,136,.7); } }
-  @keyframes continuous-ring { 0%{ box-shadow: 0 0 0 0 rgba(255,68,136,.5); } 70%{ box-shadow: 0 0 0 10px rgba(255,68,136,0); } 100%{ box-shadow: 0 0 0 0 rgba(255,68,136,0); } }
+  #mic-btn:hover { border-color:#ff4488; background:rgba(255,68,136,.16); }
+  @keyframes mic-pulse { 0%,100%{box-shadow:0 0 20px rgba(255,68,136,.4)} 50%{box-shadow:0 0 36px rgba(255,68,136,.75)} }
+  @keyframes cont-ring  { 0%{box-shadow:0 0 0 0 rgba(255,68,136,.6)} 70%{box-shadow:0 0 0 12px rgba(255,68,136,0)} 100%{box-shadow:0 0 0 0 rgba(255,68,136,0)} }
+  #mic-btn.listening { border-color:#ff4488; background:rgba(255,68,136,.22); animation:mic-pulse .6s infinite; }
+  #mic-btn.continuous { border-color:#ff4488; background:rgba(255,68,136,.14); animation:cont-ring 1.5s infinite; }
+  #mic-btn.continuous.listening { animation:mic-pulse .6s infinite, cont-ring 1.5s infinite; }
 
-  #emotion-row {
-    display: flex;
-    gap: 8px;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  .emo-btn {
-    padding: 6px 14px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-    border: 1px solid rgba(0,212,255,.2);
-    background: var(--bg2);
-    color: var(--muted);
-    cursor: pointer;
-    transition: all .2s;
-  }
-  .emo-btn:hover { border-color: var(--accent); color: var(--accent); }
-  .emo-btn.active { border-color: var(--accent); background: rgba(0,212,255,.12); color: var(--accent); }
-
-  /* ══════════════════════════════════════
-     SCAN LINE OVERLAY
-  ══════════════════════════════════════ */
+  /* ── スキャンライン ── */
   #scan-overlay {
-    position: fixed; inset: 0; pointer-events: none; z-index: 999;
-    background: repeating-linear-gradient(
-      0deg,
-      transparent,
-      transparent 3px,
-      rgba(0,212,255,.018) 3px,
-      rgba(0,212,255,.018) 4px
-    );
+    position:fixed; inset:0; pointer-events:none; z-index:999;
+    background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,212,255,.016) 3px,rgba(0,212,255,.016) 4px);
   }
 </style>
 </head>
@@ -237,85 +113,60 @@
 <div id="scan-overlay"></div>
 
 <div id="app">
-  <!-- 吹き出し -->
   <div id="bubble-wrap">
-    <div id="speech-bubble">
-      <span id="bubble-text"></span>
-    </div>
+    <div id="speech-bubble"><span id="bubble-text"></span></div>
   </div>
 
-  <!-- 顔 -->
   <canvas id="robot-canvas"></canvas>
 
-  <!-- ステータス -->
   <div id="status-bar">
     <div id="status-dot" class="ready"></div>
     <span id="status-text">待機中</span>
   </div>
 
-  <!-- 操作ボタン -->
-  <div id="input-area">
-    <div id="btn-row">
-      <button id="mic-btn" class="round-btn btn" title="タップして話す（長押しで連続モード）">🎤</button>
-      <button id="reset-btn" class="round-btn btn" title="会話リセット">🔄</button>
-    </div>
+  <div id="btn-row">
+    <button id="mic-btn" class="round-btn" title="話す（長押しで連続モード）">🎤</button>
+    <button id="reset-btn" class="round-btn" title="リセット">🔄</button>
   </div>
 </div>
 
 <script>
 // ════════════════════════════════════════════════════
-// ROBOT RENDERER  ─ Canvas 2D
+// ROBOT RENDERER  ─ 目だけで感情表現
 // ════════════════════════════════════════════════════
 class RobotRenderer {
   constructor(canvas) {
-    this.canvas = canvas;
-    this.ctx    = canvas.getContext('2d');
-
-    // State
-    this.emotion      = 'idle';
-    this.action       = 'none';
-    this.blinkAmt     = 0;   // 0=open 1=closed
-    this.blinking     = false;
-    this.blinkTimer   = 0;
-    this.blinkNext    = this._rndBlink();
-    this.pupilX       = 0;   // current  -1..1
-    this.pupilY       = 0;
-    this.targetPX     = 0;   // target
-    this.targetPY     = 0;
-    this.bobPhase     = 0;
-    this.bobY         = 0;
-    this.headTilt     = 0;
-    this.headTiltTgt  = 0;
-    this.actionTimer  = 0;
-    this.lastTS       = 0;
-    this.talking      = false;
-    this.talkPhase    = 0;
-
+    this.canvas   = canvas;
+    this.ctx      = canvas.getContext('2d');
+    this.emotion  = 'idle';
+    this.action   = 'none';
+    this.blinkAmt = 0;
+    this.blinking = false;
+    this.blinkTimer = 0;
+    this.blinkNext  = this._rndBlink();
+    this.pupilX = 0; this.pupilY = 0;
+    this.targetPX = 0; this.targetPY = 0;
+    this.bobPhase = 0; this.bobY = 0;
+    this.headTilt = 0; this.headTiltTgt = 0;
+    this.actionTimer = 0;
+    this.lastTS  = 0;
+    this.talking = false; this.talkPhase = 0;
     this.resize();
     requestAnimationFrame(this._loop.bind(this));
   }
 
   resize() {
-    const size = Math.min(window.innerWidth * 0.85, 340);
-    this.canvas.width  = size;
-    this.canvas.height = size;
-    this.W = size;
-    this.H = size;
-    this.CX = size / 2;
-    this.CY = size / 2;
+    const size = Math.min(window.innerWidth * 0.88, 360);
+    this.canvas.width = this.canvas.height = size;
+    this.W = size; this.CX = size / 2; this.CY = size / 2;
   }
 
-  // ── Public API ──────────────────────────────
-  setEmotion(e)  { this.emotion = e; }
-  setAction(a)   {
-    if (a === 'none') return;
-    this.action = a; this.actionTimer = 0;
-  }
-  setTalking(v)  { this.talking = v; }
-  gazeAt(nx, ny) { this.targetPX = nx; this.targetPY = ny; }
-  blink()        { if (!this.blinking) { this.blinking = true; this.blinkAmt = 0; } }
+  setEmotion(e) { this.emotion = e; }
+  setAction(a)  { if (a === 'none') return; this.action = a; this.actionTimer = 0; }
+  setTalking(v) { this.talking = v; }
+  gazeAt(nx, ny){ this.targetPX = nx; this.targetPY = ny; }
+  blink()       { if (!this.blinking) { this.blinking = true; this.blinkAmt = 0; } }
 
-  // ── Internal ───────────────────────────────
   _rndBlink() { return 2500 + Math.random() * 5000; }
 
   _loop(ts) {
@@ -328,16 +179,10 @@ class RobotRenderer {
 
   _update(dt) {
     const lerp = 1 - Math.exp(-9 * dt);
-
-    // Smooth pupil
     this.pupilX += (this.targetPX - this.pupilX) * lerp;
     this.pupilY += (this.targetPY - this.pupilY) * lerp;
-
-    // Bob
     this.bobPhase += dt * (this.talking ? 3.5 : 1.2);
     this.bobY = Math.sin(this.bobPhase) * (this.W * 0.012);
-
-    // Blink
     this.blinkTimer += dt * 1000;
     if (!this.blinking && this.blinkTimer > this.blinkNext) {
       this.blinking = true; this.blinkAmt = 0;
@@ -349,347 +194,205 @@ class RobotRenderer {
     } else {
       this.blinkAmt = Math.max(0, this.blinkAmt - dt * 10);
     }
-
-    // Action
     if (this.action !== 'none') {
       this.actionTimer += dt;
       if (this.action === 'nod') {
         this.headTiltTgt = Math.sin(this.actionTimer * Math.PI / 0.3) * 0.12;
         if (this.actionTimer > 0.7) { this.action = 'none'; this.headTiltTgt = 0; }
       } else if (this.action === 'shake') {
-        this.headTiltTgt = Math.sin(this.actionTimer * Math.PI * 3) * 0.1;
+        this.headTiltTgt = Math.sin(this.actionTimer * Math.PI * 3) * 0.10;
         if (this.actionTimer > 0.9) { this.action = 'none'; this.headTiltTgt = 0; }
       }
     }
     this.headTilt += (this.headTiltTgt - this.headTilt) * lerp;
-
-    // Talk mouth phase
     if (this.talking) this.talkPhase += dt * 12;
   }
 
+  // ── 描画 ────────────────────────────────────────────
   _render() {
     const ctx = this.ctx;
-    const { W, H, CX, CY } = this;
-    ctx.clearRect(0, 0, W, H);
+    const { W, CX, CY } = this;
+    ctx.clearRect(0, 0, W, W);
     ctx.save();
     ctx.translate(CX, CY + this.bobY);
     ctx.rotate(this.headTilt);
     ctx.translate(-CX, -(CY + this.bobY));
     const cy = CY + this.bobY;
-    this._drawCircleBg(ctx, CX, cy);
-    this._drawHair(ctx, CX, cy);
-    this._drawFaceSkin(ctx, CX, cy);
+    this._drawFace(ctx, CX, cy);
     this._drawEyes(ctx, CX, cy);
-    this._drawBrows(ctx, CX, cy);
-    this._drawNose(ctx, CX, cy);
-    this._drawMouth(ctx, CX, cy);
-    this._drawCheeks(ctx, CX, cy);
     this._drawRing(ctx, CX, cy);
     ctx.restore();
   }
 
-  _drawCircleBg(ctx, cx, cy) {
-    const r  = this.W * 0.42;
+  // ── 顔（シンプルな暗い円） ─────────────────────────
+  _drawFace(ctx, cx, cy) {
+    const W = this.W, r = W * 0.42;
     const ec = this._emotionColor();
-    const gg = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r * 1.25);
-    gg.addColorStop(0, ec.halo1);
+    // 外側グロー
+    const gg = ctx.createRadialGradient(cx, cy, r * 0.5, cx, cy, r * 1.2);
+    gg.addColorStop(0, ec.halo);
     gg.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.beginPath(); ctx.arc(cx, cy, r * 1.25, 0, Math.PI * 2);
+    ctx.beginPath(); ctx.arc(cx, cy, r * 1.2, 0, Math.PI * 2);
     ctx.fillStyle = gg; ctx.fill();
+    // 顔本体
+    const bg = ctx.createRadialGradient(cx, cy - r * .22, 0, cx, cy, r);
+    bg.addColorStop(0, '#161a2a');
+    bg.addColorStop(1, '#050810');
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
-    ctx.fillStyle = '#04060f'; ctx.fill();
+    ctx.fillStyle = bg; ctx.fill();
   }
 
-  _drawHair(ctx, cx, cy) {
-    const W = this.W, r = W * 0.42;
+  // ── 両目 ────────────────────────────────────────────
+  _drawEyes(ctx, cx, cy) {
+    const W = this.W, em = this.emotion;
+    const sp  = W * 0.188;
+    const ey  = cy - W * 0.040;
+    const hw  = W * 0.148;
+    const bSY = 1 - this.blinkAmt * 0.98;
+    this._drawOneEye(ctx, cx - sp, ey, hw, bSY, em, false);
+    this._drawOneEye(ctx, cx + sp, ey, hw, bSY, em, true);
+  }
+
+  // ── 1つの目 ─────────────────────────────────────────
+  // u = 上まぶた高さ比率, d = 下まぶた高さ比率
+  // t = 傾き(rad), ir = 虹彩サイズ比率
+  _drawOneEye(ctx, x, y, hw, blinkSY, em, isRight) {
+    const W  = this.W;
+    const ec = this._emotionColor();
+    const hh = hw * 0.62;
+
+    // 感情別パラメータ
+    const S = {
+      idle:      { u:0.70, d:0.32, t:0,                   ir:0.76 },
+      happy:     null,   // 特殊: ◡ アーク
+      excited:   { u:0.96, d:0.74, t:0,                   ir:0.90 },
+      thinking:  { u:0.52, d:0.22, t:isRight?-0.20:0.20,  ir:0.64 },
+      sad:       { u:0.50, d:0.24, t:isRight?-0.28:0.28,  ir:0.62 },
+      surprised: { u:1.05, d:0.86, t:0,                   ir:0.95 },
+      angry:     { u:0.30, d:0.18, t:isRight?0.36:-0.36,  ir:0.54 },
+    };
+    const s = S[em];
+
     ctx.save();
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.clip();
+    ctx.translate(x, y);
+    ctx.scale(1, blinkSY);
 
-    // Hair base fill
-    const hg = ctx.createLinearGradient(cx, cy - r, cx + W * 0.1, cy + r * 0.4);
-    hg.addColorStop(0,   '#1e1840');
-    hg.addColorStop(0.5, '#110e2a');
-    hg.addColorStop(1,   '#07060f');
-    ctx.beginPath(); ctx.arc(cx, cy - W * 0.06, r, 0, Math.PI * 2);
-    ctx.fillStyle = hg; ctx.fill();
+    // ── happy: 閉じた笑い目 (◡) ─────────────────────
+    if (!s) {
+      ctx.rotate(0);
+      ctx.beginPath();
+      ctx.moveTo(-hw, 0);
+      ctx.quadraticCurveTo(0, -hh * 0.65, hw, 0);
+      ctx.strokeStyle = ec.iris1;
+      ctx.lineWidth = W * 0.030;
+      ctx.lineCap = 'round';
+      ctx.shadowColor = ec.iris1; ctx.shadowBlur = 18;
+      ctx.stroke(); ctx.shadowBlur = 0;
+      ctx.restore();
+      return;
+    }
 
-    // Left side hair strand
+    ctx.rotate(s.t);
+
+    // ── 目の形（ベジェ曲線） ─────────────────────────
     ctx.beginPath();
-    ctx.moveTo(cx - W * 0.24, cy - W * 0.32);
-    ctx.bezierCurveTo(cx - W * 0.40, cy - W * 0.05, cx - W * 0.42, cy + W * 0.14, cx - W * 0.32, cy + W * 0.36);
-    ctx.bezierCurveTo(cx - W * 0.28, cy + W * 0.42, cx - W * 0.20, cy + W * 0.38, cx - W * 0.18, cy + W * 0.24);
-    ctx.bezierCurveTo(cx - W * 0.22, cy + W * 0.08, cx - W * 0.20, cy - W * 0.08, cx - W * 0.16, cy - W * 0.28);
-    ctx.fillStyle = '#0e0b22'; ctx.fill();
+    ctx.moveTo(-hw, 0);
+    ctx.quadraticCurveTo(0, -hh * s.u,  hw, 0);  // 上まぶた
+    ctx.quadraticCurveTo(0,  hh * s.d, -hw, 0);  // 下まぶた
+    ctx.closePath();
 
-    // Right side hair strand
-    ctx.beginPath();
-    ctx.moveTo(cx + W * 0.24, cy - W * 0.32);
-    ctx.bezierCurveTo(cx + W * 0.40, cy - W * 0.05, cx + W * 0.42, cy + W * 0.14, cx + W * 0.32, cy + W * 0.36);
-    ctx.bezierCurveTo(cx + W * 0.28, cy + W * 0.42, cx + W * 0.20, cy + W * 0.38, cx + W * 0.18, cy + W * 0.24);
-    ctx.bezierCurveTo(cx + W * 0.22, cy + W * 0.08, cx + W * 0.20, cy - W * 0.08, cx + W * 0.16, cy - W * 0.28);
-    ctx.fillStyle = '#0e0b22'; ctx.fill();
+    // 白目
+    ctx.fillStyle = '#ddeeff';
+    ctx.fill();
 
-    // Bangs
+    // 虹彩クリップ
+    ctx.save();
     ctx.beginPath();
-    ctx.moveTo(cx - r, cy - W * 0.08);
-    ctx.bezierCurveTo(cx - W * 0.32, cy - W * 0.44, cx - W * 0.10, cy - W * 0.46, cx, cy - W * 0.44);
-    ctx.bezierCurveTo(cx + W * 0.10, cy - W * 0.46, cx + W * 0.32, cy - W * 0.44, cx + r, cy - W * 0.08);
-    ctx.bezierCurveTo(cx + r, cy - W * 0.14, cx + W * 0.20, cy - W * 0.24, cx + W * 0.10, cy - W * 0.24);
-    ctx.bezierCurveTo(cx + W * 0.04, cy - W * 0.24, cx, cy - W * 0.24, cx - W * 0.04, cy - W * 0.24);
-    ctx.bezierCurveTo(cx - W * 0.10, cy - W * 0.24, cx - W * 0.20, cy - W * 0.24, cx - r, cy - W * 0.14);
-    ctx.fillStyle = '#16133a'; ctx.fill();
+    ctx.moveTo(-hw, 0);
+    ctx.quadraticCurveTo(0, -hh * s.u,  hw, 0);
+    ctx.quadraticCurveTo(0,  hh * s.d, -hw, 0);
+    ctx.closePath();
+    ctx.clip();
 
-    // Hair shimmer highlight
+    const ir   = hh * s.ir;
+    const pOff = ir * 0.22;
+    const px = em === 'thinking' ? (isRight ? pOff*.5 : -pOff*.5) : this.pupilX * pOff;
+    const py = this.pupilY * pOff * 0.4;
+
+    if (ir > 2) {
+      // 虹彩
+      const ig = ctx.createRadialGradient(px-ir*.28, py-ir*.28, 0, px, py, ir);
+      ig.addColorStop(0,   ec.iris1);
+      ig.addColorStop(0.65,ec.iris2);
+      ig.addColorStop(1,   '#000a14');
+      ctx.beginPath(); ctx.arc(px, py, ir, 0, Math.PI * 2);
+      ctx.fillStyle = ig;
+      ctx.shadowColor = ec.iris1; ctx.shadowBlur = 12;
+      ctx.fill(); ctx.shadowBlur = 0;
+      // 瞳孔
+      const pr = ir * 0.34;
+      ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2);
+      ctx.fillStyle = '#000810'; ctx.fill();
+      // ハイライト
+      ctx.beginPath(); ctx.arc(px-pr*.42, py-pr*.42, pr*.30, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.fill();
+      ctx.beginPath(); ctx.arc(px+pr*.18, py-pr*.10, pr*.12, 0, Math.PI*2);
+      ctx.fillStyle = 'rgba(255,255,255,.50)'; ctx.fill();
+      // excited キラキラ
+      if (em === 'excited') {
+        for (let i = 0; i < 4; i++) {
+          const a = (i/4)*Math.PI*2 + this.bobPhase;
+          ctx.beginPath(); ctx.arc(px+Math.cos(a)*ir*.84, py+Math.sin(a)*ir*.84, 2.5, 0, Math.PI*2);
+          ctx.fillStyle = 'rgba(255,255,160,.85)'; ctx.fill();
+        }
+      }
+    }
+    ctx.restore(); // クリップ解除
+
+    // 上まぶたライン
     ctx.beginPath();
-    ctx.ellipse(cx - W * 0.04, cy - W * 0.30, W * 0.09, W * 0.035, -0.25, 0, Math.PI * 2);
-    const sh = ctx.createRadialGradient(cx - W * 0.04, cy - W * 0.30, 0, cx - W * 0.04, cy - W * 0.30, W * 0.09);
-    sh.addColorStop(0, 'rgba(120,100,220,0.28)');
-    sh.addColorStop(1, 'rgba(80,60,160,0)');
-    ctx.fillStyle = sh; ctx.fill();
+    ctx.moveTo(-hw, 0);
+    ctx.quadraticCurveTo(0, -hh * s.u, hw, 0);
+    ctx.strokeStyle = em === 'angry' ? '#ff3311' : '#001830';
+    ctx.lineWidth = W * 0.022; ctx.lineCap = 'round';
+    ctx.shadowColor = em === 'angry' ? '#ff3311' : ec.border;
+    ctx.shadowBlur = 4; ctx.stroke(); ctx.shadowBlur = 0;
+
+    // 下まぶたライン（控えめ）
+    ctx.beginPath();
+    ctx.moveTo(-hw, 0);
+    ctx.quadraticCurveTo(0, hh * s.d, hw, 0);
+    ctx.strokeStyle = 'rgba(0,18,36,0.30)';
+    ctx.lineWidth = W * 0.008;
+    ctx.stroke();
 
     ctx.restore();
   }
 
-  _drawFaceSkin(ctx, cx, cy) {
-    const W = this.W;
-    const fg = ctx.createRadialGradient(cx - W * 0.05, cy - W * 0.16, 0, cx, cy + W * 0.04, W * 0.40);
-    fg.addColorStop(0,   '#faeee8');
-    fg.addColorStop(0.55,'#f2e0d6');
-    fg.addColorStop(1,   '#e8d0c4');
-    ctx.beginPath();
-    ctx.ellipse(cx, cy + W * 0.02, W * 0.27, W * 0.355, 0, 0, Math.PI * 2);
-    ctx.fillStyle = fg;
-    ctx.shadowColor = 'rgba(0,0,0,0.35)'; ctx.shadowBlur = 10;
-    ctx.fill(); ctx.shadowBlur = 0;
-    // Soft temple shading
-    ['left','right'].forEach(side => {
-      const sx = side === 'left' ? cx - W * 0.20 : cx + W * 0.20;
-      const sg = ctx.createRadialGradient(sx, cy - W * 0.08, 0, sx, cy - W * 0.08, W * 0.12);
-      sg.addColorStop(0, 'rgba(160,100,90,0.12)');
-      sg.addColorStop(1, 'rgba(160,100,90,0)');
-      ctx.beginPath(); ctx.ellipse(sx, cy - W * 0.08, W * 0.12, W * 0.10, 0, 0, Math.PI * 2);
-      ctx.fillStyle = sg; ctx.fill();
-    });
-  }
-
-  _drawEyes(ctx, cx, cy) {
-    const W  = this.W;
-    const em = this.emotion;
-    const sp  = W * 0.148;
-    const eyeY = cy - W * 0.075;
-    const rx = W * 0.110, ry = W * 0.076;
-    const blinkSY = 1 - this.blinkAmt * 0.98;
-    const scaleMap = { idle:0.92, happy:0.62, excited:1.18, thinking:0.70, sad:0.72, surprised:1.28, angry:0.55 };
-    const finalSY  = (scaleMap[em] ?? 1) * blinkSY;
-    this._drawOneEye(ctx, cx - sp, eyeY, rx, ry, finalSY, em, false);
-    this._drawOneEye(ctx, cx + sp, eyeY, rx, ry, finalSY, em, true);
-  }
-
-  _drawOneEye(ctx, x, y, rx, ry, scY, em, isRight) {
-    const W  = this.W;
-    const ec = this._emotionColor();
-    ctx.save();
-    ctx.translate(x, y); ctx.scale(1, scY); ctx.translate(-x, -y);
-
-    // Eye white
-    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
-    ctx.fillStyle = '#f8f2f0';
-    ctx.shadowColor = 'rgba(0,0,0,0.2)'; ctx.shadowBlur = 4;
-    ctx.fill(); ctx.shadowBlur = 0;
-
-    // Clip for iris
-    ctx.save();
-    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.clip();
-
-    const ir   = ry * 0.88;
-    const pOff = ry * 0.22;
-    const pxOff = em === 'thinking' ? -pOff * 0.6 : this.pupilX * pOff;
-    const pyOff = em === 'sad' ? pOff * 0.35 : this.pupilY * pOff;
-    const px = x + pxOff, py = y + pyOff;
-
-    const ig = ctx.createRadialGradient(px - ir * .3, py - ir * .3, 0, px, py, ir);
-    ig.addColorStop(0,   ec.iris1);
-    ig.addColorStop(0.65,ec.iris2);
-    ig.addColorStop(1,   '#000a12');
-    ctx.beginPath(); ctx.arc(px, py, ir, 0, Math.PI * 2);
-    ctx.fillStyle = ig; ctx.shadowColor = ec.iris1; ctx.shadowBlur = 8;
-    ctx.fill(); ctx.shadowBlur = 0;
-
-    // Pupil
-    const pr = ir * 0.38;
-    ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2);
-    ctx.fillStyle = '#000810'; ctx.fill();
-    // Highlights
-    ctx.beginPath(); ctx.arc(px - pr * .42, py - pr * .42, pr * .32, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(px + pr * .20, py - pr * .10, pr * .14, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,255,255,.50)'; ctx.fill();
-    // Excited sparkles
-    if (em === 'excited') {
-      for (let i = 0; i < 4; i++) {
-        const a = (i / 4) * Math.PI * 2 + this.bobPhase;
-        ctx.beginPath(); ctx.arc(px + Math.cos(a) * ir * .84, py + Math.sin(a) * ir * .84, 2, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,255,160,.8)'; ctx.fill();
-      }
-    }
-    // Happy lower fill
-    if (em === 'happy') {
-      ctx.beginPath();
-      ctx.ellipse(x, y + ry * 0.82, rx * .98, ry * .44, 0, 0, Math.PI);
-      ctx.fillStyle = '#f8f2f0'; ctx.fill();
-    }
-    ctx.restore(); // unclip
-
-    // Upper eyelid thick line (lashes effect)
-    ctx.beginPath();
-    ctx.ellipse(x, y, rx * 1.01, ry * 1.01, 0, Math.PI * 0.88, Math.PI * 0.12, true);
-    ctx.strokeStyle = em === 'angry' ? '#881100' : '#180620';
-    ctx.lineWidth = W * 0.022; ctx.lineCap = 'round';
-    ctx.stroke();
-    // Individual lash tips
-    const lashData = isRight
-      ? [{a:Math.PI*1.10,l:W*.022,c:-.28},{a:Math.PI*1.04,l:W*.026,c:-.16},{a:Math.PI*0.96,l:W*.026,c:.16},{a:Math.PI*0.90,l:W*.022,c:.28}]
-      : [{a:Math.PI*1.10,l:W*.022,c:.28},{a:Math.PI*1.04,l:W*.026,c:.16},{a:Math.PI*0.96,l:W*.026,c:-.16},{a:Math.PI*0.90,l:W*.022,c:-.28}];
-    lashData.forEach(({a, l, c}) => {
-      const lx = x + Math.cos(a) * rx, ly = y + Math.sin(a) * ry;
-      const ex = lx + Math.cos(a + c * .5) * l, ey = ly + Math.sin(a + c * .5) * l - l * .35;
-      ctx.beginPath(); ctx.moveTo(lx, ly);
-      ctx.quadraticCurveTo(lx + c * W * .012, ly - l * .5, ex, ey);
-      ctx.strokeStyle = '#180620'; ctx.lineWidth = W * .006; ctx.lineCap = 'round'; ctx.stroke();
-    });
-    // Lower lash line (thin)
-    ctx.beginPath();
-    ctx.ellipse(x, y, rx * 1.01, ry * 1.01, 0, Math.PI * 0.08, Math.PI * 0.92, false);
-    ctx.strokeStyle = 'rgba(80,40,60,0.22)'; ctx.lineWidth = W * 0.007; ctx.stroke();
-
-    ctx.restore(); // unscale
-  }
-
-  _drawBrows(ctx, cx, cy) {
-    const W  = this.W;
-    const em = this.emotion;
-    const sp  = W * 0.148;
-    const by  = cy - W * 0.163;
-    const bw  = W * 0.105;
-    const tiltMap = { idle:0, happy:-.04, excited:-.10, thinking:-.14, sad:.22, surprised:-.14, angry:.30 };
-    const tilt = tiltMap[em] ?? 0;
-    const col  = em === 'angry' ? '#aa1800' : '#1c0a26';
-
-    const drawBrow = (bx, t) => {
-      ctx.save();
-      ctx.translate(bx, by); ctx.rotate(t);
-      ctx.beginPath();
-      ctx.moveTo(-bw, W * .014);
-      ctx.quadraticCurveTo(-bw * .15, -W * .018, bw * .85, W * .006);
-      ctx.strokeStyle = col; ctx.lineWidth = W * .014; ctx.lineCap = 'round';
-      ctx.shadowColor = col; ctx.shadowBlur = 3; ctx.stroke(); ctx.shadowBlur = 0;
-      ctx.restore();
-    };
-    drawBrow(cx - sp, -tilt);
-    drawBrow(cx + sp,  tilt);
-    // Raised inner brow for thinking
-    if (em === 'thinking') {
-      ctx.save();
-      ctx.translate(cx - sp, by - W * .010); ctx.rotate(.14);
-      ctx.beginPath(); ctx.moveTo(-bw * .3, 0); ctx.lineTo(bw * .3, 0);
-      ctx.strokeStyle = col; ctx.lineWidth = W * .008; ctx.lineCap = 'round'; ctx.stroke();
-      ctx.restore();
-    }
-  }
-
-  _drawNose(ctx, cx, cy) {
-    const W = this.W;
-    // Subtle nose tip shadow
-    const ng = ctx.createRadialGradient(cx, cy + W * .07, 0, cx, cy + W * .07, W * .035);
-    ng.addColorStop(0, 'rgba(180,110,90,.22)');
-    ng.addColorStop(1, 'rgba(180,110,90,0)');
-    ctx.beginPath(); ctx.ellipse(cx, cy + W * .07, W * .035, W * .022, 0, 0, Math.PI * 2);
-    ctx.fillStyle = ng; ctx.fill();
-    // Nostrils
-    [-1, 1].forEach(s => {
-      ctx.beginPath();
-      ctx.ellipse(cx + s * W * .022, cy + W * .078, W * .010, W * .007, s * .4, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(140,80,70,.16)'; ctx.fill();
-    });
-  }
-
-  _drawMouth(ctx, cx, cy) {
-    const W  = this.W;
-    const em = this.emotion;
-    const my = cy + W * 0.188;
-    const mw = W * 0.095;
-
-    if (this.talking) {
-      const open = (Math.sin(this.talkPhase) * .5 + .5) * .34 + .07;
-      ctx.beginPath(); ctx.ellipse(cx, my, mw, W * open, 0, 0, Math.PI * 2);
-      ctx.fillStyle = '#b05868'; ctx.fill();
-      ctx.beginPath(); ctx.ellipse(cx, my + W * open * .22, mw * .78, W * open * .62, 0, 0, Math.PI * 2);
-      ctx.fillStyle = '#5a0f1e'; ctx.fill();
-      ctx.beginPath(); ctx.ellipse(cx, my - W * open * .38, mw, W * open * .32, 0, Math.PI, 0, false);
-      ctx.fillStyle = '#cc6878'; ctx.fill();
-      return;
-    }
-
-    if (em === 'surprised') {
-      ctx.beginPath(); ctx.ellipse(cx, my + W * .04, mw * .58, W * .072, 0, 0, Math.PI * 2);
-      ctx.fillStyle = '#501018'; ctx.fill();
-      ctx.strokeStyle = '#c06070'; ctx.lineWidth = W * .010; ctx.stroke();
-      return;
-    }
-
-    const smileMap = { idle:.04, happy:.20, excited:.24, thinking:-.02, sad:-.14, angry:-.10 };
-    const smile    = smileMap[em] ?? .04;
-    // Upper lip (M-shape)
-    ctx.beginPath();
-    ctx.moveTo(cx - mw, my);
-    ctx.bezierCurveTo(cx - mw * .48, my - W * .018, cx - mw * .14, my - W * .024, cx, my - W * .010);
-    ctx.bezierCurveTo(cx + mw * .14, my - W * .024, cx + mw * .48, my - W * .018, cx + mw, my);
-    ctx.bezierCurveTo(cx + mw * .68, my + W * smile, cx - mw * .68, my + W * smile, cx - mw, my);
-    ctx.fillStyle = '#c06878'; ctx.fill();
-    // Lip highlight
-    ctx.beginPath(); ctx.ellipse(cx, my + W * smile * .28, mw * .42, W * .007, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,180,190,.32)'; ctx.fill();
-    ctx.beginPath(); ctx.ellipse(cx, my - W * .012, mw * .20, W * .005, 0, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(255,210,210,.24)'; ctx.fill();
-  }
-
-  _drawCheeks(ctx, cx, cy) {
-    const W  = this.W;
-    const em = this.emotion;
-    if (!['happy','excited','surprised'].includes(em)) return;
-    const sp  = W * 0.148;
-    const a   = 0.16 + Math.sin(this.bobPhase * 2) * .04;
-    [cx - sp * 1.18, cx + sp * 1.18].forEach(bx => {
-      const cg = ctx.createRadialGradient(bx, cy + W * .06, 0, bx, cy + W * .06, W * .085);
-      cg.addColorStop(0, `rgba(255,110,140,${a})`);
-      cg.addColorStop(1, 'rgba(255,110,140,0)');
-      ctx.beginPath(); ctx.ellipse(bx, cy + W * .06, W * .085, W * .055, 0, 0, Math.PI * 2);
-      ctx.fillStyle = cg; ctx.fill();
-    });
-  }
-
+  // ── 外枠リング ──────────────────────────────────────
   _drawRing(ctx, cx, cy) {
     const r  = this.W * 0.42;
     const ec = this._emotionColor();
     ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2);
     ctx.strokeStyle = ec.border; ctx.lineWidth = 2.5;
-    ctx.shadowColor = ec.border; ctx.shadowBlur = 20;
+    ctx.shadowColor = ec.border; ctx.shadowBlur = 18;
     ctx.stroke(); ctx.shadowBlur = 0;
     ctx.beginPath(); ctx.arc(cx, cy, r * .88, 0, Math.PI * 2);
-    ctx.strokeStyle = 'rgba(0,212,255,.06)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,212,255,.05)'; ctx.lineWidth = 1; ctx.stroke();
   }
 
+  // ── 感情カラー ──────────────────────────────────────
   _emotionColor() {
-    const map = {
-      idle:      { border:'#00d4ff', halo1:'rgba(0,212,255,.07)',  iris1:'#00e5ff', iris2:'#004466' },
-      happy:     { border:'#00ffcc', halo1:'rgba(0,255,180,.09)',  iris1:'#00ffaa', iris2:'#006644' },
-      excited:   { border:'#aaff00', halo1:'rgba(160,255,0,.09)',  iris1:'#ccff44', iris2:'#446600' },
-      thinking:  { border:'#8888ff', halo1:'rgba(140,140,255,.07)',iris1:'#aaaaff', iris2:'#222266' },
-      sad:       { border:'#4488cc', halo1:'rgba(60,120,200,.07)', iris1:'#6699ee', iris2:'#112244' },
-      surprised: { border:'#ffcc00', halo1:'rgba(255,200,0,.09)',  iris1:'#ffdd55', iris2:'#664400' },
-      angry:     { border:'#ff4400', halo1:'rgba(255,80,0,.09)',   iris1:'#ff6633', iris2:'#660000' },
+    const m = {
+      idle:      { border:'#00d4ff', halo:'rgba(0,212,255,.07)',  iris1:'#00e5ff', iris2:'#004466' },
+      happy:     { border:'#00ffcc', halo:'rgba(0,255,180,.09)',  iris1:'#00ffaa', iris2:'#006644' },
+      excited:   { border:'#aaff00', halo:'rgba(160,255,0,.09)', iris1:'#ccff44', iris2:'#446600' },
+      thinking:  { border:'#8888ff', halo:'rgba(130,130,255,.07)',iris1:'#aaaaff', iris2:'#222266' },
+      sad:       { border:'#4488cc', halo:'rgba(60,120,200,.07)', iris1:'#6699ee', iris2:'#112244' },
+      surprised: { border:'#ffcc00', halo:'rgba(255,200,0,.09)', iris1:'#ffdd55', iris2:'#664400' },
+      angry:     { border:'#ff4400', halo:'rgba(255,80,0,.09)',  iris1:'#ff6633', iris2:'#660000' },
     };
-    return map[this.emotion] ?? map.idle;
+    return m[this.emotion] ?? m.idle;
   }
 }
 
@@ -705,105 +408,76 @@ const statusDt = document.getElementById('status-dot');
 const statusTx = document.getElementById('status-text');
 
 const robot = new RobotRenderer(canvas);
+let isBusy = false, recognition = null;
 
-let isBusy      = false;
-let recognition = null;
-
-// ── Pupil tracking (mouse + touch) ─────────────────
+// ── 視線追従 ────────────────────────────────────────
 function updateGaze(clientX, clientY) {
   const r = canvas.getBoundingClientRect();
-  const cx = r.left + r.width / 2;
-  const cy = r.top  + r.height / 2;
-  const dx = clientX - cx;
-  const dy = clientY - cy;
+  const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+  const dx = clientX - cx, dy = clientY - cy;
   const d  = Math.sqrt(dx*dx + dy*dy) || 1;
-  const maxD = r.width * 0.6;
-  const str = Math.min(1, d / maxD);
-  robot.gazeAt((dx / d) * str, (dy / d) * str);
+  const s  = Math.min(1, d / (r.width * 0.6));
+  robot.gazeAt((dx/d)*s, (dy/d)*s);
 }
 document.addEventListener('mousemove', e => updateGaze(e.clientX, e.clientY));
 document.addEventListener('touchmove', e => {
-  const t = e.touches[0];
-  updateGaze(t.clientX, t.clientY);
+  updateGaze(e.touches[0].clientX, e.touches[0].clientY);
 }, { passive: true });
 
-// ── Resize ──────────────────────────────────────────
 window.addEventListener('resize', () => robot.resize());
 
-// ── Status helpers ──────────────────────────────────
+// ── ステータス ──────────────────────────────────────
 function setStatus(state, label) {
   statusDt.className = state;
   statusTx.textContent = label;
 }
+function showBubble(text) { bubText.textContent = text; bubble.classList.add('show'); }
+function hideBubble()     { bubble.classList.remove('show'); }
 
-function showBubble(text) {
-  bubText.textContent = text;
-  bubble.classList.add('show');
-}
-function hideBubble() {
-  bubble.classList.remove('show');
-}
-
-// ── TTS（Edge TTS / ja-JP-NanamiNeural） ─────────────
+// ── TTS（Edge TTS / NanamiNeural） ──────────────────
 let currentAudio = null;
-
 function speak(text, onEnd) {
-  if (currentAudio) {
-    currentAudio.pause();
-    currentAudio = null;
-  }
-
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   fetch('/api/tts', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method:'POST', headers:{'Content-Type':'application/json'},
     body: JSON.stringify({ text }),
   })
-  .then(r => {
-    if (!r.ok) throw new Error('TTS failed');
-    return r.blob();
-  })
+  .then(r => { if (!r.ok) throw new Error(); return r.blob(); })
   .then(blob => {
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     currentAudio = audio;
-
-    audio.onplay  = () => { robot.setTalking(true);  isSpeaking = true; };
+    audio.onplay  = () => { robot.setTalking(true); };
     audio.onended = () => {
-      robot.setTalking(false); isSpeaking = false;
+      robot.setTalking(false);
       URL.revokeObjectURL(url); currentAudio = null;
       onEnd?.();
     };
     audio.onerror = () => {
-      robot.setTalking(false); isSpeaking = false;
+      robot.setTalking(false);
       URL.revokeObjectURL(url); currentAudio = null;
       onEnd?.();
     };
     audio.play().catch(() => { robot.setTalking(false); onEnd?.(); });
   })
-  .catch(() => { robot.setTalking(false); isSpeaking = false; onEnd?.(); });
+  .catch(() => { robot.setTalking(false); onEnd?.(); });
 }
 
-// ── Send message ─────────────────────────────────────
+// ── メッセージ送信 ──────────────────────────────────
 async function sendMessage(text) {
   if (isBusy || !text.trim()) return;
   isBusy = true;
-
   setStatus('thinking', '考え中…');
   robot.setEmotion('thinking');
-  robot.setAction('none');
-
   try {
     const res  = await fetch('/api/chat', {
-      method:  'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ message: text }),
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ message: text }),
     });
     const data = await res.json();
-
     robot.setEmotion(data.emotion || 'idle');
     if (data.action && data.action !== 'none') robot.setAction(data.action);
     showBubble(data.message || '…');
-
     setStatus('speaking', '話し中…');
     speak(data.message || '', () => {
       isBusy = false;
@@ -814,8 +488,7 @@ async function sendMessage(text) {
         setStatus('ready', '待機中');
       }
     });
-
-  } catch (e) {
+  } catch {
     robot.setEmotion('sad');
     showBubble('通信エラーが起きたよ…もう一度試してね');
     setStatus('ready', '待機中');
@@ -823,22 +496,27 @@ async function sendMessage(text) {
   }
 }
 
-// ── Reset ────────────────────────────────────────────
+// ── リセット ────────────────────────────────────────
 resetBtn.addEventListener('click', async () => {
-  await fetch('/api/reset', { method: 'POST' });
-  window.speechSynthesis?.cancel();
-  hideBubble();
-  robot.setEmotion('idle');
+  await fetch('/api/reset', { method:'POST' });
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  hideBubble(); robot.setEmotion('idle');
   setStatus('ready', '待機中');
-  isBusy = false; isSpeaking = false;
-  sendBtn.disabled = false;
+  isBusy = false;
   setTimeout(() => sendMessage('こんにちは！'), 300);
 });
 
-// ── Voice recognition ────────────────────────────────
+// ── キャンバスクリック ──────────────────────────────
+canvas.addEventListener('click', () => robot.blink());
+canvas.addEventListener('dblclick', () => {
+  robot.setEmotion('surprised');
+  showBubble('えっ！びっくりした！');
+  speak('えっ、びっくりした！');
+});
+
+// ── 音声認識 ────────────────────────────────────────
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-let continuousMode  = false;
-let listeningActive = false;
+let continuousMode = false, listeningActive = false;
 
 function updateMicBtn() {
   if (continuousMode) {
@@ -847,15 +525,14 @@ function updateMicBtn() {
     micBtn.classList.add('continuous');
   } else {
     micBtn.textContent = '🎤';
-    micBtn.title = 'タップして話す（長押しで連続モード）';
-    micBtn.classList.remove('continuous');
-    micBtn.classList.remove('listening');
+    micBtn.title = '話す（長押しで連続モード）';
+    micBtn.classList.remove('continuous', 'listening');
   }
 }
 
 function startListening() {
   if (!recognition || listeningActive || isBusy) return;
-  try { recognition.start(); } catch(e) { console.warn(e); }
+  try { recognition.start(); } catch(e) {}
 }
 
 if (SpeechRec) {
@@ -874,18 +551,13 @@ if (SpeechRec) {
   recognition.onresult = e => {
     listeningActive = false;
     const text = e.results[0][0].transcript;
-    textIn.value = text;
     setTimeout(() => sendMessage(text), 200);
   };
   recognition.onend = () => {
     listeningActive = false;
     micBtn.classList.remove('listening');
-    // no-speech時: 連続モードなら自動再開
-    if (continuousMode && !isBusy) {
-      setTimeout(() => startListening(), 400);
-    } else if (!continuousMode && !isBusy) {
-      setStatus('ready', '待機中');
-    }
+    if (continuousMode && !isBusy) setTimeout(() => startListening(), 400);
+    else if (!continuousMode && !isBusy) setStatus('ready', '待機中');
   };
   recognition.onerror = e => {
     listeningActive = false;
@@ -894,41 +566,33 @@ if (SpeechRec) {
       if (continuousMode && !isBusy) setTimeout(() => startListening(), 400);
       return;
     }
-    // その他エラーは連続モード解除
-    continuousMode = false;
-    updateMicBtn();
+    continuousMode = false; updateMicBtn();
     setStatus('ready', '待機中');
-    showBubble('マイクが使えなかったよ。テキストで話しかけてね');
+    showBubble('マイクが使えなかったよ。もう一度試してね');
   };
 
-  // 短タップ → 1回だけ / 長押し(500ms) → 連続モード
+  // 短タップ→1回 / 長押し500ms→連続モード
   let pressTimer = null;
   micBtn.addEventListener('pointerdown', () => {
     pressTimer = setTimeout(() => {
       pressTimer = null;
       if (!continuousMode) {
-        continuousMode = true;
-        updateMicBtn();
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        continuousMode = true; updateMicBtn();
+        if (currentAudio) { currentAudio.pause(); currentAudio = null; }
         if (!isBusy) startListening();
       }
     }, 500);
   });
   micBtn.addEventListener('pointerup', () => {
     if (pressTimer) {
-      clearTimeout(pressTimer);
-      pressTimer = null;
-      // 短タップの処理
+      clearTimeout(pressTimer); pressTimer = null;
       if (continuousMode) {
-        // 連続モードOFF
-        continuousMode = false;
-        updateMicBtn();
+        continuousMode = false; updateMicBtn();
         try { recognition.abort(); } catch(e) {}
         setStatus('ready', '待機中');
       } else {
-        // 1回だけ聴く
         if (isBusy) return;
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        if (currentAudio) { currentAudio.pause(); currentAudio = null; }
         if (!listeningActive) startListening();
       }
     }
@@ -936,27 +600,13 @@ if (SpeechRec) {
   micBtn.addEventListener('pointercancel', () => {
     if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
   });
-
   updateMicBtn();
 } else {
   micBtn.style.opacity = '.35';
   micBtn.title = 'このブラウザは音声認識非対応';
 }
 
-// ── Canvas click blink ───────────────────────────────
-canvas.addEventListener('click', () => robot.blink());
-canvas.addEventListener('dblclick', () => {
-  robot.setEmotion('surprised');
-  showBubble('きゃっ！びっくりした！');
-  speak('きゃっ、びっくりした！');
-});
-
-// ── Voices load on iOS ───────────────────────────────
-if (window.speechSynthesis) {
-  speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
-}
-
-// ── Initial greeting ─────────────────────────────────
+// ── 初回挨拶 ────────────────────────────────────────
 window.addEventListener('load', async () => {
   try {
     const res  = await fetch('/api/greet');
@@ -966,7 +616,7 @@ window.addEventListener('load', async () => {
     showBubble(data.message);
     setTimeout(() => speak(data.message), 500);
   } catch {
-    showBubble('こんにちは！ぼくLOOI！何でも話しかけてね〜！');
+    showBubble('こんにちは！何でも話しかけてね〜！');
     robot.setEmotion('excited');
     robot.setAction('nod');
   }
