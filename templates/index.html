@@ -486,7 +486,7 @@ function resetProactiveTimer() {
 }
 
 function goToSleep() {
-  clearTimeout(proactiveTimer); // ⑦
+  clearTimeout(proactiveTimer);
   sleeping = true;
   clearTimeout(sleepTimer);
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
@@ -497,7 +497,8 @@ function goToSleep() {
   isBusy = false;
   robot.setEmotion('sleep');
   setStatus('sleeping');
-  startWakeWordListening();
+  // マイクが完全解放されるまで待ってからウェイクワード認識を開始
+  setTimeout(startWakeWordListening, 600);
 }
 
 // ⑦ 時刻に応じた挨拶
@@ -571,24 +572,28 @@ function startWakeWordListening() {
   sr.interimResults = false;
 
   sr.onresult = e => {
-    const res        = e.results[0][0];
-    const text       = res.transcript;
-    const confidence = res.confidence;
-    // ② confidence=0はブラウザ未採点（≠低信頼度）なので通過させる
-    // 採点済み(>0)の場合のみ閾値チェック
-    const ok = (confidence === 0 || confidence >= WAKE_CONFIDENCE_MIN);
-    console.log(`[wake] "${text}" conf=${confidence.toFixed(2)} ok=${ok}`);
-    if (ok && WAKE_WORDS.test(text)) wakeUp();
+    const text = e.results[0][0].transcript;
+    console.log(`[wake] "${text}"`);
+    if (WAKE_WORDS.test(text)) wakeUp();
   };
   sr.onend = () => {
     if (sleeping && sleepRecRef === sr)
       setTimeout(startWakeWordListening, 400);
   };
-  sr.onerror = () => {
+  sr.onerror = e => {
+    console.warn('[wake] error:', e.error);
     if (sleeping && sleepRecRef === sr)
-      setTimeout(startWakeWordListening, 700);
+      setTimeout(startWakeWordListening, 800);
   };
-  try { sr.start(); } catch(e) {}
+  try {
+    sr.start();
+    console.log('[wake] listening started');
+  } catch(e) {
+    console.warn('[wake] start() threw:', e);
+    // start()が例外を投げた場合も確実にリトライ
+    sleepRecRef = null;
+    if (sleeping) setTimeout(startWakeWordListening, 1000);
+  }
 }
 
 // ════════════════════════════════════════════════════
