@@ -238,8 +238,18 @@
     box-shadow: 0 0 20px rgba(255,68,136,.4);
     animation: mic-pulse .6s ease infinite;
   }
+  #mic-btn.continuous {
+    border-color: #ff4488;
+    background: rgba(255,68,136,.15);
+    box-shadow: 0 0 0 0 rgba(255,68,136,.5);
+    animation: continuous-ring 1.6s ease infinite;
+  }
+  #mic-btn.continuous.listening {
+    animation: mic-pulse .6s ease infinite, continuous-ring 1.6s ease infinite;
+  }
   #mic-btn:hover { border-color: #ff4488; background: rgba(255,68,136,.15); }
   @keyframes mic-pulse { 0%,100%{ box-shadow: 0 0 20px rgba(255,68,136,.4); } 50%{ box-shadow: 0 0 32px rgba(255,68,136,.7); } }
+  @keyframes continuous-ring { 0%{ box-shadow: 0 0 0 0 rgba(255,68,136,.5); } 70%{ box-shadow: 0 0 0 10px rgba(255,68,136,0); } 100%{ box-shadow: 0 0 0 0 rgba(255,68,136,0); } }
 
   #emotion-row {
     display: flex;
@@ -751,9 +761,14 @@ async function sendMessage(text) {
 
     setStatus('speaking', '話し中…');
     speak(data.message || '', () => {
-      setStatus('ready', '待機中');
       isBusy = false;
       sendBtn.disabled = false;
+      if (continuousMode) {
+        setStatus('listening', '聞いてるよ…');
+        setTimeout(() => startListening(), 600);
+      } else {
+        setStatus('ready', '待機中');
+      }
     });
 
   } catch (e) {
@@ -799,6 +814,27 @@ function testEmotion(em) {
 
 // ── Voice recognition ────────────────────────────────
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+let continuousMode  = false;
+let listeningActive = false;
+
+function updateMicBtn() {
+  if (continuousMode) {
+    micBtn.textContent = '🔴';
+    micBtn.title = 'タップで連続モード停止';
+    micBtn.classList.add('continuous');
+  } else {
+    micBtn.textContent = '🎤';
+    micBtn.title = 'タップして話す（長押しで連続モード）';
+    micBtn.classList.remove('continuous');
+    micBtn.classList.remove('listening');
+  }
+}
+
+function startListening() {
+  if (!recognition || listeningActive || isBusy) return;
+  try { recognition.start(); } catch(e) { console.warn(e); }
+}
+
 if (SpeechRec) {
   recognition = new SpeechRec();
   recognition.lang = 'ja-JP';
@@ -806,33 +842,79 @@ if (SpeechRec) {
   recognition.interimResults = false;
 
   recognition.onstart = () => {
+    listeningActive = true;
     setStatus('listening', '聞いてるよ…');
     micBtn.classList.add('listening');
     robot.setEmotion('happy');
     hideBubble();
   };
   recognition.onresult = e => {
+    listeningActive = false;
     const text = e.results[0][0].transcript;
     textIn.value = text;
     setTimeout(() => sendMessage(text), 200);
   };
   recognition.onend = () => {
+    listeningActive = false;
     micBtn.classList.remove('listening');
-    if (!isBusy) setStatus('ready', '待機中');
-  };
-  recognition.onerror = e => {
-    micBtn.classList.remove('listening');
-    setStatus('ready', '待機中');
-    if (e.error !== 'no-speech') {
-      showBubble('マイクが使えなかったよ。テキストで話しかけてね');
+    // no-speech時: 連続モードなら自動再開
+    if (continuousMode && !isBusy) {
+      setTimeout(() => startListening(), 400);
+    } else if (!continuousMode && !isBusy) {
+      setStatus('ready', '待機中');
     }
   };
+  recognition.onerror = e => {
+    listeningActive = false;
+    micBtn.classList.remove('listening');
+    if (e.error === 'no-speech') {
+      if (continuousMode && !isBusy) setTimeout(() => startListening(), 400);
+      return;
+    }
+    // その他エラーは連続モード解除
+    continuousMode = false;
+    updateMicBtn();
+    setStatus('ready', '待機中');
+    showBubble('マイクが使えなかったよ。テキストで話しかけてね');
+  };
 
-  micBtn.addEventListener('click', () => {
-    if (isBusy) return;
-    if (window.speechSynthesis) window.speechSynthesis.cancel();
-    recognition.start();
+  // 短タップ → 1回だけ / 長押し(500ms) → 連続モード
+  let pressTimer = null;
+  micBtn.addEventListener('pointerdown', () => {
+    pressTimer = setTimeout(() => {
+      pressTimer = null;
+      if (!continuousMode) {
+        continuousMode = true;
+        updateMicBtn();
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        if (!isBusy) startListening();
+      }
+    }, 500);
   });
+  micBtn.addEventListener('pointerup', () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+      // 短タップの処理
+      if (continuousMode) {
+        // 連続モードOFF
+        continuousMode = false;
+        updateMicBtn();
+        try { recognition.abort(); } catch(e) {}
+        setStatus('ready', '待機中');
+      } else {
+        // 1回だけ聴く
+        if (isBusy) return;
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
+        if (!listeningActive) startListening();
+      }
+    }
+  });
+  micBtn.addEventListener('pointercancel', () => {
+    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+  });
+
+  updateMicBtn();
 } else {
   micBtn.style.opacity = '.35';
   micBtn.title = 'このブラウザは音声認識非対応';

@@ -287,6 +287,19 @@ html, body {
   box-shadow: 0 0 0 6px rgba(255,80,150,.2), 0 0 30px rgba(255,80,150,.5);
   animation: mic-pulse .6s ease infinite;
 }
+#mic-btn.continuous {
+  border-color: #ff4488;
+  background: rgba(255,80,150,.18);
+  animation: continuous-ring 1.4s ease infinite;
+}
+#mic-btn.continuous.listening {
+  animation: mic-pulse .6s ease infinite, continuous-ring 1.4s ease infinite;
+}
+@keyframes continuous-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(255,80,150,.6); }
+  70%  { box-shadow: 0 0 0 14px rgba(255,80,150,0); }
+  100% { box-shadow: 0 0 0 0 rgba(255,80,150,0); }
+}
 @keyframes mic-pulse {
   0%,100%{ box-shadow: 0 0 0 6px rgba(255,80,150,.2), 0 0 30px rgba(255,80,150,.5); }
   50%{ box-shadow: 0 0 0 12px rgba(255,80,150,.1), 0 0 50px rgba(255,80,150,.7); }
@@ -907,8 +920,13 @@ async function sendMessage(text) {
 
     setStatus('speaking', 'はなしてるよ！');
     speak(data.message || '', () => {
-      setStatus('ready', 'まってるよ！');
       isBusy = false; sendBtn.disabled = false;
+      if (continuousMode) {
+        setStatus('listening', 'きいてるよ！');
+        setTimeout(() => startListening(), 600);
+      } else {
+        setStatus('ready', 'まってるよ！');
+      }
     });
 
   } catch (e) {
@@ -967,32 +985,102 @@ function triggerEmotion(em, msg) {
 
 // ── Voice recognition ────────────────────────
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (SR) {
-  const rec = new SR();
-  rec.lang = 'ja-JP'; rec.continuous = false; rec.interimResults = false;
+let continuousMode  = false;
+let listeningActive = false;
+let kidsRec = null;
 
-  rec.onstart = () => {
+function updateMicBtn() {
+  if (continuousMode) {
+    micBtn.textContent = '🔴';
+    micBtn.title = 'おして、とめる';
+    micBtn.classList.add('continuous');
+  } else {
+    micBtn.textContent = '🎤';
+    micBtn.title = 'こえでおはなし';
+    micBtn.classList.remove('continuous');
+    micBtn.classList.remove('listening');
+  }
+}
+
+function startListening() {
+  if (!kidsRec || listeningActive || isBusy) return;
+  try { kidsRec.start(); } catch(e) { console.warn(e); }
+}
+
+if (SR) {
+  kidsRec = new SR();
+  kidsRec.lang = 'ja-JP'; kidsRec.continuous = false; kidsRec.interimResults = false;
+
+  kidsRec.onstart = () => {
+    listeningActive = true;
     setStatus('listening', 'きいてるよ！');
     micBtn.classList.add('listening');
     robot.setEmotion('happy');
     hideBubble();
   };
-  rec.onresult = e => {
+  kidsRec.onresult = e => {
+    listeningActive = false;
     const t = e.results[0][0].transcript;
     textInput.value = t;
     setTimeout(() => sendMessage(t), 200);
   };
-  rec.onend   = () => { micBtn.classList.remove('listening'); if (!isBusy) setStatus('ready', 'まってるよ！'); };
-  rec.onerror = e => {
+  kidsRec.onend = () => {
+    listeningActive = false;
     micBtn.classList.remove('listening');
-    setStatus('ready', 'まってるよ！');
-    if (e.error !== 'no-speech') showBubble('マイクがつかえなかったよ。もじでかいてね！');
+    if (continuousMode && !isBusy) {
+      setTimeout(() => startListening(), 400);
+    } else if (!continuousMode && !isBusy) {
+      setStatus('ready', 'まってるよ！');
+    }
   };
-  micBtn.addEventListener('click', () => {
-    if (isBusy) return;
-    window.speechSynthesis?.cancel();
-    rec.start();
+  kidsRec.onerror = e => {
+    listeningActive = false;
+    micBtn.classList.remove('listening');
+    if (e.error === 'no-speech') {
+      if (continuousMode && !isBusy) setTimeout(() => startListening(), 400);
+      return;
+    }
+    continuousMode = false;
+    updateMicBtn();
+    setStatus('ready', 'まってるよ！');
+    showBubble('マイクがつかえなかったよ。もじでかいてね！');
+  };
+
+  // 短タップ → 1回 / 長押し(500ms) → 連続モード
+  let pressTimer = null;
+  micBtn.addEventListener('pointerdown', () => {
+    pressTimer = setTimeout(() => {
+      pressTimer = null;
+      if (!continuousMode) {
+        continuousMode = true;
+        updateMicBtn();
+        window.speechSynthesis?.cancel();
+        if (!isBusy) startListening();
+        showBubble('れんぞくモードON！ずっとはなせるよ🎤');
+      }
+    }, 500);
   });
+  micBtn.addEventListener('pointerup', () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer);
+      pressTimer = null;
+      if (continuousMode) {
+        continuousMode = false;
+        updateMicBtn();
+        try { kidsRec.abort(); } catch(e) {}
+        setStatus('ready', 'まってるよ！');
+      } else {
+        if (isBusy) return;
+        window.speechSynthesis?.cancel();
+        if (!listeningActive) startListening();
+      }
+    }
+  });
+  micBtn.addEventListener('pointercancel', () => {
+    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+  });
+
+  updateMicBtn();
 } else {
   micBtn.style.opacity = '.3';
   micBtn.title = 'このブラウザは音声非対応';
