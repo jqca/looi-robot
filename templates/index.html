@@ -32,7 +32,7 @@
     transition: box-shadow .3s;
   }
   #robot-canvas.listening-once {
-    box-shadow: 0 0 0 2px rgba(255,68,136,.55);
+    box-shadow: none;
   }
   @keyframes canvas-ring {
     0%   { box-shadow: 0 0 0 0   rgba(255,68,136,.50); }
@@ -87,8 +87,7 @@
   <canvas id="robot-canvas"></canvas>
   <div id="status-bar">
     <div id="status-dot" class="sleeping"></div>
-    <!-- ⑨ プライバシー表示：録音中ラベル -->
-    <span id="mic-label">● REC</span>
+    <span id="mic-label"></span>
     <span id="reset-hint" title="リセット">⟳</span>
   </div>
 </div>
