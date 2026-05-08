@@ -28,8 +28,8 @@
     display: flex; justify-content: center; align-items: flex-end;
   }
   #speech-bubble {
-    background: rgba(10,26,38,.9);
-    border: 1px solid rgba(0,212,255,.25);
+    background: rgba(10,20,32,.88);
+    border: 1px solid rgba(255,255,255,.09);
     border-radius: 18px 18px 18px 4px;
     padding: 12px 20px; font-size: 15px; line-height: 1.65;
     max-width: 92%; position: relative;
@@ -42,61 +42,62 @@
     bottom: -8px; left: 22px; width: 0; height: 0;
     border-left: 8px solid transparent;
     border-right: 8px solid transparent;
-    border-top: 8px solid rgba(0,212,255,.25);
+    border-top: 8px solid rgba(255,255,255,.09);
   }
 
   /* ── キャンバス ── */
-  #robot-canvas {
-    flex-shrink: 0;
-    touch-action: none;
-  }
+  #robot-canvas { flex-shrink: 0; touch-action: none; }
 
   /* ── ステータス ── */
   #status-bar {
     display: flex; align-items: center; gap: 8px;
-    font-size: 12px; color: #4a7a99; flex-shrink: 0;
+    font-size: 13px; color: #6a8fa8; flex-shrink: 0;
+    letter-spacing: 0.03em;
   }
   #status-dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: #4a7a99; transition: background .3s;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: #3a6a88; transition: background .3s; flex-shrink: 0;
   }
-  @keyframes blink-dot { 0%,100%{opacity:.4;transform:scale(1)} 50%{opacity:1;transform:scale(1.3)} }
+  @keyframes blink-dot {
+    0%,100%{ opacity:.4; transform:scale(1); }
+    50%    { opacity:1;  transform:scale(1.4); }
+  }
   #status-dot.listening { background:#ff4488; animation:blink-dot .8s infinite; }
-  #status-dot.thinking  { background:#ffaa00; animation:blink-dot 1.2s infinite; }
-  #status-dot.speaking  { background:#00d4ff; animation:blink-dot .6s infinite; }
-  #status-dot.ready     { background:#00d4ff; }
+  #status-dot.thinking  { background:#aaaaff; animation:blink-dot 1.2s infinite; }
+  #status-dot.speaking  { background:#88ccee; animation:blink-dot .6s infinite; }
+  #status-dot.ready     { background:#3a6a88; }
 
   /* ── ボタン ── */
   #btn-row { display: flex; gap: 16px; justify-content: center; flex-shrink: 0; }
 
   .round-btn {
     width: 58px; height: 58px; border-radius: 50%; font-size: 22px;
-    border: 1px solid rgba(0,212,255,.18); background: rgba(10,26,38,.7);
+    border: 1px solid rgba(255,255,255,.10); background: rgba(10,20,32,.6);
     color: #cce8f4; cursor: pointer; transition: all .2s;
     display: flex; align-items: center; justify-content: center;
     user-select: none; -webkit-user-select: none;
   }
-  .round-btn:hover  { border-color: #00d4ff; background: rgba(0,212,255,.08); }
+  .round-btn:hover  { border-color: rgba(255,255,255,.25); background: rgba(255,255,255,.05); }
   .round-btn:active { transform: scale(.91); }
 
   #mic-btn {
     width: 68px; height: 68px; font-size: 26px;
-    border-color: rgba(255,68,136,.3);
-    background: rgba(255,68,136,.06); color: #ff88bb;
+    border-color: rgba(255,68,136,.25);
+    background: rgba(255,68,136,.05); color: #ff88bb;
   }
-  #mic-btn:hover { border-color:#ff4488; background:rgba(255,68,136,.14); }
+  #mic-btn:hover { border-color: rgba(255,68,136,.50); background: rgba(255,68,136,.10); }
 
   @keyframes mic-pulse {
-    0%,100%{ box-shadow:0 0 18px rgba(255,68,136,.4); }
-    50%    { box-shadow:0 0 34px rgba(255,68,136,.75); }
+    0%,100%{ box-shadow:0 0 14px rgba(255,68,136,.35); }
+    50%    { box-shadow:0 0 28px rgba(255,68,136,.65); }
   }
   @keyframes cont-ring {
-    0%  { box-shadow:0 0 0 0 rgba(255,68,136,.6); }
+    0%  { box-shadow:0 0 0 0  rgba(255,68,136,.55); }
     70% { box-shadow:0 0 0 12px rgba(255,68,136,0); }
-    100%{ box-shadow:0 0 0 0 rgba(255,68,136,0); }
+    100%{ box-shadow:0 0 0 0  rgba(255,68,136,0); }
   }
-  #mic-btn.listening  { border-color:#ff4488; background:rgba(255,68,136,.2);  animation:mic-pulse .6s infinite; }
-  #mic-btn.continuous { border-color:#ff4488; background:rgba(255,68,136,.12); animation:cont-ring 1.5s infinite; }
+  #mic-btn.listening  { border-color:#ff4488; background:rgba(255,68,136,.18); animation:mic-pulse .6s infinite; }
+  #mic-btn.continuous { border-color:#ff4488; background:rgba(255,68,136,.10); animation:cont-ring 1.5s infinite; }
   #mic-btn.continuous.listening { animation:mic-pulse .6s infinite, cont-ring 1.5s infinite; }
 </style>
 </head>
@@ -115,7 +116,7 @@
   </div>
 
   <div id="btn-row">
-    <button id="mic-btn" class="round-btn" title="話す（長押しで連続モード）">🎤</button>
+    <button id="mic-btn"   class="round-btn" title="話す（長押しで連続モード）">🎤</button>
     <button id="reset-btn" class="round-btn" title="リセット">🔄</button>
   </div>
 </div>
@@ -123,25 +124,30 @@
 <script>
 // ════════════════════════════════════════════════════
 // EYE RENDERER  ─ 幾何学的な目で感情表現
+//   ・グロー(shadowBlur)なし
+//   ・白系単色（形だけで感情を語る）
+//   ・excited: 回転点なし → 上下バウンス
 // ════════════════════════════════════════════════════
 class EyeRenderer {
   constructor(canvas) {
-    this.canvas  = canvas;
-    this.ctx     = canvas.getContext('2d');
-    this.emotion = 'idle';
-    this.action  = 'none';
-    this.blinkAmt   = 0;
-    this.blinking   = false;
-    this.blinkTimer = 0;
-    this.blinkNext  = this._rndBlink();
-    this.bobPhase   = 0;
-    this.bobY       = 0;
-    this.headTilt   = 0;
-    this.headTiltTgt= 0;
-    this.actionTimer= 0;
-    this.lastTS     = 0;
-    this.talking    = false;
-    this.talkPhase  = 0;
+    this.canvas       = canvas;
+    this.ctx          = canvas.getContext('2d');
+    this.emotion      = 'idle';
+    this.action       = 'none';
+    this.blinkAmt     = 0;
+    this.blinking     = false;
+    this.blinkTimer   = 0;
+    this.blinkNext    = this._rndBlink();
+    this.bobPhase     = 0;
+    this.bobY         = 0;
+    this.headTilt     = 0;
+    this.headTiltTgt  = 0;
+    this.actionTimer  = 0;
+    this.lastTS       = 0;
+    this.talking      = false;
+    this.talkPhase    = 0;
+    this.excitedPhase = 0;   // excited バウンス専用
+    this.excitedY     = 0;
     this.resize();
     requestAnimationFrame(this._loop.bind(this));
   }
@@ -154,11 +160,8 @@ class EyeRenderer {
 
   setEmotion(e) { this.emotion = e; }
   setTalking(v) { this.talking = v; }
-  setAction(a)  {
-    if (a === 'none') return;
-    this.action = a; this.actionTimer = 0;
-  }
-  blink() { if (!this.blinking) { this.blinking = true; this.blinkAmt = 0; } }
+  setAction(a)  { if (a === 'none') return; this.action = a; this.actionTimer = 0; }
+  blink()       { if (!this.blinking) { this.blinking = true; this.blinkAmt = 0; } }
 
   _rndBlink() { return 2800 + Math.random() * 5000; }
 
@@ -173,11 +176,21 @@ class EyeRenderer {
   _update(dt) {
     const lerp = 1 - Math.exp(-8 * dt);
 
-    // Bob
+    // 通常ボブ
     this.bobPhase += dt * (this.talking ? 4.0 : 1.0);
     this.bobY = Math.sin(this.bobPhase) * (this.W * 0.010);
 
-    // Blink
+    // excited バウンス（スパークル廃止・跳ね表現に変更）
+    if (this.emotion === 'excited') {
+      this.excitedPhase += dt * 7.5;
+      // Math.abs(sin) → 上→下→上のバウンスボール軌跡
+      this.excitedY = -Math.abs(Math.sin(this.excitedPhase)) * (this.W * 0.034);
+    } else {
+      this.excitedPhase = 0;
+      this.excitedY += (0 - this.excitedY) * Math.min(1, dt * 10);
+    }
+
+    // 瞬き
     this.blinkTimer += dt * 1000;
     if (!this.blinking && this.blinkTimer > this.blinkNext) {
       this.blinking = true; this.blinkAmt = 0;
@@ -206,7 +219,7 @@ class EyeRenderer {
     if (this.talking) this.talkPhase += dt * 10;
   }
 
-  // ── 描画 ────────────────────────────────────────────
+  // ── 描画 ──────────────────────────────────────────
   _render() {
     const { ctx, W, CX, CY } = this;
     ctx.clearRect(0, 0, W, W);
@@ -219,14 +232,25 @@ class EyeRenderer {
   }
 
   _drawEyes(ctx, cx, cy) {
-    const W  = this.W;
-    const em = this.emotion;
-    const sp = W * 0.220;       // 目の中心間隔の半分
-    const ey = cy - W * 0.010;  // 目のY位置
-    const hw = W * 0.145;       // 目の半幅
-    const bSY= 1 - this.blinkAmt * 0.97;
+    const W   = this.W;
+    const em  = this.emotion;
+    const sp  = W * 0.220;          // 目の中心間隔の半分
+    const hw  = W * 0.145;          // 目の半幅
+    const bSY = 1 - this.blinkAmt * 0.97;
 
-    // talking時は微妙にスケール変動
+    // 感情別 Y オフセット（目の高さを微調整）
+    const yOff = {
+      idle:      0,
+      happy:     0,
+      excited:   0,             // excitedY で別管理
+      thinking: -W * 0.006,     // 少し上（集中）
+      sad:       W * 0.018,     // 少し下（重い）
+      surprised:-W * 0.010,     // 少し上（見開き）
+      angry:     0,
+    };
+    const ey = cy - W * 0.010 + (yOff[em] ?? 0) + this.excitedY;
+
+    // 発話中はスケール微変動
     const talkScale = this.talking
       ? 1 + Math.sin(this.talkPhase) * 0.04
       : 1;
@@ -235,21 +259,21 @@ class EyeRenderer {
     this._drawOneEye(ctx, cx + sp, ey, hw, bSY * talkScale, em, true);
   }
 
-  // ── 1つの目（幾何学的図形のみ） ─────────────────────
+  // ── 1つの目（幾何学的図形・グローなし・単色） ─────
   _drawOneEye(ctx, x, y, hw, blinkSY, em, isRight) {
-    const W  = this.W;
+    const W   = this.W;
     const col = this._color();
 
     // 感情別パラメータ
-    // hRatio: 高さ/幅の比率  tilt: 傾き(rad)  shape: 'ellipse'|'arc'|'rect'
+    // hRatio: 高さ/幅比  tilt: 傾き(rad)  shape: ellipse|arc|rect
     const P = {
-      idle:      { hRatio:0.42, tilt:0,                   shape:'ellipse' },
-      happy:     { hRatio:0,    tilt:0,                   shape:'arc'     }, // ◡ or ◠
-      excited:   { hRatio:0.85, tilt:0,                   shape:'ellipse' },
-      thinking:  { hRatio:0.28, tilt:isRight?-0.22:0.22,  shape:'ellipse' },
-      sad:       { hRatio:0.38, tilt:isRight?-0.26:0.26,  shape:'ellipse' },
-      surprised: { hRatio:1.05, tilt:0,                   shape:'ellipse' }, // ほぼ円
-      angry:     { hRatio:0.18, tilt:isRight?0.36:-0.36,  shape:'rect'    }, // 細い矩形
+      idle:      { hRatio: 0.38,                   tilt: 0,                       shape: 'ellipse' },
+      happy:     { hRatio: 0,                      tilt: 0,                       shape: 'arc'     },
+      excited:   { hRatio: 0.75,                   tilt: 0,                       shape: 'ellipse' },
+      thinking:  { hRatio: isRight ? 0.26 : 0.18,  tilt: isRight ? -0.22 : 0.22,  shape: 'ellipse' },
+      sad:       { hRatio: 0.35,                   tilt: isRight ? -0.28 : 0.28,  shape: 'ellipse' },
+      surprised: { hRatio: 1.05,                   tilt: 0,                       shape: 'ellipse' },
+      angry:     { hRatio: 0.14,                   tilt: isRight ? 0.40 : -0.40,  shape: 'rect'   },
     };
     const p = P[em] ?? P.idle;
 
@@ -258,76 +282,44 @@ class EyeRenderer {
     ctx.scale(1, blinkSY);
     ctx.rotate(p.tilt);
 
-    // ── arc: happy（閉じた笑い目 ◠） ─────────────────
+    // ── arc: happy（◠ 笑い目・太め） ─────────────
     if (p.shape === 'arc') {
       const r = hw * 0.80;
       ctx.beginPath();
-      ctx.arc(0, r * 0.15, r, Math.PI + 0.18, -0.18, false); // 上向き弧
+      ctx.arc(0, r * 0.15, r, Math.PI + 0.18, -0.18, false);
       ctx.strokeStyle = col.fill;
-      ctx.lineWidth   = W * 0.030;
+      ctx.lineWidth   = W * 0.048;   // 太くして笑顔を強調
       ctx.lineCap     = 'round';
-      ctx.shadowColor = col.glow; ctx.shadowBlur = 22;
-      ctx.stroke(); ctx.shadowBlur = 0;
+      ctx.stroke();
       ctx.restore();
       return;
     }
 
-    // ── rect: angry（細い角丸矩形） ───────────────────
+    // ── rect: angry（細い角丸矩形） ──────────────
     if (p.shape === 'rect') {
-      const rw = hw * 0.95;
-      const rh = hw * p.hRatio;
-      const rad = rh * 0.5; // 完全丸め
+      const rw  = hw * 0.95;
+      const rh  = hw * p.hRatio;
+      const rad = rh * 0.5;
       ctx.beginPath();
       ctx.roundRect(-rw, -rh, rw * 2, rh * 2, rad);
-      ctx.fillStyle   = col.fill;
-      ctx.shadowColor = col.glow; ctx.shadowBlur = 24;
-      ctx.fill(); ctx.shadowBlur = 0;
-      // 赤みオーバーレイ
-      ctx.beginPath();
-      ctx.roundRect(-rw, -rh, rw * 2, rh * 2, rad);
-      ctx.fillStyle = 'rgba(255,60,0,0.28)';
+      ctx.fillStyle = col.fill;
       ctx.fill();
       ctx.restore();
       return;
     }
 
-    // ── ellipse: その他 ──────────────────────────────
-    const ew = hw;
-    const eh = hw * p.hRatio;
-
+    // ── ellipse: その他 ───────────────────────────
     ctx.beginPath();
-    ctx.ellipse(0, 0, ew, eh, 0, 0, Math.PI * 2);
-    ctx.fillStyle   = col.fill;
-    ctx.shadowColor = col.glow; ctx.shadowBlur = 20;
-    ctx.fill(); ctx.shadowBlur = 0;
-
-    // excited: キラキラ点
-    if (em === 'excited') {
-      const sparkR = hw * 0.18;
-      for (let i = 0; i < 3; i++) {
-        const a = (i / 3) * Math.PI * 2 + this.bobPhase * 1.5;
-        const sx = Math.cos(a) * ew * 0.55;
-        const sy = Math.sin(a) * eh * 0.55;
-        ctx.beginPath(); ctx.arc(sx, sy, sparkR, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,255,200,0.85)'; ctx.fill();
-      }
-    }
+    ctx.ellipse(0, 0, hw, hw * p.hRatio, 0, 0, Math.PI * 2);
+    ctx.fillStyle = col.fill;
+    ctx.fill();
 
     ctx.restore();
   }
 
-  // ── 感情カラー ──────────────────────────────────────
+  // ── 感情カラー（白系単色・形だけで感情を語る） ────
   _color() {
-    const m = {
-      idle:      { fill:'#e8f8ff', glow:'#00d4ff' },
-      happy:     { fill:'#ccffee', glow:'#00ffcc' },
-      excited:   { fill:'#eeffaa', glow:'#aaff00' },
-      thinking:  { fill:'#ddddff', glow:'#8888ff' },
-      sad:       { fill:'#aaccee', glow:'#4488cc' },
-      surprised: { fill:'#ffeeaa', glow:'#ffcc00' },
-      angry:     { fill:'#ffccaa', glow:'#ff4400' },
-    };
-    return m[this.emotion] ?? m.idle;
+    return { fill: '#dce9f5' };
   }
 }
 
@@ -383,11 +375,11 @@ function speak(text, onEnd) {
   .catch(() => { robot.setTalking(false); onEnd?.(); });
 }
 
-// ── メッセージ送信 ──────────────────────────────────
+// ── メッセージ送信 ───────────────────────────────────
 async function sendMessage(text) {
   if (isBusy || !text.trim()) return;
   isBusy = true;
-  setStatus('thinking', '考え中…');
+  setStatus('thinking', '💭 考え中…');
   robot.setEmotion('thinking');
   try {
     const res  = await fetch('/api/chat', {
@@ -398,11 +390,11 @@ async function sendMessage(text) {
     robot.setEmotion(data.emotion || 'idle');
     if (data.action && data.action !== 'none') robot.setAction(data.action);
     showBubble(data.message || '…');
-    setStatus('speaking', '話し中…');
+    setStatus('speaking', '🔊 話し中…');
     speak(data.message || '', () => {
       isBusy = false;
       if (continuousMode) {
-        setStatus('listening', '聞いてるよ…');
+        setStatus('listening', '👂 聞いてるよ…');
         setTimeout(() => startListening(), 600);
       } else {
         setStatus('ready', '待機中');
@@ -416,7 +408,7 @@ async function sendMessage(text) {
   }
 }
 
-// ── リセット ────────────────────────────────────────
+// ── リセット ─────────────────────────────────────────
 resetBtn.addEventListener('click', async () => {
   await fetch('/api/reset', { method: 'POST' });
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
@@ -426,7 +418,7 @@ resetBtn.addEventListener('click', async () => {
   setTimeout(() => sendMessage('こんにちは！'), 300);
 });
 
-// ── キャンバスクリック ──────────────────────────────
+// ── キャンバスクリック ───────────────────────────────
 canvas.addEventListener('click', () => robot.blink());
 canvas.addEventListener('dblclick', () => {
   robot.setEmotion('surprised');
@@ -434,7 +426,7 @@ canvas.addEventListener('dblclick', () => {
   speak('えっ、びっくりした！');
 });
 
-// ── 音声認識 ────────────────────────────────────────
+// ── 音声認識 ─────────────────────────────────────────
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
 let continuousMode = false, listeningActive = false;
 
@@ -459,7 +451,7 @@ if (SpeechRec) {
 
   recognition.onstart = () => {
     listeningActive = true;
-    setStatus('listening', '聞いてるよ…');
+    setStatus('listening', '👂 聞いてるよ…');
     micBtn.classList.add('listening');
     robot.setEmotion('happy');
     hideBubble();
@@ -519,7 +511,7 @@ if (SpeechRec) {
   micBtn.style.opacity = '.35';
 }
 
-// ── 初回挨拶 ────────────────────────────────────────
+// ── 初回挨拶 ─────────────────────────────────────────
 window.addEventListener('load', async () => {
   try {
     const res  = await fetch('/api/greet');
