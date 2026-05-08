@@ -31,11 +31,9 @@
     border-radius: 50%;
     transition: box-shadow .3s;
   }
-  /* 聴取中（一回）*/
   #robot-canvas.listening-once {
     box-shadow: 0 0 0 2px rgba(255,68,136,.55);
   }
-  /* 連続モード：外周リング */
   @keyframes canvas-ring {
     0%   { box-shadow: 0 0 0 0   rgba(255,68,136,.50); }
     70%  { box-shadow: 0 0 0 18px rgba(255,68,136,0); }
@@ -48,11 +46,11 @@
   #status-bar {
     display: flex; align-items: center; gap: 8px;
     font-size: 13px; color: #6a8fa8; flex-shrink: 0;
-    letter-spacing: 0.03em; user-select: none;
+    user-select: none;
   }
   #status-dot {
     width: 6px; height: 6px; border-radius: 50%;
-    background: #3a6a88; transition: background .3s; flex-shrink: 0;
+    background: #1a3a55; transition: background .4s; flex-shrink: 0;
   }
   @keyframes blink-dot {
     0%,100%{ opacity:.4; transform:scale(1); }
@@ -62,42 +60,37 @@
   #status-dot.thinking  { background:#aaaaff; animation:blink-dot 1.2s infinite; }
   #status-dot.speaking  { background:#88ccee; animation:blink-dot .6s infinite; }
   #status-dot.ready     { background:#3a6a88; }
+  #status-dot.sleeping  { background:#1a3a55; }
 
-  /* 極小リセットボタン */
+  /* 極小リセット */
   #reset-hint {
-    margin-left: 6px;
-    font-size: 15px;
-    opacity: 0.18;
-    cursor: pointer;
-    transition: opacity .2s;
-    line-height: 1;
+    margin-left: 6px; font-size: 15px;
+    opacity: 0.15; cursor: pointer;
+    transition: opacity .2s; line-height: 1;
   }
-  #reset-hint:hover { opacity: 0.55; }
-  #reset-hint:active { opacity: 0.9; }
+  #reset-hint:hover  { opacity: 0.55; }
+  #reset-hint:active { opacity: 0.90; }
 </style>
 </head>
 <body>
 
 <div id="app">
   <canvas id="robot-canvas"></canvas>
-
   <div id="status-bar">
-    <div id="status-dot" class="ready"></div>
+    <div id="status-dot" class="sleeping"></div>
     <span id="reset-hint" title="リセット">⟳</span>
   </div>
 </div>
 
 <script>
 // ════════════════════════════════════════════════════
-// EYE RENDERER  ─ 幾何学的な目で感情表現
-//   ・グロー(shadowBlur)なし  ・白系単色
-//   ・excited: 上下バウンス
+// EYE RENDERER
 // ════════════════════════════════════════════════════
 class EyeRenderer {
   constructor(canvas) {
     this.canvas       = canvas;
     this.ctx          = canvas.getContext('2d');
-    this.emotion      = 'idle';
+    this.emotion      = 'sleep';
     this.action       = 'none';
     this.blinkAmt     = 0;
     this.blinking     = false;
@@ -139,11 +132,16 @@ class EyeRenderer {
   }
 
   _update(dt) {
+    const isSleep = this.emotion === 'sleep';
     const lerp = 1 - Math.exp(-8 * dt);
 
-    this.bobPhase += dt * (this.talking ? 4.0 : 1.0);
-    this.bobY = Math.sin(this.bobPhase) * (this.W * 0.010);
+    // ボブ（スリープ中は超スロー・低振幅）
+    const bobSpeed = isSleep ? 0.35 : this.talking ? 4.0 : 1.0;
+    const bobAmp   = isSleep ? 0.004 : 0.010;
+    this.bobPhase += dt * bobSpeed;
+    this.bobY = Math.sin(this.bobPhase) * (this.W * bobAmp);
 
+    // excited バウンス
     if (this.emotion === 'excited') {
       this.excitedPhase += dt * 7.5;
       this.excitedY = -Math.abs(Math.sin(this.excitedPhase)) * (this.W * 0.034);
@@ -152,18 +150,24 @@ class EyeRenderer {
       this.excitedY += (0 - this.excitedY) * Math.min(1, dt * 10);
     }
 
-    this.blinkTimer += dt * 1000;
-    if (!this.blinking && this.blinkTimer > this.blinkNext) {
-      this.blinking = true; this.blinkAmt = 0;
-      this.blinkTimer = 0; this.blinkNext = this._rndBlink();
-    }
-    if (this.blinking) {
-      this.blinkAmt += dt * 12;
-      if (this.blinkAmt >= 1) { this.blinkAmt = 1; this.blinking = false; }
+    // 瞬き（スリープ中は無効）
+    if (!isSleep) {
+      this.blinkTimer += dt * 1000;
+      if (!this.blinking && this.blinkTimer > this.blinkNext) {
+        this.blinking = true; this.blinkAmt = 0;
+        this.blinkTimer = 0; this.blinkNext = this._rndBlink();
+      }
+      if (this.blinking) {
+        this.blinkAmt += dt * 12;
+        if (this.blinkAmt >= 1) { this.blinkAmt = 1; this.blinking = false; }
+      } else {
+        this.blinkAmt = Math.max(0, this.blinkAmt - dt * 12);
+      }
     } else {
-      this.blinkAmt = Math.max(0, this.blinkAmt - dt * 12);
+      this.blinkAmt = 0;
     }
 
+    // Nod / Shake
     if (this.action !== 'none') {
       this.actionTimer += dt;
       if (this.action === 'nod') {
@@ -198,7 +202,7 @@ class EyeRenderer {
     const bSY = 1 - this.blinkAmt * 0.97;
 
     const yOff = {
-      idle:0, happy:0, excited:0,
+      sleep:0, idle:0, happy:0, excited:0,
       thinking: -W * 0.006,
       sad:       W * 0.018,
       surprised:-W * 0.010,
@@ -216,6 +220,7 @@ class EyeRenderer {
     const col = this._color();
 
     const P = {
+      sleep:     { hRatio: 0.05,                  tilt: 0,                       shape: 'ellipse' }, // 閉じた目
       idle:      { hRatio: 0.38,                  tilt: 0,                       shape: 'ellipse' },
       happy:     { hRatio: 0,                     tilt: 0,                       shape: 'arc'     },
       excited:   { hRatio: 0.75,                  tilt: 0,                       shape: 'ellipse' },
@@ -230,6 +235,9 @@ class EyeRenderer {
     ctx.translate(x, y);
     ctx.scale(1, blinkSY);
     ctx.rotate(p.tilt);
+
+    // スリープ中は薄く描画
+    ctx.globalAlpha = (em === 'sleep') ? 0.30 : 1.0;
 
     if (p.shape === 'arc') {
       const r = hw * 0.80;
@@ -271,16 +279,24 @@ const statusDt  = document.getElementById('status-dot');
 const resetHint = document.getElementById('reset-hint');
 
 const robot = new EyeRenderer(canvas);
-let isBusy = false, recognition = null;
-
 window.addEventListener('resize', () => robot.resize());
 
-function setStatus(state) {
-  statusDt.className = state;
-}
+let isBusy    = false;
+let recognition    = null;   // 会話用
+let sleepRecRef    = null;   // 起動ワード用
+let sleeping       = true;
+let continuousMode = false;
+let listeningActive= false;
+let sleepTimer     = null;
+let currentAudio   = null;
 
-// ── TTS（Edge TTS / NanamiNeural） ──────────────────
-let currentAudio = null;
+const SLEEP_MS   = 60_000;   // 60秒無操作でスリープ
+const WAKE_WORDS = /起きて|おきて|おはよ|ルーイ|ねえ|スタート/;
+const SLEEP_WORDS= /おやすみ|寝て|ねて|バイバイ|またね|終わり|おわり/;
+
+function setStatus(state) { statusDt.className = state; }
+
+// ── TTS ──────────────────────────────────────────────
 function speak(text, onEnd) {
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   fetch('/api/tts', {
@@ -308,9 +324,85 @@ function speak(text, onEnd) {
   .catch(() => { robot.setTalking(false); onEnd?.(); });
 }
 
-// ── メッセージ送信 ───────────────────────────────────
+// ── スリープ管理 ──────────────────────────────────────
+function resetSleepTimer() {
+  clearTimeout(sleepTimer);
+  sleepTimer = setTimeout(goToSleep, SLEEP_MS);
+}
+
+function goToSleep() {
+  sleeping = true;
+  clearTimeout(sleepTimer);
+  if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+  try { recognition?.abort(); } catch(e) {}
+  continuousMode = false;
+  canvas.classList.remove('continuous', 'listening-once');
+  isBusy = false;
+  robot.setEmotion('sleep');
+  setStatus('sleeping');
+  startWakeWordListening();
+}
+
+function wakeUp() {
+  if (!sleeping) return;
+  sleeping = false;
+  stopWakeWordListening();
+  robot.setEmotion('excited');
+  robot.setAction('nod');
+  setStatus('speaking');
+  speak('おはよう！何でも話しかけてね！', () => {
+    robot.setEmotion('idle');
+    setStatus('ready');
+    resetSleepTimer();
+  });
+}
+
+// ── 起動ワード検出（バックグラウンド常時聴取） ─────────
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+function stopWakeWordListening() {
+  if (sleepRecRef) {
+    try { sleepRecRef.abort(); } catch(e) {}
+    sleepRecRef = null;
+  }
+}
+
+function startWakeWordListening() {
+  if (!SpeechRec || !sleeping) return;
+  const sr = new SpeechRec();
+  sleepRecRef = sr;
+  sr.lang = 'ja-JP';
+  sr.continuous = false;
+  sr.interimResults = false;
+
+  sr.onresult = e => {
+    const text = e.results[0][0].transcript;
+    if (WAKE_WORDS.test(text)) wakeUp();
+  };
+  sr.onend = () => {
+    if (sleeping && sleepRecRef === sr)
+      setTimeout(startWakeWordListening, 400);
+  };
+  sr.onerror = () => {
+    if (sleeping && sleepRecRef === sr)
+      setTimeout(startWakeWordListening, 700);
+  };
+  try { sr.start(); } catch(e) {}
+}
+
+// ── 会話 ────────────────────────────────────────────
 async function sendMessage(text) {
-  if (isBusy || !text.trim()) return;
+  if (sleeping || isBusy || !text.trim()) return;
+  resetSleepTimer();
+
+  // 寝かしつけワード
+  if (SLEEP_WORDS.test(text)) {
+    robot.setEmotion('sad');
+    setStatus('speaking');
+    speak('おやすみ〜！またね！', goToSleep);
+    return;
+  }
+
   isBusy = true;
   setStatus('thinking');
   robot.setEmotion('thinking');
@@ -331,11 +423,13 @@ async function sendMessage(text) {
       } else {
         setStatus('ready');
       }
+      resetSleepTimer();
     });
   } catch {
     robot.setEmotion('sad');
     setStatus('ready');
     isBusy = false;
+    resetSleepTimer();
   }
 }
 
@@ -343,17 +437,28 @@ async function sendMessage(text) {
 async function doReset() {
   await fetch('/api/reset', { method: 'POST' });
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-  if (continuousMode) { continuousMode = false; updateContMode(); }
-  robot.setEmotion('idle');
-  setStatus('ready');
+  stopWakeWordListening();
+  clearTimeout(sleepTimer);
+  try { recognition?.abort(); } catch(e) {}
+  continuousMode = false;
+  canvas.classList.remove('continuous', 'listening-once');
   isBusy = false;
-  setTimeout(() => sendMessage('こんにちは！'), 300);
+  sleeping = false;
+  robot.setEmotion('excited');
+  setStatus('speaking');
+  speak('リセットしたよ！また話しかけてね！', () => {
+    robot.setEmotion('idle');
+    setStatus('ready');
+    resetSleepTimer();
+  });
 }
 resetHint.addEventListener('click', doReset);
 
-// ── 音声認識 ─────────────────────────────────────────
-const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-let continuousMode = false, listeningActive = false;
+// ── 会話用音声認識 ────────────────────────────────────
+function startListening() {
+  if (!recognition || listeningActive || isBusy || sleeping) return;
+  try { recognition.start(); } catch(e) {}
+}
 
 function updateContMode() {
   if (continuousMode) {
@@ -362,11 +467,6 @@ function updateContMode() {
     canvas.classList.remove('continuous', 'listening-once');
     if (!isBusy) setStatus('ready');
   }
-}
-
-function startListening() {
-  if (!recognition || listeningActive || isBusy) return;
-  try { recognition.start(); } catch(e) {}
 }
 
 if (SpeechRec) {
@@ -385,31 +485,35 @@ if (SpeechRec) {
     listeningActive = false;
     canvas.classList.remove('listening-once');
     const text = e.results[0][0].transcript;
+    resetSleepTimer();
     setTimeout(() => sendMessage(text), 200);
   };
   recognition.onend = () => {
     listeningActive = false;
     canvas.classList.remove('listening-once');
-    if (continuousMode && !isBusy) setTimeout(() => startListening(), 400);
-    else if (!continuousMode && !isBusy) setStatus('ready');
+    if (continuousMode && !isBusy && !sleeping) setTimeout(() => startListening(), 400);
+    else if (!continuousMode && !isBusy && !sleeping) setStatus('ready');
   };
   recognition.onerror = e => {
     listeningActive = false;
     canvas.classList.remove('listening-once');
     if (e.error === 'no-speech') {
-      if (continuousMode && !isBusy) setTimeout(() => startListening(), 400);
+      if (continuousMode && !isBusy && !sleeping) setTimeout(() => startListening(), 400);
       return;
     }
     continuousMode = false; updateContMode();
   };
 
-  // ── キャンバスタップ / 長押し ──────────────────────
-  //  短押し → 一回聞く（連続モード中なら解除）
-  //  長押し → 連続モード ON/OFF
+  // ── キャンバス操作 ──────────────────────────────────
+  //  スリープ中  : 短押し/長押しどちらも → 起動
+  //  起動中 短押し: 一回聞く（連続中なら解除）
+  //  起動中 長押し: 連続モード ON/OFF
   let pressTimer = null;
   canvas.addEventListener('pointerdown', () => {
     pressTimer = setTimeout(() => {
       pressTimer = null;
+      if (sleeping) { wakeUp(); return; }
+      // 長押し → 連続モード切替
       if (!continuousMode) {
         continuousMode = true; updateContMode();
         if (currentAudio) { currentAudio.pause(); currentAudio = null; }
@@ -423,8 +527,8 @@ if (SpeechRec) {
   canvas.addEventListener('pointerup', () => {
     if (pressTimer) {
       clearTimeout(pressTimer); pressTimer = null;
+      if (sleeping) { wakeUp(); return; }
       if (continuousMode) {
-        // 連続モード中の短押し → 解除
         continuousMode = false; updateContMode();
         try { recognition.abort(); } catch(e) {}
       } else {
@@ -442,18 +546,11 @@ if (SpeechRec) {
   setStatus('ready');
 }
 
-// ── 初回挨拶 ─────────────────────────────────────────
-window.addEventListener('load', async () => {
-  try {
-    const res  = await fetch('/api/greet');
-    const data = await res.json();
-    robot.setEmotion(data.emotion || 'excited');
-    robot.setAction(data.action  || 'nod');
-    setTimeout(() => speak(data.message), 500);
-  } catch {
-    robot.setEmotion('excited');
-  }
-  setStatus('ready');
+// ── 初期化（スリープ状態でスタート） ─────────────────
+window.addEventListener('load', () => {
+  robot.setEmotion('sleep');
+  setStatus('sleeping');
+  setTimeout(startWakeWordListening, 800);
 });
 </script>
 </body>
