@@ -497,7 +497,6 @@ if (SpeechRec) {
     canvas.classList.add('listening-once');
     setStatus('listening');
     robot.setEmotion('happy');
-    resetSleepTimer(); // マイクが起動している間はタイマーをリセット
   };
   recognition.onresult = e => {
     listeningActive = false;
