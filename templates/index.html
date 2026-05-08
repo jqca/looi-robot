@@ -290,7 +290,7 @@ let listeningActive= false;
 let sleepTimer     = null;
 let currentAudio   = null;
 
-const SLEEP_MS   = 60_000;
+const SLEEP_MS   = 300_000; // 5分間操作なしで自動スリープ
 const WAKE_WORDS = /起きて|おきて|おはよ|ルーイ|ねえ|スタート/;
 const SLEEP_WORDS= /おやすみ|寝て|ねて|バイバイ|またね|終わり|おわり/;
 
@@ -497,6 +497,7 @@ if (SpeechRec) {
     canvas.classList.add('listening-once');
     setStatus('listening');
     robot.setEmotion('happy');
+    resetSleepTimer(); // マイクが起動している間はタイマーをリセット
   };
   recognition.onresult = e => {
     listeningActive = false;
