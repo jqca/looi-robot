@@ -506,7 +506,7 @@ def kids_reset():
 @app.route("/api/kids/greet", methods=["GET"])
 def kids_greet():
     name = session.get("kids_robot_name", "秋山さん")
-    return jsonify({"message": f"やあ！ぼく{name}だよ！なんでもきいてね〜！", "emotion": "excited", "action": "nod"})
+    return jsonify({"message": f"社長、おはようございます。{name}です。何なりとお申し付けください。", "emotion": "happy", "action": "nod"})
 
 
 @app.route("/api/debug")

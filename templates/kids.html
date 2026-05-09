@@ -980,7 +980,7 @@ async function setName() {
     nameInput.value = '';
     namePanel.classList.remove('open');
     robot.setEmotion('excited'); robot.setAction('nod');
-    const msg = `やあ！これからは${robotName}だよ！よろしくね！`;
+    const msg = `かしこまりました。${robotName}としてお仕えいたします。`;
     showBubble(msg); speak(msg);
     // Big confetti!
     const r = robotCanvas.getBoundingClientRect();
@@ -1107,10 +1107,10 @@ if (SR) {
 robotCanvas.addEventListener('click', () => {
   robot.blink?.();
   const msgs = [
-    'ねえねえ、なにかはなそうよ！',
-    'こちょこちょ！くすぐったいよ！',
-    'えへへ、なあに？',
-    'ぼくのこと、さわった？！',
+    '社長、何かございましたか？',
+    'はい、秋山です。お呼びでしょうか？',
+    '社長、ご用件をどうぞ。',
+    'お手伝いできることはございますか？',
   ];
   const m = msgs[Math.floor(Math.random() * msgs.length)];
   robot.setEmotion('happy');
@@ -1145,7 +1145,7 @@ window.addEventListener('load', async () => {
     }, 600);
   } catch {
     robot.setEmotion('excited'); robot.setAction('nod');
-    showBubble('やあ！秋山だよ！なんでもきいてね〜！');
+    showBubble('社長、おはようございます。秋山です。何なりとお申し付けください。');
   }
   setStatus('ready', 'まってるよ！');
 });
