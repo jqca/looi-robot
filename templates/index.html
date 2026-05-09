@@ -255,6 +255,91 @@
   }
   .task-delete:hover { color: #dd4444; }
   .task-empty { text-align: center; padding: 32px 0; color: #5a7a8a; font-size: 14px; }
+
+  /* ── ニュースパネル ── */
+  #news-panel {
+    position: fixed; inset: 0; z-index: 8500;
+    background: rgba(15, 25, 40, .96);
+    display: none; flex-direction: column;
+    padding: 0; overflow: hidden;
+  }
+  #news-panel.open { display: flex; }
+
+  #news-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 20px 14px;
+    background: linear-gradient(135deg, rgba(60,140,200,.15), rgba(100,200,160,.10));
+    border-bottom: 1px solid rgba(100,180,220,.15);
+    flex-shrink: 0;
+  }
+  #news-panel-header h2 {
+    font-size: 17px; font-weight: 600;
+    color: #8cc8e8; margin: 0;
+    display: flex; align-items: center; gap: 8px;
+  }
+  #news-panel-header h2::before {
+    content: '📡'; font-size: 20px;
+  }
+  #news-close {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,.08);
+    border: 1px solid rgba(255,255,255,.12);
+    color: #8aa8c0; font-size: 20px;
+    cursor: pointer; display: flex;
+    align-items: center; justify-content: center;
+    transition: background .2s;
+  }
+  #news-close:hover { background: rgba(255,255,255,.15); }
+
+  #news-list {
+    flex: 1; overflow-y: auto;
+    padding: 12px 16px 80px;
+  }
+  .news-item {
+    display: block; text-decoration: none;
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(100,180,220,.10);
+    border-radius: 12px;
+    transition: background .2s, border-color .2s;
+  }
+  .news-item:hover {
+    background: rgba(100,180,220,.10);
+    border-color: rgba(100,180,220,.25);
+  }
+  .news-item-title {
+    font-size: 14px; color: #d0e8f4;
+    line-height: 1.5; font-weight: 500;
+    margin-bottom: 6px;
+  }
+  .news-item-meta {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 11px; color: #6a8a9a;
+  }
+  .news-item-source {
+    background: rgba(100,180,220,.12);
+    padding: 2px 8px; border-radius: 4px;
+    color: #7ab8d8;
+  }
+  .news-loading {
+    text-align: center; padding: 40px 0;
+    color: #6a8a9a; font-size: 14px;
+  }
+  .news-loading::after {
+    content: ''; display: inline-block;
+    width: 16px; height: 16px;
+    border: 2px solid rgba(100,180,220,.2);
+    border-top-color: #6ab0d8;
+    border-radius: 50%;
+    animation: news-spin .8s linear infinite;
+    margin-left: 8px; vertical-align: middle;
+  }
+  @keyframes news-spin { to { transform: rotate(360deg); } }
+  .news-empty {
+    text-align: center; padding: 40px 0;
+    color: #6a8a9a; font-size: 14px;
+  }
 </style>
 </head>
 <body>
@@ -283,6 +368,14 @@
   <div id="joystick-area">
     <div id="joystick-knob"></div>
   </div>
+</div>
+
+<div id="news-panel">
+  <div id="news-panel-header">
+    <h2>AIニュース</h2>
+    <button id="news-close">✕</button>
+  </div>
+  <div id="news-list"></div>
 </div>
 
 <div id="task-panel">
@@ -1498,6 +1591,56 @@ function detectActionFromText(text) {
   return null;
 }
 
+// ════════════════════════════════════════════════════
+// ニュース機能
+// ════════════════════════════════════════════════════
+const NEWS_RE = /ニュース|にゅーす|最新情報|最新ニュース|news|今日の.*ニュース|本日の.*ニュース/i;
+
+function detectNewsRequest(text) {
+  return NEWS_RE.test(text);
+}
+
+const newsPanel = document.getElementById('news-panel');
+const newsList = document.getElementById('news-list');
+const newsClose = document.getElementById('news-close');
+
+newsClose.addEventListener('click', () => {
+  newsPanel.classList.remove('open');
+});
+
+async function fetchAndShowNews(topic) {
+  // Open panel with loading state
+  newsPanel.classList.add('open');
+  newsList.innerHTML = '<div class="news-loading">ニュースを取得中</div>';
+
+  try {
+    const q = topic || 'AI 人工知能 生成AI';
+    const res = await fetch(`/api/news?topic=${encodeURIComponent(q)}&limit=8`);
+    const data = await res.json();
+
+    if (!data.items || data.items.length === 0) {
+      newsList.innerHTML = '<div class="news-empty">ニュースが見つかりませんでした。</div>';
+      return 0;
+    }
+
+    newsList.innerHTML = data.items.map(item => `
+      <a class="news-item" href="${item.link}" target="_blank" rel="noopener">
+        <div class="news-item-title">${item.title}</div>
+        <div class="news-item-meta">
+          ${item.source ? `<span class="news-item-source">${item.source}</span>` : ''}
+          <span>${item.date}</span>
+        </div>
+      </a>
+    `).join('');
+
+    return data.items.length;
+  } catch (err) {
+    console.error('[news]', err);
+    newsList.innerHTML = '<div class="news-empty">ニュースの取得に失敗しました。</div>';
+    return 0;
+  }
+}
+
 async function sendMessage(text) {
   if (sleeping || isBusy || !text.trim()) return;
   resetSleepTimer();
@@ -1505,6 +1648,33 @@ async function sendMessage(text) {
   if (SLEEP_WORDS.test(text)) {
     isBusy = true; robot.setEmotion('sad'); setStatus('speaking');
     speak('かしこまりました。ごゆっくりお休みください。', goToSleep);
+    return;
+  }
+
+  // ── ニュースリクエスト検出 ──
+  if (detectNewsRequest(text)) {
+    isBusy = true; setStatus('thinking'); robot.setEmotion('excited');
+    speak('社長、最新のAIニュースをお調べいたします。少々お待ちください。', null);
+    // Fetch news in parallel with speech (don't block on TTS callback)
+    (async () => {
+      const count = await fetchAndShowNews();
+      // Wait a moment for the intro speech to finish
+      await new Promise(r => setTimeout(r, 3000));
+      if (currentAudio) { currentAudio.pause(); currentAudio = null; robot.setTalking(false); }
+      if (window.speechSynthesis) window.speechSynthesis.cancel();
+      robot.setEmotion('happy'); setStatus('speaking');
+      if (count > 0) {
+        speak(`本日のAIのニュースは以上の${count}件でございます。画面をご確認ください。`, () => {
+          isBusy = false; resetSleepTimer(); resetProactiveTimer();
+          setTimeout(() => startListening(), 1200);
+        });
+      } else {
+        speak('申し訳ございません。現在ニュースを取得できませんでした。', () => {
+          isBusy = false; resetSleepTimer(); resetProactiveTimer();
+          setTimeout(() => startListening(), 1200);
+        });
+      }
+    })();
     return;
   }
 

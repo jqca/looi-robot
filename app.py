@@ -668,6 +668,62 @@ def greet():
 
 
 # ─────────────────────────────────────────────────────
+# ニュース取得 API
+# ─────────────────────────────────────────────────────
+@app.route("/api/news", methods=["GET"])
+def get_news():
+    """Google News RSS からAI関連ニュースを取得"""
+    topic = request.args.get("topic", "AI 人工知能")
+    limit = min(int(request.args.get("limit", 8)), 20)
+
+    try:
+        import xml.etree.ElementTree as ET
+        from urllib.parse import quote
+
+        rss_url = (
+            f"https://news.google.com/rss/search?"
+            f"q={quote(topic)}&hl=ja&gl=JP&ceid=JP:ja"
+        )
+        resp = http_requests.get(rss_url, headers=HEADERS, timeout=10)
+        resp.raise_for_status()
+
+        root = ET.fromstring(resp.content)
+        items = []
+        for item in root.findall(".//item")[:limit]:
+            title_raw = item.findtext("title", "")
+            # Google News format: "記事タイトル - メディア名"
+            parts = title_raw.rsplit(" - ", 1)
+            title = parts[0].strip()
+            source = parts[1].strip() if len(parts) > 1 else ""
+            link = item.findtext("link", "")
+            pub_date = item.findtext("pubDate", "")
+
+            # pubDate を簡易フォーマット (例: "Sat, 10 May 2026 06:00:00 GMT" → "5/10")
+            date_short = ""
+            if pub_date:
+                try:
+                    from email.utils import parsedate_to_datetime
+                    dt = parsedate_to_datetime(pub_date)
+                    dt_jst = dt.astimezone(ZoneInfo("Asia/Tokyo"))
+                    date_short = f"{dt_jst.month}/{dt_jst.day} {dt_jst.hour}:{dt_jst.minute:02d}"
+                except Exception:
+                    date_short = pub_date[:16]
+
+            items.append({
+                "title": title,
+                "source": source,
+                "link": link,
+                "date": date_short,
+            })
+
+        return jsonify({"items": items, "topic": topic})
+
+    except Exception as e:
+        logger.error(f"[news] {e}")
+        return jsonify({"items": [], "error": str(e)[:100]}), 500
+
+
+# ─────────────────────────────────────────────────────
 # タスク管理 API
 # ─────────────────────────────────────────────────────
 @app.route("/api/tasks", methods=["GET"])
