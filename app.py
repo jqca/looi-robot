@@ -472,7 +472,7 @@ def index():
 @app.route("/api/chat", methods=["POST"])
 def chat():
     if not ANTHROPIC_API_KEY:
-        return jsonify({"message": "ANTHROPIC_API_KEYを設定してね", "emotion": "sad", "action": "shake"})
+        return jsonify({"message": "申し訳ございません。システム設定に問題がございます。管理者にお問い合わせください。", "emotion": "sad", "action": "shake"})
 
     data        = request.get_json() or {}
     user_msg    = data.get("message", "").strip()

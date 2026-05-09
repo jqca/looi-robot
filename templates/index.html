@@ -767,7 +767,9 @@ if (SpeechRec) {
     listeningActive = false;
     canvas.classList.remove('listening-once');
     if (pendingTranscript && sendDebounceTimer) {
-      // デバウンス待ち中に認識が切れた場合、再開せず送信を待つ
+      // デバウンス待ち中に認識が切れた場合、即送信
+      clearTimeout(sendDebounceTimer);
+      flushTranscript();
       return;
     }
     if (!isBusy && !sleeping) setTimeout(() => startListening(), 400);

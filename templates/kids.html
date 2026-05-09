@@ -1024,9 +1024,26 @@ function startListening() {
   try { kidsRec.start(); } catch(e) { console.warn(e); }
 }
 
+// 発話デバウンス（話し終わるまで待つ）
+let kidsPending = '';
+let kidsSendTimer = null;
+const KIDS_SEND_DELAY = 1500;
+
+function kidsFlush() {
+  clearTimeout(kidsSendTimer); kidsSendTimer = null;
+  const text = kidsPending.trim();
+  kidsPending = '';
+  if (!text) return;
+  try { kidsRec.abort(); } catch(e) {}
+  listeningActive = false;
+  micBtn.classList.remove('listening');
+  textInput.value = text;
+  sendMessage(text);
+}
+
 if (SR) {
   kidsRec = new SR();
-  kidsRec.lang = 'ja-JP'; kidsRec.continuous = false; kidsRec.interimResults = false;
+  kidsRec.lang = 'ja-JP'; kidsRec.continuous = true; kidsRec.interimResults = true;
 
   kidsRec.onstart = () => {
     listeningActive = true;
@@ -1036,14 +1053,27 @@ if (SR) {
     hideBubble();
   };
   kidsRec.onresult = e => {
-    listeningActive = false;
-    const t = e.results[0][0].transcript;
-    textInput.value = t;
-    setTimeout(() => sendMessage(t), 200);
+    let finalText = '';
+    let interim = '';
+    for (let i = 0; i < e.results.length; i++) {
+      if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
+      else interim += e.results[i][0].transcript;
+    }
+    if (finalText) kidsPending = finalText;
+    if (finalText || interim) {
+      robot.setEmotion('happy');
+      clearTimeout(kidsSendTimer);
+      kidsSendTimer = setTimeout(kidsFlush, KIDS_SEND_DELAY);
+    }
   };
   kidsRec.onend = () => {
     listeningActive = false;
     micBtn.classList.remove('listening');
+    if (kidsPending && kidsSendTimer) {
+      clearTimeout(kidsSendTimer);
+      kidsFlush();
+      return;
+    }
     if (continuousMode && !isBusy) {
       setTimeout(() => startListening(), 400);
     } else if (!continuousMode && !isBusy) {
@@ -1084,6 +1114,7 @@ if (SR) {
       if (continuousMode) {
         continuousMode = false;
         updateMicBtn();
+        clearTimeout(kidsSendTimer); kidsPending = '';
         try { kidsRec.abort(); } catch(e) {}
         setStatus('ready', 'まってるよ！');
       } else {
