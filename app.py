@@ -14,6 +14,9 @@ import asyncio
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
+from dotenv import load_dotenv
+load_dotenv()
+
 import requests as http_requests
 
 from flask import Flask, render_template, request, jsonify, session, make_response
