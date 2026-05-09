@@ -599,10 +599,10 @@ class RobotRenderer3D {
     this.cheekLeds = [];
     for (const sx of [-1, 1]) {
       const cheekLed = new THREE.Mesh(
-        new THREE.SphereGeometry(0.08, 14, 14),
-        new THREE.MeshBasicMaterial({ color: 0xFFB0C0, transparent: true, opacity: 0.45 })
+        new THREE.SphereGeometry(0.10, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0xFFB0C0, transparent: true, opacity: 0.50 })
       );
-      cheekLed.position.set(sx * 0.52, -0.32, 0.18);
+      cheekLed.position.set(sx * 0.55, -0.28, 0.20);
       this.eyeUnit.add(cheekLed);
       this.cheekLeds.push(cheekLed);
     }
@@ -1853,6 +1853,12 @@ window.addEventListener('load', () => {
   setStatus('sleeping');
 
   const overlay = document.getElementById('start-overlay');
+  if (location.search.includes('autostart')) {
+    overlay.classList.add('hidden');
+    setTimeout(() => overlay.remove(), 100);
+    robot.setEmotion('idle');
+    setStatus('idle');
+  }
   overlay.addEventListener('click', () => {
     unlockAudio();
     overlay.classList.add('hidden');
