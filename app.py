@@ -15,6 +15,8 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import requests as http_requests
+import psycopg2
+import psycopg2.extras
 
 from flask import Flask, render_template, request, jsonify, session, make_response
 
@@ -34,6 +36,137 @@ app.secret_key = os.getenv("SECRET_KEY", "looi-robot-secret-2026")
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
 MODEL = "claude-haiku-4-5-20251001"
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+
+
+# ─────────────────────────────────────────────────────
+# DB: 会話履歴・記憶の永続化
+# ─────────────────────────────────────────────────────
+def _get_db():
+    if not DATABASE_URL:
+        return None
+    return psycopg2.connect(DATABASE_URL)
+
+
+def _init_db():
+    conn = _get_db()
+    if not conn:
+        logger.warning("[db] DATABASE_URL未設定 — 会話履歴はセッションのみ")
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS conversation_history (
+                    id SERIAL PRIMARY KEY,
+                    user_id TEXT NOT NULL DEFAULT 'default',
+                    role TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS user_memory (
+                    id SERIAL PRIMARY KEY,
+                    user_id TEXT NOT NULL DEFAULT 'default',
+                    fact TEXT NOT NULL,
+                    created_at TIMESTAMPTZ DEFAULT NOW(),
+                    UNIQUE(user_id, fact)
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_history_user ON conversation_history(user_id, created_at)")
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_memory_user ON user_memory(user_id)")
+        conn.commit()
+        logger.info("[db] テーブル初期化完了")
+    except Exception as e:
+        logger.error(f"[db] 初期化失敗: {e}")
+    finally:
+        conn.close()
+
+
+def db_save_message(user_id: str, role: str, content: str):
+    conn = _get_db()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO conversation_history (user_id, role, content) VALUES (%s, %s, %s)",
+                (user_id, role, content)
+            )
+        conn.commit()
+    except Exception as e:
+        logger.error(f"[db] メッセージ保存失敗: {e}")
+    finally:
+        conn.close()
+
+
+def db_get_history(user_id: str, limit: int = 60) -> list:
+    conn = _get_db()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT role, content FROM conversation_history WHERE user_id = %s ORDER BY created_at DESC LIMIT %s",
+                (user_id, limit)
+            )
+            rows = cur.fetchall()
+            return [{"role": r[0], "content": r[1]} for r in reversed(rows)]
+    except Exception as e:
+        logger.error(f"[db] 履歴取得失敗: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def db_save_memory(user_id: str, fact: str):
+    conn = _get_db()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO user_memory (user_id, fact) VALUES (%s, %s) ON CONFLICT (user_id, fact) DO NOTHING",
+                (user_id, fact)
+            )
+        conn.commit()
+    except Exception as e:
+        logger.error(f"[db] 記憶保存失敗: {e}")
+    finally:
+        conn.close()
+
+
+def db_get_memory(user_id: str, limit: int = 30) -> list:
+    conn = _get_db()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT fact FROM user_memory WHERE user_id = %s ORDER BY created_at DESC LIMIT %s",
+                (user_id, limit)
+            )
+            return [r[0] for r in cur.fetchall()]
+    except Exception as e:
+        logger.error(f"[db] 記憶取得失敗: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def db_clear_history(user_id: str):
+    conn = _get_db()
+    if not conn:
+        return
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM conversation_history WHERE user_id = %s", (user_id,))
+            cur.execute("DELETE FROM user_memory WHERE user_id = %s", (user_id,))
+        conn.commit()
+    except Exception as e:
+        logger.error(f"[db] クリア失敗: {e}")
+    finally:
+        conn.close()
 
 # ─────────────────────────────────────────────────────
 # キャラクター設定（ベース）
@@ -340,24 +473,22 @@ def chat():
 
     data        = request.get_json() or {}
     user_msg    = data.get("message", "").strip()
-    memory      = data.get("memory", [])   # 事実記憶
+    client_mem  = data.get("memory", [])   # クライアント側事実記憶（フォールバック）
     proc        = data.get("proc",   [])   # ⑥ 手続き記憶
     mood        = data.get("mood",   None) # ⑥ 感情記憶
-    client_hist = data.get("history", [])  # クライアント側永続化履歴
+    user_id     = session.get("user_id", "default")
 
     if not user_msg:
         return jsonify({"error": "メッセージが空です"}), 400
 
-    # クライアントから履歴が送られていればそちらを優先（永続化対応）
-    if client_hist:
-        history = [{"role": h["role"], "content": h["content"]} for h in client_hist[-60:]]
-    else:
-        if "history" not in session:
-            session["history"] = []
-        history = list(session["history"])
-        history.append({"role": "user", "content": user_msg})
-        if len(history) > 40:
-            history = history[-40:]
+    # DB から会話履歴と記憶を取得
+    db_hist = db_get_history(user_id, limit=60)
+    db_mem  = db_get_memory(user_id, limit=30)
+    memory  = db_mem if db_mem else client_mem
+
+    # 今回のユーザーメッセージを追加
+    history = db_hist + [{"role": "user", "content": user_msg}]
+    db_save_message(user_id, "user", user_msg)
 
     logger.debug(f"[chat] user={user_msg[:30]} memory={len(memory)}件 history={len(history)}件 proc={proc} mood={mood}")
 
@@ -371,10 +502,12 @@ def chat():
 
         result = _parse_result(raw_text)
 
-        if not client_hist:
-            history.append({"role": "assistant", "content": raw_text})
-            session["history"] = history
-            session.modified = True
+        # アシスタントの応答をDBに保存
+        db_save_message(user_id, "assistant", result.get("message", raw_text))
+
+        # remember フィールドがあればDBに記憶保存
+        if result.get("remember"):
+            db_save_memory(user_id, result["remember"])
 
         return jsonify(result)
 
@@ -415,6 +548,8 @@ def tts():
 @app.route("/api/reset", methods=["POST"])
 def reset():
     session.pop("history", None)
+    user_id = session.get("user_id", "default")
+    db_clear_history(user_id)
     return jsonify({"status": "ok"})
 
 
@@ -538,6 +673,8 @@ def debug_info():
 # ─────────────────────────────────────────────────────
 # 起動
 # ─────────────────────────────────────────────────────
+_init_db()
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5050))
     print(f"LOOI Robot starting on http://localhost:{port}")
