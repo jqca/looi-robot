@@ -343,18 +343,23 @@ def chat():
     memory      = data.get("memory", [])   # 事実記憶
     proc        = data.get("proc",   [])   # ⑥ 手続き記憶
     mood        = data.get("mood",   None) # ⑥ 感情記憶
+    client_hist = data.get("history", [])  # クライアント側永続化履歴
 
     if not user_msg:
         return jsonify({"error": "メッセージが空です"}), 400
 
-    if "history" not in session:
-        session["history"] = []
-    history = list(session["history"])
-    history.append({"role": "user", "content": user_msg})
-    if len(history) > 40:
-        history = history[-40:]
+    # クライアントから履歴が送られていればそちらを優先（永続化対応）
+    if client_hist:
+        history = [{"role": h["role"], "content": h["content"]} for h in client_hist[-60:]]
+    else:
+        if "history" not in session:
+            session["history"] = []
+        history = list(session["history"])
+        history.append({"role": "user", "content": user_msg})
+        if len(history) > 40:
+            history = history[-40:]
 
-    logger.debug(f"[chat] user={user_msg[:30]} memory={len(memory)}件 proc={proc} mood={mood}")
+    logger.debug(f"[chat] user={user_msg[:30]} memory={len(memory)}件 history={len(history)}件 proc={proc} mood={mood}")
 
     try:
         import anthropic
@@ -366,9 +371,10 @@ def chat():
 
         result = _parse_result(raw_text)
 
-        history.append({"role": "assistant", "content": raw_text})
-        session["history"] = history
-        session.modified = True
+        if not client_hist:
+            history.append({"role": "assistant", "content": raw_text})
+            session["history"] = history
+            session.modified = True
 
         return jsonify(result)
 

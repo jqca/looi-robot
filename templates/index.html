@@ -361,6 +361,15 @@ function setStatus(state) {
 const FACT_KEY  = 'looi_memory';   // 事実記憶
 const PROC_KEY  = 'looi_proc';     // 手続き記憶（話題パターン）
 const EMO_KEY   = 'looi_emo';      // 感情記憶
+const HIST_KEY  = 'looi_history';  // 会話履歴（永続化）
+
+// 会話履歴の永続化
+function getHistory() { return JSON.parse(localStorage.getItem(HIST_KEY) || '[]'); }
+function saveHistory(history) {
+  if (history.length > 60) history = history.slice(-60);
+  localStorage.setItem(HIST_KEY, JSON.stringify(history));
+}
+function clearHistory() { localStorage.removeItem(HIST_KEY); }
 
 // 事実記憶
 function getMemory() { return JSON.parse(localStorage.getItem(FACT_KEY) || '[]'); }
@@ -410,7 +419,7 @@ function getRecentMood() {
 }
 
 function clearAllMemory() {
-  [FACT_KEY, PROC_KEY, EMO_KEY].forEach(k => localStorage.removeItem(k));
+  [FACT_KEY, PROC_KEY, EMO_KEY, HIST_KEY].forEach(k => localStorage.removeItem(k));
 }
 
 // ════════════════════════════════════════════════════
@@ -622,6 +631,9 @@ async function sendMessage(text) {
   trackProc(text);
 
   try {
+    const history = getHistory();
+    history.push({ role: 'user', content: text });
+
     const res = await fetch('/api/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -629,6 +641,7 @@ async function sendMessage(text) {
         memory:  getMemory(),             // 事実記憶
         proc:    getTopTopics(),           // ⑥ 手続き記憶
         mood:    getRecentMood(),          // ⑥ 感情記憶
+        history: history,                 // 会話履歴（永続化）
       }),
     });
 
@@ -638,6 +651,8 @@ async function sendMessage(text) {
 
     const data = await res.json();
     if (data.remember) addMemory(data.remember);
+    history.push({ role: 'assistant', content: data.message || '' });
+    saveHistory(history);
     trackEmo(data.emotion || 'idle');  // ⑥ 感情記録
 
     robot.setEmotion(data.emotion || 'idle');
