@@ -80,6 +80,38 @@
   #reset-hint:hover  { opacity: 0.50; }
   #reset-hint:active { opacity: 0.90; }
 
+  /* ── テキスト入力 ── */
+  #text-input-bar {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%; max-width: 400px; flex-shrink: 0;
+  }
+  #text-input {
+    flex: 1; height: 40px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(102,170,255,.2);
+    border-radius: 20px;
+    padding: 0 16px;
+    color: #cce8f4;
+    font-size: 14px;
+    outline: none;
+    transition: border-color .3s;
+  }
+  #text-input::placeholder { color: rgba(204,232,244,.3); }
+  #text-input:focus { border-color: rgba(102,170,255,.5); }
+  #text-send {
+    width: 40px; height: 40px; flex-shrink: 0;
+    background: rgba(102,170,255,.15);
+    border: 1px solid rgba(102,170,255,.3);
+    border-radius: 50%;
+    color: #88bbff;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background .2s, transform .1s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #text-send:hover { background: rgba(102,170,255,.25); }
+  #text-send:active { transform: scale(.9); }
+
   #start-overlay {
     position: fixed; inset: 0; z-index: 9999;
     background: #030912;
@@ -118,6 +150,10 @@
   <div id="status-bar">
     <span id="mic-label"></span>
     <span id="reset-hint" title="リセット">⟳</span>
+  </div>
+  <div id="text-input-bar">
+    <input id="text-input" type="text" placeholder="テキストで指示..." autocomplete="off">
+    <button id="text-send" title="送信">▶</button>
   </div>
 </div>
 
@@ -622,6 +658,7 @@ function startWakeWordListening() {
   };
   sr.onerror = e => {
     console.warn('[wake] error:', e.error);
+    if (e.error === 'not-allowed') return; // マイク拒否時は再試行しない
     if (sleeping && sleepRecRef === sr) {
       sleepRecRef = null;
       setTimeout(startWakeWordListening, 3000);
@@ -740,6 +777,33 @@ async function doReset() {
   });
 }
 resetHint.addEventListener('click', doReset);
+
+// ════════════════════════════════════════════════════
+// テキスト入力
+// ════════════════════════════════════════════════════
+const textInput = document.getElementById('text-input');
+const textSend  = document.getElementById('text-send');
+
+function submitText() {
+  const text = textInput.value.trim();
+  if (!text || isBusy) return;
+  textInput.value = '';
+  textInput.blur();
+  if (sleeping) {
+    sleeping = false;
+    stopWakeWordListening();
+  }
+  clearTimeout(sendDebounceTimer); pendingTranscript = '';
+  try { recognition?.abort(); } catch(e) {}
+  listeningActive = false;
+  canvas.classList.remove('listening-once');
+  sendMessage(text);
+}
+
+textSend.addEventListener('click', submitText);
+textInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); submitText(); }
+});
 
 // ════════════════════════════════════════════════════
 // 会話用音声認識
