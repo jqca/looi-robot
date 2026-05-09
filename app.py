@@ -78,6 +78,17 @@ def _init_db():
             """)
             cur.execute("CREATE INDEX IF NOT EXISTS idx_history_user ON conversation_history(user_id, created_at)")
             cur.execute("CREATE INDEX IF NOT EXISTS idx_memory_user ON user_memory(user_id)")
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS tasks (
+                    id SERIAL PRIMARY KEY,
+                    user_id TEXT NOT NULL DEFAULT 'default',
+                    title TEXT NOT NULL,
+                    due_date DATE,
+                    done BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMPTZ DEFAULT NOW()
+                )
+            """)
+            cur.execute("CREATE INDEX IF NOT EXISTS idx_tasks_user ON tasks(user_id, due_date)")
         conn.commit()
         logger.info("[db] テーブル初期化完了")
     except Exception as e:
@@ -170,6 +181,85 @@ def db_clear_history(user_id: str):
         logger.error(f"[db] クリア失敗: {e}")
     finally:
         conn.close()
+
+# ─────────────────────────────────────────────────────
+# タスク管理
+# ─────────────────────────────────────────────────────
+def db_add_task(user_id: str, title: str, due_date=None):
+    conn = _get_db()
+    if not conn:
+        return None
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO tasks (user_id, title, due_date) VALUES (%s, %s, %s) RETURNING id",
+                (user_id, title, due_date)
+            )
+            task_id = cur.fetchone()[0]
+        conn.commit()
+        return task_id
+    except Exception as e:
+        logger.error(f"[db] タスク追加失敗: {e}")
+        return None
+    finally:
+        conn.close()
+
+
+def db_get_tasks(user_id: str, date=None, include_done=False):
+    conn = _get_db()
+    if not conn:
+        return []
+    try:
+        with conn.cursor() as cur:
+            if date:
+                sql = "SELECT id, title, due_date, done FROM tasks WHERE user_id = %s AND due_date = %s"
+                params = [user_id, date]
+            else:
+                sql = "SELECT id, title, due_date, done FROM tasks WHERE user_id = %s"
+                params = [user_id]
+            if not include_done:
+                sql += " AND done = FALSE"
+            sql += " ORDER BY due_date ASC NULLS LAST, created_at ASC"
+            cur.execute(sql, params)
+            return [{"id": r[0], "title": r[1], "due_date": str(r[2]) if r[2] else None, "done": r[3]} for r in cur.fetchall()]
+    except Exception as e:
+        logger.error(f"[db] タスク取得失敗: {e}")
+        return []
+    finally:
+        conn.close()
+
+
+def db_complete_task(task_id: int, user_id: str):
+    conn = _get_db()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("UPDATE tasks SET done = TRUE WHERE id = %s AND user_id = %s", (task_id, user_id))
+        conn.commit()
+        return True
+    except Exception as e:
+        logger.error(f"[db] タスク完了失敗: {e}")
+        return False
+    finally:
+        conn.close()
+
+
+def db_delete_task(task_id: int, user_id: str):
+    conn = _get_db()
+    if not conn:
+        return False
+    try:
+        with conn.cursor() as cur:
+            cur.execute("DELETE FROM tasks WHERE id = %s AND user_id = %s", (task_id, user_id))
+        conn.commit()
+        return True
+    except Exception as e:
+        logger.error(f"[db] タスク削除失敗: {e}")
+        return False
+    finally:
+        conn.close()
+
 
 # ─────────────────────────────────────────────────────
 # キャラクター設定（ベース）
@@ -559,6 +649,83 @@ def reset():
 @app.route("/api/greet", methods=["GET"])
 def greet():
     return jsonify({"message": "社長、おはようございます。秋山です。本日もよろしくお願いいたします。", "emotion": "happy", "action": "nod"})
+
+
+# ─────────────────────────────────────────────────────
+# タスク管理 API
+# ─────────────────────────────────────────────────────
+@app.route("/api/tasks", methods=["GET"])
+def get_tasks():
+    user_id = session.get("user_id", "default")
+    date = request.args.get("date")
+    include_done = request.args.get("done", "false").lower() == "true"
+    tasks = db_get_tasks(user_id, date=date, include_done=include_done)
+    return jsonify({"tasks": tasks})
+
+
+@app.route("/api/tasks", methods=["POST"])
+def add_task():
+    user_id = session.get("user_id", "default")
+    data = request.get_json() or {}
+    title = data.get("title", "").strip()
+    if not title:
+        return jsonify({"error": "タイトルが必要です"}), 400
+    due_date = data.get("due_date")
+    task_id = db_add_task(user_id, title, due_date)
+    if task_id is None:
+        return jsonify({"error": "保存に失敗しました"}), 500
+    return jsonify({"id": task_id, "title": title, "due_date": due_date, "done": False})
+
+
+@app.route("/api/tasks/<int:task_id>/done", methods=["POST"])
+def complete_task(task_id):
+    user_id = session.get("user_id", "default")
+    db_complete_task(task_id, user_id)
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/tasks/<int:task_id>", methods=["DELETE"])
+def delete_task(task_id):
+    user_id = session.get("user_id", "default")
+    db_delete_task(task_id, user_id)
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/morning-briefing", methods=["GET"])
+def morning_briefing():
+    from datetime import date as dt_date
+    user_id = session.get("user_id", "default")
+    today = dt_date.today().isoformat()
+    today_tasks = db_get_tasks(user_id, date=today)
+    all_tasks = db_get_tasks(user_id)
+    overdue = [t for t in all_tasks if t["due_date"] and t["due_date"] < today]
+
+    lines = []
+    h = datetime.now().hour
+    if h < 11:
+        lines.append("社長、おはようございます。秋山です。")
+    else:
+        lines.append("社長、お疲れさまです。秋山です。")
+
+    if not today_tasks and not overdue:
+        lines.append("本日のタスクは登録されておりません。ごゆっくりお過ごしください。")
+    else:
+        if today_tasks:
+            lines.append(f"本日のタスクは{len(today_tasks)}件でございます。")
+            for i, t in enumerate(today_tasks, 1):
+                lines.append(f"{i}件目、{t['title']}。")
+        if overdue:
+            lines.append(f"なお、期限超過のタスクが{len(overdue)}件ございます。")
+            for t in overdue[:3]:
+                lines.append(f"{t['title']}、期限は{t['due_date']}でした。")
+
+    return jsonify({
+        "message": "".join(lines),
+        "emotion": "idle",
+        "action": "nod",
+        "today_count": len(today_tasks),
+        "overdue_count": len(overdue),
+    })
 
 
 # ─────────────────────────────────────────────────────
