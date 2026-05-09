@@ -454,44 +454,120 @@ class RobotRenderer3D {
     this.bodyPivot = new THREE.Group();
     this.robotGroup.add(this.bodyPivot);
 
-    // ── BODY (rounded box — friendly shape) ──
+    // ── BODY (industrial trapezoidal chassis) ──
+    const bwB = 0.82, bwT = 0.58, bh = 0.52, bDepth = 1.30;
     const bodyShape = new THREE.Shape();
-    const bw = 0.75, bh = 0.6, br = 0.15;
-    bodyShape.moveTo(-bw + br, -bh);
-    bodyShape.lineTo(bw - br, -bh);
-    bodyShape.quadraticCurveTo(bw, -bh, bw, -bh + br);
-    bodyShape.lineTo(bw, bh - br);
-    bodyShape.quadraticCurveTo(bw, bh, bw - br, bh);
-    bodyShape.lineTo(-bw + br, bh);
-    bodyShape.quadraticCurveTo(-bw, bh, -bw, bh - br);
-    bodyShape.lineTo(-bw, -bh + br);
-    bodyShape.quadraticCurveTo(-bw, -bh, -bw + br, -bh);
-    const bodyGeo = new THREE.ExtrudeGeometry(bodyShape, { depth: 1.3, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.08, bevelSegments: 3 });
+    const bcr = 0.06;
+    bodyShape.moveTo(-bwB + bcr, -bh);
+    bodyShape.lineTo(bwB - bcr, -bh);
+    bodyShape.quadraticCurveTo(bwB, -bh, bwB - 0.02, -bh + bcr);
+    bodyShape.lineTo(bwT + 0.02, bh - bcr);
+    bodyShape.quadraticCurveTo(bwT, bh, bwT - bcr, bh);
+    bodyShape.lineTo(-bwT + bcr, bh);
+    bodyShape.quadraticCurveTo(-bwT, bh, -bwT - 0.02, bh - bcr);
+    bodyShape.lineTo(-bwB + 0.02, -bh + bcr);
+    bodyShape.quadraticCurveTo(-bwB, -bh, -bwB + bcr, -bh);
+    const bodyGeo = new THREE.ExtrudeGeometry(bodyShape, {
+      depth: bDepth, bevelEnabled: true,
+      bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2
+    });
     bodyGeo.center();
     this.bodyMat = new THREE.MeshStandardMaterial({
-      color: 0xF5C842, roughness: 0.45, metalness: 0.15,
-      emissive: 0x6A5520, emissiveIntensity: 0.1,
+      color: 0xF5C842, roughness: 0.50, metalness: 0.20,
+      emissive: 0x6A5520, emissiveIntensity: 0.08,
     });
     this.bodyMesh = new THREE.Mesh(bodyGeo, this.bodyMat);
     this.bodyMesh.position.y = 1.55;
     this.bodyMesh.castShadow = true;
     this.bodyPivot.add(this.bodyMesh);
 
-    // Body edge highlight
-    const bodyEdges = new THREE.EdgesGeometry(bodyGeo, 30);
+    // Body edge highlights
+    const bodyEdges = new THREE.EdgesGeometry(bodyGeo, 20);
     this.bodyLine = new THREE.LineSegments(bodyEdges,
-      new THREE.LineBasicMaterial({ color: 0xE8B830, transparent: true, opacity: 0.25 }));
+      new THREE.LineBasicMaterial({ color: 0xC8A020, transparent: true, opacity: 0.25 }));
     this.bodyLine.position.copy(this.bodyMesh.position);
     this.bodyPivot.add(this.bodyLine);
 
-    // Belly panel (lighter accent)
-    const bellyGeo = new THREE.BoxGeometry(1.1, 0.5, 0.03);
-    const bellyMat = new THREE.MeshStandardMaterial({
-      color: 0xFADC68, roughness: 0.5, metalness: 0.1
+    // ── Front hatch panel (lighter, slightly protruding) ──
+    const hatchW = bwT * 1.3, hatchH = bh * 1.3;
+    const hatchGeo = new THREE.BoxGeometry(hatchW, hatchH, 0.05);
+    const hatchMat = new THREE.MeshStandardMaterial({
+      color: 0xFADC68, roughness: 0.45, metalness: 0.15
     });
-    const belly = new THREE.Mesh(bellyGeo, bellyMat);
-    belly.position.set(0, 1.55, 0.68);
-    this.bodyPivot.add(belly);
+    const hatch = new THREE.Mesh(hatchGeo, hatchMat);
+    hatch.position.set(0, 1.55, bDepth / 2 + 0.05);
+    this.bodyPivot.add(hatch);
+
+    // Hatch horizontal seam lines
+    for (const hy of [-0.15, 0.15]) {
+      const seamGeo = new THREE.BoxGeometry(hatchW * 0.92, 0.008, 0.008);
+      const seam = new THREE.Mesh(seamGeo, new THREE.MeshStandardMaterial({
+        color: 0xBB9928, roughness: 0.6, metalness: 0.3
+      }));
+      seam.position.set(0, 1.55 + hy, bDepth / 2 + 0.076);
+      this.bodyPivot.add(seam);
+    }
+
+    // ── Rivets on front face ──
+    const rivetMat = new THREE.MeshStandardMaterial({ color: 0x999999, roughness: 0.3, metalness: 0.8 });
+    const rivetGeo = new THREE.SphereGeometry(0.018, 6, 6);
+    const rZ = bDepth / 2 + 0.058;
+    const rivets = [
+      [-hatchW/2+0.04, bh*0.5], [hatchW/2-0.04, bh*0.5],
+      [-hatchW/2+0.04, -bh*0.5], [hatchW/2-0.04, -bh*0.5],
+      [-hatchW/2+0.04, 0], [hatchW/2-0.04, 0],
+      [0, bh*0.5], [0, -bh*0.5],
+    ];
+    for (const [rx, ry] of rivets) {
+      const r = new THREE.Mesh(rivetGeo, rivetMat);
+      r.position.set(rx, 1.55 + ry, rZ);
+      this.bodyPivot.add(r);
+    }
+
+    // ── Hinge bolts at top of hatch ──
+    const hingeMat = new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.3, metalness: 0.7 });
+    for (const hx of [-hatchW/2 + 0.05, hatchW/2 - 0.05]) {
+      const hinge = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.022, 0.022, 0.06, 8), hingeMat);
+      hinge.rotation.x = Math.PI / 2;
+      hinge.position.set(hx, 1.55 + hatchH/2 - 0.04, bDepth / 2 + 0.08);
+      this.bodyPivot.add(hinge);
+    }
+
+    // ── Front vent grilles (flanking hatch) ──
+    for (const sx of [-1, 1]) {
+      for (let vi = 0; vi < 3; vi++) {
+        const vent = new THREE.Mesh(
+          new THREE.BoxGeometry(0.10, 0.014, 0.014),
+          new THREE.MeshStandardMaterial({ color: 0x2A2A2A, roughness: 0.9, metalness: 0.1 })
+        );
+        vent.position.set(sx * (hatchW/2 + 0.12), 1.55 + (vi - 1) * 0.07, bDepth / 2 + 0.05);
+        this.bodyPivot.add(vent);
+      }
+    }
+
+    // ── Top plate with grab handle ──
+    const topPlate = new THREE.Mesh(
+      new THREE.BoxGeometry(bwT * 1.75, 0.04, bDepth * 0.82),
+      new THREE.MeshStandardMaterial({ color: 0xDDB840, roughness: 0.5, metalness: 0.25 })
+    );
+    topPlate.position.set(0, 1.55 + bh + 0.02, 0);
+    this.bodyPivot.add(topPlate);
+
+    const handleMat = new THREE.MeshStandardMaterial({ color: 0x777777, roughness: 0.4, metalness: 0.6 });
+    const handle = new THREE.Mesh(
+      new THREE.TorusGeometry(0.06, 0.015, 6, 12, Math.PI), handleMat);
+    handle.rotation.y = Math.PI / 2;
+    handle.position.set(0, 1.55 + bh + 0.10, -0.10);
+    this.bodyPivot.add(handle);
+
+    // ── Bottom bumper (wider, darker) ──
+    const bumper = new THREE.Mesh(
+      new THREE.BoxGeometry(bwB * 2.05, 0.06, bDepth * 0.90),
+      new THREE.MeshStandardMaterial({ color: 0x605838, roughness: 0.7, metalness: 0.25 })
+    );
+    bumper.position.set(0, 1.55 - bh - 0.01, 0);
+    this.bodyPivot.add(bumper);
 
     // ── NECK (telescoping stalk) ──
     const neckGeo = new THREE.CylinderGeometry(0.08, 0.10, 0.7, 8);
@@ -525,7 +601,7 @@ class RobotRenderer3D {
       const ledGeo = new THREE.SphereGeometry(0.04, 8, 8);
       const ledMat = new THREE.MeshBasicMaterial({ color: 0xD4A830, transparent: true, opacity: 0.6 });
       const led = new THREE.Mesh(ledGeo, ledMat);
-      led.position.set(-0.3 + i * 0.3, 1.0, 0.72);
+      led.position.set(-0.3 + i * 0.3, 1.10, 0.70);
       this.bodyPivot.add(led);
       this.leds.push(led);
     }
@@ -686,77 +762,173 @@ class RobotRenderer3D {
   _buildTrack(sideSign) {
     const trackGroup = new THREE.Group();
     const tx = sideSign * 1.02;
-    const trackW = 0.30;
-    const trackH = 0.85;
-    const trackD = 1.50;
-    const wheelR = 0.22;
+    const trackW = 0.32;
 
-    // ── Track belt ──
-    const beltShape = new THREE.Shape();
-    const br = wheelR;
-    const halfH = trackH / 2;
-    const halfD = trackD / 2;
-    beltShape.moveTo(-halfD + br, -halfH);
-    beltShape.lineTo(halfD - br, -halfH);
-    beltShape.absarc(halfD - br, -halfH + br, br, -Math.PI / 2, 0, false);
-    beltShape.lineTo(halfD, halfH - br);
-    beltShape.absarc(halfD - br, halfH - br, br, 0, Math.PI / 2, false);
-    beltShape.lineTo(-halfD + br, halfH);
-    beltShape.absarc(-halfD + br, halfH - br, br, Math.PI / 2, Math.PI, false);
-    beltShape.lineTo(-halfD, -halfH + br);
-    beltShape.absarc(-halfD + br, -halfH + br, br, Math.PI, Math.PI * 1.5, false);
+    // ── Triangular/trapezoidal belt profile ──
+    const botHalf = 0.72;   // half-length of flat bottom
+    const topHalf = 0.30;   // half-length of flat top (narrower)
+    const hH = 0.375;       // half-height (total 0.75)
+    const cr = 0.09;        // corner rounding
+    const beltY = 0.50;     // belt center Y position
 
-    const beltGeo = new THREE.ExtrudeGeometry(beltShape, { depth: trackW, bevelEnabled: false });
+    const shape = new THREE.Shape();
+    // Bottom-left → clockwise
+    shape.moveTo(-botHalf + cr, -hH);
+    // Bottom edge (flat, wide)
+    shape.lineTo(botHalf - cr, -hH);
+    // Bottom-right corner → rear slope
+    shape.quadraticCurveTo(botHalf, -hH, botHalf - 0.04, -hH + cr);
+    // Rear slope up (steep diagonal)
+    shape.lineTo(topHalf + 0.04, hH - cr);
+    // Top-right corner (sprocket zone)
+    shape.quadraticCurveTo(topHalf, hH, topHalf - cr, hH);
+    // Top edge (flat, narrow)
+    shape.lineTo(-topHalf + cr, hH);
+    // Top-left corner (idler zone)
+    shape.quadraticCurveTo(-topHalf, hH, -topHalf - 0.04, hH - cr);
+    // Front slope down
+    shape.lineTo(-botHalf + 0.04, -hH + cr);
+    // Bottom-left corner
+    shape.quadraticCurveTo(-botHalf, -hH, -botHalf + cr, -hH);
+
+    const beltGeo = new THREE.ExtrudeGeometry(shape, { depth: trackW, bevelEnabled: false });
     const beltMat = new THREE.MeshStandardMaterial({
-      color: 0x2A2A2A, roughness: 0.8, metalness: 0.2,
+      color: 0x2A2A2A, roughness: 0.85, metalness: 0.2,
       emissive: 0x111111, emissiveIntensity: 0.1,
     });
     const belt = new THREE.Mesh(beltGeo, beltMat);
     belt.rotation.y = Math.PI / 2;
-    belt.position.set(tx - trackW / 2, 0.52, 0);
+    belt.position.set(tx - trackW / 2, beltY, 0);
     belt.castShadow = true;
     trackGroup.add(belt);
 
     // Belt outline
     const beltEdges = new THREE.EdgesGeometry(beltGeo);
     const beltLine = new THREE.LineSegments(beltEdges,
-      new THREE.LineBasicMaterial({ color: 0x8A7528, transparent: true, opacity: 0.3 }));
+      new THREE.LineBasicMaterial({ color: 0x8A7528, transparent: true, opacity: 0.25 }));
     beltLine.rotation.y = Math.PI / 2;
-    beltLine.position.set(tx - trackW / 2, 0.52, 0);
+    beltLine.position.set(tx - trackW / 2, beltY, 0);
     trackGroup.add(beltLine);
 
-    // Drive wheels
-    for (const wz of [-trackD / 2 + br, trackD / 2 - br]) {
-      const wheelGeo = new THREE.CylinderGeometry(wheelR - 0.02, wheelR - 0.02, trackW + 0.02, 16);
-      const wheelMat = new THREE.MeshStandardMaterial({
-        color: 0x3A3A3A, roughness: 0.5, metalness: 0.5,
-      });
-      const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-      wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(tx, 0.52, wz);
-      trackGroup.add(wheel);
+    // ── Shared wheel materials ──
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x3A3A3A, roughness: 0.45, metalness: 0.5 });
+    const hubMat = new THREE.MeshStandardMaterial({ color: 0xD4A830, roughness: 0.3, metalness: 0.6 });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x4A4A4A, roughness: 0.5, metalness: 0.4 });
 
-      const hubGeo = new THREE.CylinderGeometry(0.05, 0.05, trackW + 0.06, 8);
-      const hubMat = new THREE.MeshBasicMaterial({ color: 0xD4A830, transparent: true, opacity: 0.4 });
-      const hub = new THREE.Mesh(hubGeo, hubMat);
-      hub.rotation.z = Math.PI / 2;
-      hub.position.set(tx, 0.52, wz);
-      trackGroup.add(hub);
+    // ── DRIVE SPROCKET (rear top — largest wheel with teeth) ──
+    const spR = 0.17;
+    const spY = beltY + hH - spR * 0.6;
+    const spZ = -(topHalf * 0.75);
+    const sprocket = new THREE.Mesh(
+      new THREE.CylinderGeometry(spR, spR, trackW + 0.04, 20), wheelMat);
+    sprocket.rotation.z = Math.PI / 2;
+    sprocket.position.set(tx, spY, spZ);
+    trackGroup.add(sprocket);
+    // Sprocket hub
+    const spHub = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.05, trackW + 0.08, 8), hubMat);
+    spHub.rotation.z = Math.PI / 2;
+    spHub.position.set(tx, spY, spZ);
+    trackGroup.add(spHub);
+    // Sprocket tooth ring
+    const spTeeth = new THREE.Mesh(
+      new THREE.TorusGeometry(spR + 0.01, 0.015, 6, 20), darkMat);
+    spTeeth.position.set(tx, spY, spZ);
+    trackGroup.add(spTeeth);
+    // Sprocket spokes (cross pattern)
+    for (let a = 0; a < 3; a++) {
+      const angle = (a / 3) * Math.PI;
+      const spokeGeo = new THREE.BoxGeometry(trackW * 0.6, 0.025, spR * 1.6);
+      const spoke = new THREE.Mesh(spokeGeo, hubMat);
+      spoke.position.set(tx, spY, spZ);
+      spoke.rotation.x = angle;
+      trackGroup.add(spoke);
     }
 
-    // Tread marks
-    const treadCount = 12;
-    const treadSpacing = trackD / (treadCount + 1);
-    for (let i = 1; i <= treadCount; i++) {
-      const tz = -trackD / 2 + treadSpacing * i;
-      const outerX = tx + sideSign * (trackW / 2 + 0.005);
+    // ── IDLER WHEEL (front top — medium) ──
+    const idR = 0.13;
+    const idY = beltY + hH - idR * 0.55;
+    const idZ = topHalf * 0.75;
+    const idler = new THREE.Mesh(
+      new THREE.CylinderGeometry(idR, idR, trackW + 0.02, 16), wheelMat);
+    idler.rotation.z = Math.PI / 2;
+    idler.position.set(tx, idY, idZ);
+    trackGroup.add(idler);
+    const idHub = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.04, trackW + 0.06, 8), hubMat);
+    idHub.rotation.z = Math.PI / 2;
+    idHub.position.set(tx, idY, idZ);
+    trackGroup.add(idHub);
+
+    // ── ROAD WHEELS (4 along the bottom — smaller) ──
+    const rwR = 0.11;
+    const rwCount = 4;
+    const rwSpan = botHalf * 1.4;
+    for (let i = 0; i < rwCount; i++) {
+      const frac = (i + 0.5) / rwCount;
+      const rwZ = -rwSpan / 2 + frac * rwSpan;
+      const rwY = beltY - hH + rwR + 0.015;
+      const rw = new THREE.Mesh(
+        new THREE.CylinderGeometry(rwR, rwR, trackW + 0.02, 14), wheelMat);
+      rw.rotation.z = Math.PI / 2;
+      rw.position.set(tx, rwY, rwZ);
+      trackGroup.add(rw);
+      // Road wheel hub
+      const rwHub = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.03, 0.03, trackW + 0.06, 6), hubMat);
+      rwHub.rotation.z = Math.PI / 2;
+      rwHub.position.set(tx, rwY, rwZ);
+      trackGroup.add(rwHub);
+    }
+
+    // ── RETURN ROLLERS (2 small, between sprocket & idler on top) ──
+    const rrR = 0.045;
+    for (const rrZ of [-0.06, 0.06]) {
+      const rr = new THREE.Mesh(
+        new THREE.CylinderGeometry(rrR, rrR, trackW - 0.04, 8), darkMat);
+      rr.rotation.z = Math.PI / 2;
+      rr.position.set(tx, beltY + hH + rrR * 0.3, rrZ);
+      trackGroup.add(rr);
+    }
+
+    // ── TRACK LINK PLATES (along the bottom) ──
+    const linkMat = new THREE.MeshStandardMaterial({ color: 0x383838, roughness: 0.9, metalness: 0.3 });
+    const linkCount = 14;
+    for (let i = 0; i < linkCount; i++) {
+      const frac = (i + 0.5) / linkCount;
+      const lz = -botHalf * 0.92 + frac * botHalf * 1.84;
+      const link = new THREE.Mesh(
+        new THREE.BoxGeometry(trackW + 0.06, 0.032, 0.055), linkMat);
+      link.position.set(tx, beltY - hH - 0.016, lz);
+      trackGroup.add(link);
+    }
+
+    // ── SUSPENSION ARMS (road wheels → body frame) ──
+    const armMat = new THREE.MeshStandardMaterial({ color: 0x555555, roughness: 0.5, metalness: 0.5 });
+    for (let i = 0; i < rwCount; i++) {
+      const frac = (i + 0.5) / rwCount;
+      const aZ = -rwSpan / 2 + frac * rwSpan;
+      const aY1 = beltY - hH + rwR + 0.015;  // wheel center
+      const aY2 = beltY + 0.10;              // frame attach
+      const armLen = aY2 - aY1;
+      const arm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.022, armLen, 0.022), armMat);
+      arm.position.set(tx, (aY1 + aY2) / 2, aZ);
+      trackGroup.add(arm);
+    }
+
+    // ── Tread lines (outer face detail) ──
+    const outerX = tx + sideSign * (trackW / 2 + 0.005);
+    for (let i = 0; i < 16; i++) {
+      const frac = i / 16;
+      const tz = -botHalf * 0.88 + frac * botHalf * 1.76;
       const pts = [
-        new THREE.Vector3(outerX, 0.52 - trackH / 2 + 0.06, tz),
-        new THREE.Vector3(outerX, 0.52 + trackH / 2 - 0.06, tz)
+        new THREE.Vector3(outerX, beltY - hH + 0.03, tz),
+        new THREE.Vector3(outerX, beltY + hH - 0.03, tz)
       ];
       const lg = new THREE.BufferGeometry().setFromPoints(pts);
       trackGroup.add(new THREE.Line(lg,
-        new THREE.LineBasicMaterial({ color: 0x555555, transparent: true, opacity: 0.25 })));
+        new THREE.LineBasicMaterial({ color: 0x555555, transparent: true, opacity: 0.2 })));
     }
 
     this.bodyPivot.add(trackGroup);
