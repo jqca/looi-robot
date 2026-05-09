@@ -485,6 +485,7 @@ function resetProactiveTimer() {
 
 function goToSleep() {
   clearTimeout(proactiveTimer);
+  clearTimeout(sendDebounceTimer); pendingTranscript = '';
   sleeping = true;
   clearTimeout(sleepTimer);
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
@@ -681,6 +682,7 @@ async function doReset() {
   stopWakeWordListening();
   clearTimeout(sleepTimer);
   clearTimeout(proactiveTimer); // ⑦
+  clearTimeout(sendDebounceTimer); pendingTranscript = '';
   try { recognition?.abort(); } catch(e) {}
   continuousMode = false;
   canvas.classList.remove('continuous', 'listening-once');
@@ -705,11 +707,29 @@ function startListening() {
   try { recognition.start(); } catch(e) {}
 }
 
+// 発話をデバウンスで蓄積し、間が空いてから送信する
+let pendingTranscript = '';
+let sendDebounceTimer = null;
+const SEND_DELAY_MS   = 1500; // 1.5秒無言で送信確定
+
+function flushTranscript() {
+  clearTimeout(sendDebounceTimer);
+  sendDebounceTimer = null;
+  const text = pendingTranscript.trim();
+  pendingTranscript = '';
+  if (!text) return;
+  try { recognition.abort(); } catch(e) {}
+  listeningActive = false;
+  canvas.classList.remove('listening-once');
+  resetSleepTimer();
+  sendMessage(text);
+}
+
 if (SpeechRec) {
   recognition = new SpeechRec();
   recognition.lang = 'ja-JP';
-  recognition.continuous = false;
-  recognition.interimResults = true; // ④ バックチャネル用に有効化
+  recognition.continuous = true;
+  recognition.interimResults = true;
 
   recognition.onstart = () => {
     listeningActive = true;
@@ -719,25 +739,37 @@ if (SpeechRec) {
   };
 
   recognition.onresult = e => {
-    const lastResult = e.results[e.results.length - 1];
-
-    // ④ インテリム結果：ユーザーが話し始めた瞬間に反応
-    if (!lastResult.isFinal) {
-      robot.setEmotion('happy'); // 話しているのを認識中
-      return;
+    let interim = '';
+    let finalText = '';
+    for (let i = 0; i < e.results.length; i++) {
+      if (e.results[i].isFinal) {
+        finalText += e.results[i][0].transcript;
+      } else {
+        interim += e.results[i][0].transcript;
+      }
     }
 
-    // 確定結果
-    listeningActive = false;
-    canvas.classList.remove('listening-once');
-    const text = lastResult[0].transcript;
-    resetSleepTimer();
-    setTimeout(() => sendMessage(text), 150);
+    if (finalText) {
+      pendingTranscript = finalText;
+      robot.setEmotion('happy');
+      clearTimeout(sendDebounceTimer);
+      sendDebounceTimer = setTimeout(flushTranscript, SEND_DELAY_MS);
+    }
+
+    if (interim) {
+      robot.setEmotion('happy');
+      clearTimeout(sendDebounceTimer);
+      sendDebounceTimer = setTimeout(flushTranscript, SEND_DELAY_MS);
+    }
   };
 
   recognition.onend = () => {
     listeningActive = false;
     canvas.classList.remove('listening-once');
+    if (pendingTranscript && sendDebounceTimer) {
+      // デバウンス待ち中に認識が切れた場合、再開せず送信を待つ
+      return;
+    }
     if (!isBusy && !sleeping) setTimeout(() => startListening(), 400);
   };
 
@@ -766,6 +798,7 @@ if (SpeechRec) {
       if (sleeping) { wakeUp(); return; }
       if (currentAudio) { currentAudio.pause(); currentAudio = null; robot.setTalking(false); }
       if (window.speechSynthesis) window.speechSynthesis.cancel();
+      clearTimeout(sendDebounceTimer); pendingTranscript = '';
       try { recognition.abort(); } catch(e) {}
       isBusy = false;
       listeningActive = false;
