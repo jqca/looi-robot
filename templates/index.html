@@ -496,8 +496,7 @@ function goToSleep() {
   isBusy = false;
   robot.setEmotion('sleep');
   setStatus('sleeping');
-  // マイクが完全解放されるまで待ってからウェイクワード認識を開始
-  setTimeout(startWakeWordListening, 600);
+  if (!isIOS) setTimeout(startWakeWordListening, 600);
 }
 
 // ⑦ 時刻に応じた挨拶
@@ -554,6 +553,7 @@ function doProactiveChat() {
 // ② ウェイクワード検出（信頼度スコア付き）
 // ════════════════════════════════════════════════════
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
 function stopWakeWordListening() {
   if (sleepRecRef) {
@@ -852,7 +852,7 @@ window.addEventListener('online', () => {
 window.addEventListener('load', () => {
   robot.setEmotion('sleep');
   setStatus('sleeping');
-  setTimeout(startWakeWordListening, 800);
+  if (!isIOS) setTimeout(startWakeWordListening, 800);
 });
 </script>
 </body>
