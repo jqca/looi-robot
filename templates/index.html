@@ -357,7 +357,7 @@ class RobotRenderer3D {
 
     this.moveInput = { x: 0, z: 0 };
     this.velocity = { x: 0, z: 0 };
-    this.targetRotY = Math.PI;
+    this.targetRotY = 0;
 
     this._initScene();
     this._buildRobot();
@@ -612,7 +612,7 @@ class RobotRenderer3D {
     this._buildTrack(1);
     this._buildTrack(-1);
 
-    this.robotGroup.rotation.y = Math.PI;
+    this.robotGroup.rotation.y = 0;
     this.scene.add(this.robotGroup);
   }
 
@@ -1011,13 +1011,13 @@ class RobotRenderer3D {
       // ── Movement actions ──
       } else if (this.action === 'forward') {
         const ry = this.robotGroup.rotation.y;
-        this.robotGroup.position.x -= Math.sin(ry) * 2.5 * dt;
-        this.robotGroup.position.z -= Math.cos(ry) * 2.5 * dt;
+        this.robotGroup.position.x += Math.sin(ry) * 2.5 * dt;
+        this.robotGroup.position.z += Math.cos(ry) * 2.5 * dt;
         if (this.actionTimer > 1.8) { this.action = 'none'; }
       } else if (this.action === 'backward') {
         const ry = this.robotGroup.rotation.y;
-        this.robotGroup.position.x += Math.sin(ry) * 2.0 * dt;
-        this.robotGroup.position.z += Math.cos(ry) * 2.0 * dt;
+        this.robotGroup.position.x -= Math.sin(ry) * 2.0 * dt;
+        this.robotGroup.position.z -= Math.cos(ry) * 2.0 * dt;
         if (this.actionTimer > 1.5) { this.action = 'none'; }
       } else if (this.action === 'turn_right') {
         this.targetRotY -= dt * 3.0;
@@ -1106,7 +1106,7 @@ class RobotRenderer3D {
     if (Math.abs(this.moveInput.x) > 0.01 || Math.abs(this.moveInput.z) > 0.01) {
       this.velocity.x += (wx * speed - this.velocity.x) * Math.min(1, accel * dt);
       this.velocity.z += (wz * speed - this.velocity.z) * Math.min(1, accel * dt);
-      this.targetRotY = Math.atan2(wx, wz) + Math.PI;
+      this.targetRotY = Math.atan2(wx, wz);
     } else {
       this.velocity.x += (0 - this.velocity.x) * Math.min(1, friction * dt);
       this.velocity.z += (0 - this.velocity.z) * Math.min(1, friction * dt);
