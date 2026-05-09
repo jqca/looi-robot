@@ -564,34 +564,42 @@ function stopWakeWordListening() {
 
 function startWakeWordListening() {
   if (!SpeechRec || !sleeping) return;
+  if (sleepRecRef) return; // 既に起動中なら重複起動しない
   const sr = new SpeechRec();
   sleepRecRef = sr;
   sr.lang = 'ja-JP';
-  sr.continuous = false;
+  sr.continuous = true;   // iOS: start()の呼び出し回数を最小化
   sr.interimResults = false;
 
   sr.onresult = e => {
-    const text = e.results[0][0].transcript;
+    const last = e.results[e.results.length - 1];
+    if (!last.isFinal) return;
+    const text = last[0].transcript;
     console.log(`[wake] "${text}"`);
     if (WAKE_WORDS.test(text)) wakeUp();
   };
   sr.onend = () => {
-    if (sleeping && sleepRecRef === sr)
-      setTimeout(startWakeWordListening, 400);
+    // continuous=trueでもブラウザが認識を終了することがある（iOS等）
+    // その場合のみ再起動（頻度を下げるため間隔を長めに）
+    if (sleeping && sleepRecRef === sr) {
+      sleepRecRef = null;
+      setTimeout(startWakeWordListening, 2000);
+    }
   };
   sr.onerror = e => {
     console.warn('[wake] error:', e.error);
-    if (sleeping && sleepRecRef === sr)
-      setTimeout(startWakeWordListening, 800);
+    if (sleeping && sleepRecRef === sr) {
+      sleepRecRef = null;
+      setTimeout(startWakeWordListening, 3000);
+    }
   };
   try {
     sr.start();
-    console.log('[wake] listening started');
+    console.log('[wake] listening started (continuous)');
   } catch(e) {
     console.warn('[wake] start() threw:', e);
-    // start()が例外を投げた場合も確実にリトライ
     sleepRecRef = null;
-    if (sleeping) setTimeout(startWakeWordListening, 1000);
+    if (sleeping) setTimeout(startWakeWordListening, 3000);
   }
 }
 
