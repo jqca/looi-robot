@@ -420,17 +420,17 @@ class RobotRenderer3D {
     dirLight.shadow.camera.bottom = -10;
     this.scene.add(dirLight);
 
-    const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x8B9B6B, 0.5);
+    const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x999999, 0.5);
     this.scene.add(hemiLight);
 
-    const grid = new THREE.GridHelper(60, 60, 0xaaccaa, 0xbbddbb);
+    const grid = new THREE.GridHelper(60, 60, 0x999999, 0xc0c0c0);
     grid.material.transparent = true;
     grid.material.opacity = 0.3;
     this.scene.add(grid);
 
     const groundGeo = new THREE.PlaneGeometry(80, 80);
     const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x7CB870, roughness: 0.9, metalness: 0.0
+      color: 0xB0B0B0, roughness: 0.85, metalness: 0.05
     });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
