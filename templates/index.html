@@ -372,6 +372,7 @@ class RobotRenderer3D {
     if (a === 'none') return;
     this.action = a;
     this.actionTimer = 0;
+    this.dancePhase = 0;
   }
   blink() { if (!this.blinking) { this.blinking = true; this.blinkAmt = 0; } }
   setListening(v) { this.listening = v; }
@@ -997,7 +998,7 @@ class RobotRenderer3D {
       this.blinkAmt = 0;
     }
 
-    // Head (eyeUnit) tilt for nod/shake actions
+    // Head + body actions (nod/shake/move/dance)
     if (this.action !== 'none') {
       this.actionTimer += dt;
       if (this.action === 'nod') {
@@ -1006,6 +1007,64 @@ class RobotRenderer3D {
       } else if (this.action === 'shake') {
         this.headTiltYTgt = Math.sin(this.actionTimer * Math.PI * 3) * 0.12;
         if (this.actionTimer > 0.9) { this.action = 'none'; this.headTiltYTgt = 0; }
+
+      // ── Movement actions ──
+      } else if (this.action === 'forward') {
+        const ry = this.robotGroup.rotation.y;
+        this.robotGroup.position.x -= Math.sin(ry) * 2.5 * dt;
+        this.robotGroup.position.z -= Math.cos(ry) * 2.5 * dt;
+        if (this.actionTimer > 1.8) { this.action = 'none'; }
+      } else if (this.action === 'backward') {
+        const ry = this.robotGroup.rotation.y;
+        this.robotGroup.position.x += Math.sin(ry) * 2.0 * dt;
+        this.robotGroup.position.z += Math.cos(ry) * 2.0 * dt;
+        if (this.actionTimer > 1.5) { this.action = 'none'; }
+      } else if (this.action === 'turn_right') {
+        this.targetRotY -= dt * 3.0;
+        if (this.actionTimer > 0.6) { this.action = 'none'; }
+      } else if (this.action === 'turn_left') {
+        this.targetRotY += dt * 3.0;
+        if (this.actionTimer > 0.6) { this.action = 'none'; }
+      } else if (this.action === 'turn_around') {
+        this.targetRotY += dt * 3.5;
+        if (this.actionTimer > 1.0) { this.action = 'none'; }
+      } else if (this.action === 'spin') {
+        this.targetRotY += dt * 8.0;
+        this.bodyPivot.position.y = Math.abs(Math.sin(this.actionTimer * 6)) * 0.10;
+        if (this.actionTimer > 2.5) { this.action = 'none'; }
+
+      // ── Dance action ──
+      } else if (this.action === 'dance') {
+        this.dancePhase = (this.dancePhase || 0) + dt;
+        const dp = this.dancePhase;
+        // Body bounce
+        this.bodyPivot.position.y = Math.abs(Math.sin(dp * 5)) * 0.15;
+        // Body sway side to side
+        this.bodyPivot.position.x = Math.sin(dp * 3) * 0.12;
+        // Head groove
+        this.headTiltXTgt = Math.sin(dp * 4) * 0.12;
+        this.headTiltYTgt = Math.cos(dp * 3) * 0.10;
+        this.idleTiltZTgt = Math.sin(dp * 2.5) * 0.15;
+        // Gentle rotation sway
+        this.targetRotY += Math.sin(dp * 2) * dt * 1.5;
+        // End after ~4 seconds
+        if (this.actionTimer > 4.0) {
+          this.action = 'none';
+          this.headTiltXTgt = 0; this.headTiltYTgt = 0; this.idleTiltZTgt = 0;
+          this.bodyPivot.position.x = 0;
+        }
+
+      // ── Jump action ──
+      } else if (this.action === 'jump') {
+        const jt = this.actionTimer;
+        if (jt < 0.4) {
+          this.bodyPivot.position.y = Math.sin(jt / 0.4 * Math.PI) * 0.5;
+        } else if (jt < 0.8) {
+          this.bodyPivot.position.y = Math.sin((jt - 0.4) / 0.4 * Math.PI) * 0.35;
+        } else if (jt < 1.1) {
+          this.bodyPivot.position.y = Math.sin((jt - 0.8) / 0.3 * Math.PI) * 0.15;
+        }
+        if (this.actionTimer > 1.2) { this.action = 'none'; }
       }
     }
     this.headTiltX += (this.headTiltXTgt - this.headTiltX) * lerp;

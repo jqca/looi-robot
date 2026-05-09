@@ -298,7 +298,7 @@ web_search ツールを必ず使って調べてから答えてください。
 {
   "message": "返答テキスト（100文字以内・丁寧な敬語）",
   "emotion": "idle|happy|excited|thinking|sad|surprised|angry のいずれか",
-  "action": "none|nod|shake のいずれか",
+  "action": "アクション（下記参照）",
   "remember": "今回覚えた重要情報（省略可）"
 }
 
@@ -312,9 +312,20 @@ web_search ツールを必ず使って調べてから答えてください。
 - angry: 使用しない（秘書として常に冷静）
 
 アクションの使い方:
+- none: 通常
 - nod: 承知・了解
 - shake: 否定・難しい案件
-- none: 通常
+- forward: 前に進む（「前に進んで」「前進して」「進んで」等）
+- backward: 後ろに下がる（「後ろに下がって」「バックして」等）
+- turn_right: 右を向く（「右を向いて」「右に回って」等）
+- turn_left: 左を向く（「左を向いて」「左に回って」等）
+- turn_around: 後ろを向く（「後ろを向いて」「振り返って」「反対向いて」等）
+- spin: くるくる回る（「回って」「回転して」「くるくる」等）
+- dance: 踊る（「踊って」「ダンスして」「踊り」等）
+- jump: ジャンプ（「ジャンプして」「跳んで」「飛んで」等）
+
+★重要: ユーザーが体の動きを指示したら、必ず対応するactionを返してください。
+  動きの指示には楽しく応じること。例: 「はい、踊りますね！」+ action: "dance"
 
 "remember" フィールド（省略可）:
 今回の会話でユーザーについて新しく知った重要な情報（名前・職業・趣味・好みなど）を
@@ -542,7 +553,9 @@ def _parse_result(raw_text: str, max_msg: int = 100, valid_emotions=None) -> dic
     result.setdefault("action", "none")
     if result["emotion"] not in valid_emotions:
         result["emotion"] = "idle"
-    if result["action"] not in {"none", "nod", "shake"}:
+    valid_actions = {"none", "nod", "shake", "forward", "backward",
+                     "turn_right", "turn_left", "turn_around", "spin", "dance", "jump"}
+    if result["action"] not in valid_actions:
         result["action"] = "none"
 
     # remember フィールドの検証（最大100文字）
