@@ -499,7 +499,7 @@ def chat():
         import anthropic
         client  = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
         system  = _build_system(memory, proc=proc, mood=mood)  # ⑥ 3層記憶
-        response = _run_with_search(client, history, system, max_tokens=512)
+        response = _run_with_search(client, history, system, max_tokens=1024)
         raw_text = _extract_text(response)
         logger.debug(f"[chat] raw={raw_text[:80]}")
 
@@ -613,7 +613,7 @@ def kids_chat():
     try:
         import anthropic
         client   = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
-        response = _run_with_search(client, history, system, max_tokens=256)
+        response = _run_with_search(client, history, system, max_tokens=512)
         raw_text = _extract_text(response)
 
         valid_emo = {"idle", "happy", "excited", "thinking", "sad", "surprised"}
