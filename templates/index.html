@@ -440,17 +440,17 @@ class RobotRenderer3D {
 
     const headGeo = new THREE.SphereGeometry(1.0, 32, 32);
     const headMat = new THREE.MeshStandardMaterial({
-      color: 0x0d1a2e, roughness: 0.3, metalness: 0.6,
-      emissive: 0x0a1525, emissiveIntensity: 0.3,
+      color: 0x1a2e4a, roughness: 0.35, metalness: 0.4,
+      emissive: 0x1a2a44, emissiveIntensity: 0.4,
     });
     this.headMesh = new THREE.Mesh(headGeo, headMat);
     this.headMesh.position.y = 2.8;
     this.headMesh.castShadow = true;
     this.bodyPivot.add(this.headMesh);
 
-    const glowGeo = new THREE.SphereGeometry(1.06, 32, 32);
+    const glowGeo = new THREE.SphereGeometry(1.08, 32, 32);
     this.headGlow = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({
-      color: 0x66aaff, transparent: true, opacity: 0.08, side: THREE.BackSide
+      color: 0x66aaff, transparent: true, opacity: 0.15, side: THREE.BackSide
     }));
     this.headGlow.position.y = 2.8;
     this.bodyPivot.add(this.headGlow);
@@ -512,49 +512,56 @@ class RobotRenderer3D {
     for (const side of ['left', 'right']) {
       const sign = side === 'left' ? -1 : 1;
       const g = new THREE.Group();
-      g.position.set(sign * 0.38, 2.85, 0.88);
+      g.position.set(sign * 0.35, 2.9, 0.88);
 
       const sclera = new THREE.Mesh(
-        new THREE.CircleGeometry(0.22, 32),
-        new THREE.MeshBasicMaterial({ color: 0xdce9f5 })
+        new THREE.CircleGeometry(0.30, 32),
+        new THREE.MeshBasicMaterial({ color: 0xeef4ff })
       );
       g.add(sclera);
 
       const iris = new THREE.Mesh(
-        new THREE.CircleGeometry(0.11, 24),
+        new THREE.CircleGeometry(0.16, 24),
         new THREE.MeshBasicMaterial({ color: 0x55aaff })
       );
       iris.position.z = 0.005;
       g.add(iris);
 
       const pupil = new THREE.Mesh(
-        new THREE.CircleGeometry(0.05, 16),
+        new THREE.CircleGeometry(0.07, 16),
         new THREE.MeshBasicMaterial({ color: 0x0a0a1a })
       );
       pupil.position.z = 0.01;
       g.add(pupil);
 
       const highlight = new THREE.Mesh(
-        new THREE.CircleGeometry(0.03, 8),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 })
+        new THREE.CircleGeometry(0.05, 12),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })
       );
-      highlight.position.set(0.06, 0.06, 0.015);
+      highlight.position.set(0.08, 0.08, 0.015);
       g.add(highlight);
 
+      const highlight2 = new THREE.Mesh(
+        new THREE.CircleGeometry(0.025, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 })
+      );
+      highlight2.position.set(-0.05, -0.06, 0.015);
+      g.add(highlight2);
+
       const sleepEye = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.38, 0.04),
-        new THREE.MeshBasicMaterial({ color: 0xdce9f5, transparent: true, opacity: 0.3 })
+        new THREE.PlaneGeometry(0.50, 0.05),
+        new THREE.MeshBasicMaterial({ color: 0xeef4ff, transparent: true, opacity: 0.4 })
       );
       sleepEye.visible = false;
       g.add(sleepEye);
 
       const arcShape = new THREE.Shape();
-      const ar = 0.18;
+      const ar = 0.25;
       arcShape.absarc(0, 0, ar, 0, Math.PI, false);
-      arcShape.absarc(0, 0, ar - 0.05, Math.PI, 0, true);
+      arcShape.absarc(0, 0, ar - 0.06, Math.PI, 0, true);
       const happyEye = new THREE.Mesh(
         new THREE.ShapeGeometry(arcShape),
-        new THREE.MeshBasicMaterial({ color: 0xdce9f5 })
+        new THREE.MeshBasicMaterial({ color: 0xeef4ff })
       );
       happyEye.rotation.z = Math.PI;
       happyEye.position.y = 0.02;
@@ -562,10 +569,10 @@ class RobotRenderer3D {
       g.add(happyEye);
 
       const angryEye = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.38, 0.05),
-        new THREE.MeshBasicMaterial({ color: 0xdce9f5 })
+        new THREE.PlaneGeometry(0.50, 0.06),
+        new THREE.MeshBasicMaterial({ color: 0xeef4ff })
       );
-      angryEye.rotation.z = sign * 0.4;
+      angryEye.rotation.z = sign * 0.35;
       angryEye.visible = false;
       g.add(angryEye);
 
@@ -576,46 +583,93 @@ class RobotRenderer3D {
 
   _buildTrack(sideSign) {
     const trackGroup = new THREE.Group();
-    const tx = sideSign * (0.9 + 0.2);
+    const tx = sideSign * 1.12;
+    const trackW = 0.28;   // width (side to side)
+    const trackH = 0.90;   // height (tall)
+    const trackD = 1.40;   // depth (front to back)
+    const wheelR = 0.22;
 
-    const trackGeo = new THREE.CylinderGeometry(0.2, 0.2, 1.2, 12);
-    const trackMat = new THREE.MeshStandardMaterial({
-      color: 0x0c1425, roughness: 0.6, metalness: 0.4,
-      emissive: 0x0a1020, emissiveIntensity: 0.1,
+    // ── Track belt (rounded box shape using extruded shape) ──
+    const beltShape = new THREE.Shape();
+    const br = wheelR;
+    const halfH = trackH / 2;
+    const halfD = trackD / 2;
+    beltShape.moveTo(-halfD + br, -halfH);
+    beltShape.lineTo(halfD - br, -halfH);
+    beltShape.absarc(halfD - br, -halfH + br, br, -Math.PI / 2, 0, false);
+    beltShape.lineTo(halfD, halfH - br);
+    beltShape.absarc(halfD - br, halfH - br, br, 0, Math.PI / 2, false);
+    beltShape.lineTo(-halfD + br, halfH);
+    beltShape.absarc(-halfD + br, halfH - br, br, Math.PI / 2, Math.PI, false);
+    beltShape.lineTo(-halfD, -halfH + br);
+    beltShape.absarc(-halfD + br, -halfH + br, br, Math.PI, Math.PI * 1.5, false);
+
+    const extrudeSettings = { depth: trackW, bevelEnabled: false };
+    const beltGeo = new THREE.ExtrudeGeometry(beltShape, extrudeSettings);
+    const beltMat = new THREE.MeshStandardMaterial({
+      color: 0x0c1828, roughness: 0.7, metalness: 0.3,
+      emissive: 0x060e1a, emissiveIntensity: 0.15,
     });
-    const trackBody = new THREE.Mesh(trackGeo, trackMat);
-    trackBody.position.set(tx, 0.7, 0);
-    trackBody.castShadow = true;
-    trackGroup.add(trackBody);
+    const belt = new THREE.Mesh(beltGeo, beltMat);
+    belt.rotation.y = Math.PI / 2;
+    belt.position.set(tx - trackW / 2, 0.55, 0);
+    belt.castShadow = true;
+    trackGroup.add(belt);
 
-    const trackEdges = new THREE.EdgesGeometry(trackGeo);
-    const trackLine = new THREE.LineSegments(trackEdges,
-      new THREE.LineBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.2 }));
-    trackLine.position.copy(trackBody.position);
-    trackGroup.add(trackLine);
+    // ── Belt outline ──
+    const beltEdges = new THREE.EdgesGeometry(beltGeo);
+    const beltLine = new THREE.LineSegments(beltEdges,
+      new THREE.LineBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.25 }));
+    beltLine.rotation.y = Math.PI / 2;
+    beltLine.position.set(tx - trackW / 2, 0.55, 0);
+    trackGroup.add(beltLine);
 
-    for (const wy of [0.25, 1.15]) {
-      const wheelGeo = new THREE.TorusGeometry(0.14, 0.02, 8, 16);
-      const wheelMat = new THREE.MeshBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.3 });
+    // ── Drive wheels (front and rear) ──
+    for (const wz of [-trackD / 2 + br, trackD / 2 - br]) {
+      const wheelGeo = new THREE.CylinderGeometry(wheelR - 0.02, wheelR - 0.02, trackW + 0.02, 16);
+      const wheelMat = new THREE.MeshStandardMaterial({
+        color: 0x1a2a44, roughness: 0.5, metalness: 0.4,
+      });
       const wheel = new THREE.Mesh(wheelGeo, wheelMat);
-      wheel.position.set(tx, wy, 0);
-      wheel.rotation.y = Math.PI / 2;
+      wheel.rotation.z = Math.PI / 2;
+      wheel.position.set(tx, 0.55, wz);
       trackGroup.add(wheel);
 
-      const axle = new THREE.Mesh(
-        new THREE.SphereGeometry(0.03, 8, 8),
-        new THREE.MeshBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.4 })
-      );
-      axle.position.set(tx, wy, 0);
-      trackGroup.add(axle);
+      // Wheel hub
+      const hubGeo = new THREE.CylinderGeometry(0.05, 0.05, trackW + 0.06, 8);
+      const hubMat = new THREE.MeshBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.5 });
+      const hub = new THREE.Mesh(hubGeo, hubMat);
+      hub.rotation.z = Math.PI / 2;
+      hub.position.set(tx, 0.55, wz);
+      trackGroup.add(hub);
     }
 
-    for (let i = 0; i < 6; i++) {
-      const ty = 0.3 + i * 0.15;
-      const points = [new THREE.Vector3(tx - 0.12, ty, 0), new THREE.Vector3(tx + 0.12, ty, 0)];
-      const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+    // ── Tread marks on outer side ──
+    const treadCount = 10;
+    const treadSpacing = trackD / (treadCount + 1);
+    for (let i = 1; i <= treadCount; i++) {
+      const tz = -trackD / 2 + treadSpacing * i;
+      const outerX = tx + sideSign * (trackW / 2 + 0.005);
+      const pts = [
+        new THREE.Vector3(outerX, 0.55 - trackH / 2 + 0.08, tz),
+        new THREE.Vector3(outerX, 0.55 + trackH / 2 - 0.08, tz)
+      ];
+      const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
       const line = new THREE.Line(lineGeo,
-        new THREE.LineBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.15 }));
+        new THREE.LineBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.18 }));
+      trackGroup.add(line);
+    }
+
+    // ── Bottom tread marks ──
+    for (let i = 1; i <= treadCount; i++) {
+      const tz = -trackD / 2 + treadSpacing * i;
+      const pts = [
+        new THREE.Vector3(tx - trackW / 2 - 0.005, 0.55 - trackH / 2 + 0.01, tz),
+        new THREE.Vector3(tx + trackW / 2 + 0.005, 0.55 - trackH / 2 + 0.01, tz)
+      ];
+      const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
+      const line = new THREE.Line(lineGeo,
+        new THREE.LineBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.12 }));
       trackGroup.add(line);
     }
 
@@ -763,11 +817,11 @@ class RobotRenderer3D {
         if (em === 'sad') {
           eye.group.rotation.z = isRight ? -0.15 : 0.15;
         } else if (em === 'thinking') {
-          eye.group.position.y = 2.85 + (isRight ? 0.03 : -0.03);
+          eye.group.position.y = 2.9 + (isRight ? 0.03 : -0.03);
           eye.group.rotation.z = 0;
         } else {
           eye.group.rotation.z = 0;
-          eye.group.position.y = 2.85;
+          eye.group.position.y = 2.9;
         }
       }
     }
@@ -791,7 +845,7 @@ class RobotRenderer3D {
     this.headLight.intensity = intensity;
 
     this.headGlow.material.color.copy(c);
-    this.headGlow.material.opacity = this.emotion === 'sleep' ? 0.03 : 0.1;
+    this.headGlow.material.opacity = this.emotion === 'sleep' ? 0.05 : 0.18;
 
     this.antPoleMat.color.copy(c);
     this.antTip.material.color.copy(c);
