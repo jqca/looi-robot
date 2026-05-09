@@ -367,7 +367,7 @@ html, body {
   <!-- ロボット名バッジ（タップで名前変更） -->
   <div id="name-badge" onclick="toggleNamePanel()">
     <span id="robot-emoji">🤖</span>
-    <span id="robot-name-display">ルーイ</span>
+    <span id="robot-name-display">秋山さん</span>
     <span style="font-size:13px; color:var(--muted);">✏️ なまえをかえる</span>
   </div>
 
@@ -786,7 +786,7 @@ const nameInput   = document.getElementById('name-input');
 const robot = new KidsRobotRenderer(robotCanvas);
 
 let isBusy     = false;
-let robotName  = 'ルーイ';
+let robotName  = '秋山さん';
 
 // ── Eye color palette ────────────────────────
 const COLORS = [
@@ -1145,7 +1145,7 @@ window.addEventListener('load', async () => {
     }, 600);
   } catch {
     robot.setEmotion('excited'); robot.setAction('nod');
-    showBubble('やあ！ぼくルーイだよ！なんでもきいてね〜！');
+    showBubble('やあ！秋山だよ！なんでもきいてね〜！');
   }
   setStatus('ready', 'まってるよ！');
 });
