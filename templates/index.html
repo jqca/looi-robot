@@ -502,12 +502,12 @@ function goToSleep() {
 // ⑦ 時刻に応じた挨拶
 function getTimeGreeting() {
   const h = new Date().getHours();
-  if (h < 4)  return 'まだ起きてるの！？夜更かしだね〜！';
-  if (h < 11) return 'おはよう！今日も元気にいこう！';
-  if (h < 14) return 'こんにちは！お昼はもう食べた？';
-  if (h < 18) return 'こんにちは！今日はどんな感じ？';
-  if (h < 22) return 'こんばんは！お疲れさまでした！';
-  return 'もう夜遅いよ〜！ゆっくり休んでね！';
+  if (h < 4)  return '社長、夜分遅くに失礼いたします。何かございましたか？';
+  if (h < 11) return '社長、おはようございます。本日もよろしくお願いいたします。';
+  if (h < 14) return '社長、お疲れさまです。何かお手伝いできることはございますか？';
+  if (h < 18) return '社長、お疲れさまです。ご用件をどうぞ。';
+  if (h < 22) return '社長、お疲れさまでした。何かございますか？';
+  return '社長、遅くまでお疲れさまです。何かお手伝いいたしましょうか？';
 }
 
 function wakeUp() {
@@ -606,7 +606,7 @@ async function sendMessage(text) {
     isBusy = true;
     robot.setEmotion('sad');
     setStatus('speaking');
-    speak('おやすみ〜！またね！', goToSleep);
+    speak('かしこまりました。ごゆっくりお休みください。', goToSleep);
     return;
   }
 
@@ -656,8 +656,8 @@ async function sendMessage(text) {
 
     // ⑤ ネットワークエラー時のフレンドリーメッセージ
     const errMsgs = [
-      'ごめん、ネットが不安定みたい！もう一回話しかけてね',
-      'あれ、繋がらなかったみたい〜！少し待ってみて？',
+      '申し訳ございません。通信が不安定のようです。もう一度お試しください。',
+      '恐れ入ります。接続に問題が発生しております。少々お待ちください。',
     ];
     const errMsg = errMsgs[Math.floor(Math.random() * errMsgs.length)];
     robot.setEmotion('sad');
