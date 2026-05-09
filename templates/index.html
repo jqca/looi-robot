@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Robot</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -13,65 +14,34 @@
     color: #cce8f4;
     font-family: 'Segoe UI', 'Noto Sans JP', sans-serif;
     overflow: hidden;
-    display: flex; align-items: center; justify-content: center;
   }
 
   #app {
-    width: 100%; max-width: 480px; height: 100vh;
-    display: flex; flex-direction: column; align-items: center;
-    justify-content: center;
-    padding: 20px 16px 36px; gap: 20px;
+    width: 100%; height: 100vh;
+    position: relative;
   }
 
-  /* ── キャンバス ── */
-  #robot-canvas {
-    flex-shrink: 0;
+  #robot-3d {
+    position: absolute; inset: 0;
     touch-action: none;
-    cursor: pointer;
-    border-radius: 50%;
-    transition: box-shadow .3s;
+    cursor: grab;
   }
-  #robot-canvas.listening-once {
-    box-shadow: none;
-  }
-  @keyframes canvas-ring {
-    0%   { box-shadow: 0 0 0 0   rgba(255,68,136,.50); }
-    70%  { box-shadow: 0 0 0 18px rgba(255,68,136,0); }
-    100% { box-shadow: 0 0 0 0   rgba(255,68,136,0); }
-  }
-  #robot-canvas.continuous { animation: canvas-ring 2s infinite; }
-  #robot-canvas.continuous.listening-once { animation: canvas-ring .8s infinite; }
+  #robot-3d:active { cursor: grabbing; }
 
   /* ── ステータスバー ── */
   #status-bar {
+    position: absolute; bottom: 68px;
+    left: 50%; transform: translateX(-50%);
     display: flex; align-items: center; gap: 8px;
-    font-size: 12px; color: #6a8fa8; flex-shrink: 0;
-    user-select: none; height: 20px;
+    font-size: 12px; color: #6a8fa8;
+    user-select: none; height: 20px; z-index: 10;
   }
-  #status-dot {
-    width: 7px; height: 7px; border-radius: 50%;
-    background: #1a3a55; transition: background .4s; flex-shrink: 0;
-  }
-  @keyframes blink-dot {
-    0%,100%{ opacity:.4; transform:scale(1); }
-    50%    { opacity:1;  transform:scale(1.5); }
-  }
-  /* ⑨ 強化されたステータス表示 */
-  #status-dot.listening { background:#ff4488; animation:blink-dot .7s infinite; }
-  #status-dot.thinking  { background:#aaaaff; animation:blink-dot 1.3s infinite; }
-  #status-dot.speaking  { background:#88ccee; animation:blink-dot .5s infinite; }
-  #status-dot.ready     { background:#3a6a88; }
-  #status-dot.sleeping  { background:#1a3a55; }
-
-  /* ⑨ マイクラベル（録音中のみ表示） */
   #mic-label {
     font-size: 11px; color: #ff4488;
     opacity: 0; transition: opacity .3s;
     letter-spacing: .03em;
   }
   #mic-label.visible { opacity: 1; }
-
-  /* 極小リセット */
   #reset-hint {
     margin-left: 4px; font-size: 14px;
     opacity: 0.12; cursor: pointer;
@@ -82,8 +52,10 @@
 
   /* ── テキスト入力 ── */
   #text-input-bar {
+    position: absolute; bottom: 16px;
+    left: 12px; right: 12px;
     display: flex; align-items: center; gap: 8px;
-    width: 100%; max-width: 400px; flex-shrink: 0;
+    max-width: 440px; margin: 0 auto; z-index: 10;
   }
   #text-input {
     flex: 1; height: 40px;
@@ -111,6 +83,38 @@
   }
   #text-send:hover { background: rgba(102,170,255,.25); }
   #text-send:active { transform: scale(.9); }
+
+  /* ── ジョイスティック ── */
+  #joystick-area {
+    position: absolute; bottom: 80px; left: 16px;
+    width: 90px; height: 90px;
+    border-radius: 50%;
+    background: rgba(102,170,255,.06);
+    border: 1px solid rgba(102,170,255,.12);
+    touch-action: none; z-index: 10;
+    display: none;
+  }
+  #joystick-knob {
+    position: absolute; width: 36px; height: 36px;
+    border-radius: 50%;
+    background: rgba(102,170,255,.20);
+    border: 1px solid rgba(102,170,255,.3);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+  @media (hover: none) and (pointer: coarse) {
+    #joystick-area { display: block; }
+  }
+
+  /* ── 操作ヒント ── */
+  #controls-hint {
+    position: absolute; top: 12px; right: 12px;
+    font-size: 11px; color: rgba(106,143,168,.5);
+    z-index: 10; text-align: right; line-height: 1.6;
+    pointer-events: none; user-select: none;
+  }
+  @media (hover: none) { #controls-hint { display: none; } }
 
   #start-overlay {
     position: fixed; inset: 0; z-index: 9999;
@@ -165,8 +169,7 @@
     margin-bottom: 16px; flex-shrink: 0;
   }
   #task-panel-header h2 {
-    font-size: 18px; font-weight: 600; color: #88bbff;
-    margin: 0;
+    font-size: 18px; font-weight: 600; color: #88bbff; margin: 0;
   }
   #task-close {
     width: 36px; height: 36px; border-radius: 50%;
@@ -176,7 +179,6 @@
     cursor: pointer; display: flex;
     align-items: center; justify-content: center;
   }
-
   #task-add-bar {
     display: flex; gap: 8px; margin-bottom: 12px; flex-shrink: 0;
   }
@@ -201,11 +203,9 @@
     background: rgba(102,170,255,.2);
     border: 1px solid rgba(102,170,255,.3);
     border-radius: 8px; color: #88bbff;
-    font-size: 14px; cursor: pointer;
-    white-space: nowrap;
+    font-size: 14px; cursor: pointer; white-space: nowrap;
   }
   #task-add-btn:hover { background: rgba(102,170,255,.3); }
-
   #task-filter {
     display: flex; gap: 8px; margin-bottom: 12px; flex-shrink: 0;
   }
@@ -220,21 +220,17 @@
     border-color: rgba(102,170,255,.3);
     color: #88bbff;
   }
-
   .task-list { list-style: none; flex: 1; overflow-y: auto; }
-
   .task-item {
     display: flex; align-items: center; gap: 10px;
     padding: 10px 12px; margin-bottom: 6px;
     background: rgba(255,255,255,.03);
     border: 1px solid rgba(255,255,255,.06);
-    border-radius: 8px;
-    transition: opacity .3s;
+    border-radius: 8px; transition: opacity .3s;
   }
   .task-item.done { opacity: .4; }
   .task-item.done .task-item-title { text-decoration: line-through; }
   .task-item.overdue { border-color: rgba(255,100,100,.25); }
-
   .task-check {
     width: 22px; height: 22px; border-radius: 50%;
     border: 2px solid rgba(102,170,255,.3);
@@ -247,14 +243,10 @@
     border-color: rgba(102,170,255,.5);
     color: #88bbff;
   }
-
   .task-item-body { flex: 1; min-width: 0; }
   .task-item-title { font-size: 14px; color: #cce8f4; }
-  .task-item-due {
-    font-size: 11px; color: #4a7a9a; margin-top: 2px;
-  }
+  .task-item-due { font-size: 11px; color: #4a7a9a; margin-top: 2px; }
   .task-item-due.overdue-text { color: #ff6666; }
-
   .task-delete {
     width: 28px; height: 28px; border-radius: 50%;
     background: transparent; border: none;
@@ -262,11 +254,7 @@
     cursor: pointer; flex-shrink: 0;
   }
   .task-delete:hover { color: #ff6666; }
-
-  .task-empty {
-    text-align: center; padding: 32px 0;
-    color: #4a6a8a; font-size: 14px;
-  }
+  .task-empty { text-align: center; padding: 32px 0; color: #4a6a8a; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -277,15 +265,23 @@
 </div>
 
 <div id="app">
-  <canvas id="robot-canvas"></canvas>
+  <div id="robot-3d"></div>
+
+  <div id="controls-hint">矢印キー: 移動 / ドラッグ: 視点回転</div>
+
   <div id="status-bar">
     <span id="mic-label"></span>
     <span id="reset-hint" title="リセット">⟳</span>
   </div>
+
   <div id="text-input-bar">
     <button id="task-btn" title="タスク管理">☰</button>
     <input id="text-input" type="text" placeholder="テキストで指示..." autocomplete="off">
     <button id="text-send" title="送信">▶</button>
+  </div>
+
+  <div id="joystick-area">
+    <div id="joystick-knob"></div>
   </div>
 </div>
 
@@ -309,105 +305,361 @@
 
 <script>
 // ════════════════════════════════════════════════════
-// EYE RENDERER  ─  ⑧ 感情連動まばたき・マイクロトレモア
+// 3D ROBOT RENDERER (Three.js)
 // ════════════════════════════════════════════════════
-class EyeRenderer {
-  constructor(canvas) {
-    this.canvas       = canvas;
-    this.ctx          = canvas.getContext('2d');
-    this.emotion      = 'sleep';
-    this.action       = 'none';
-    this.blinkAmt     = 0;
-    this.blinking     = false;
-    this.blinkTimer   = 0;
-    this.blinkNext    = this._rndBlink();
-    this.bobPhase     = 0;
-    this.bobY         = 0;
-    this.headTilt     = 0;
-    this.headTiltTgt  = 0;
-    this.actionTimer  = 0;
-    this.lastTS       = 0;
-    this.talking      = false;
-    this.talkPhase    = 0;
-    this.excitedPhase = 0;
-    this.excitedY     = 0;
-    // ⑧ マイクロトレモア
-    this.tremorPhase  = 0;
-    this.tremorX      = 0;
-    this.tremorY      = 0;
-    this.resize();
-    requestAnimationFrame(this._loop.bind(this));
-  }
+const EMOTION_COLORS = {
+  idle:      { primary: 0x66aaff, iris: 0x55aaff },
+  happy:     { primary: 0x44ffaa, iris: 0x33ffbb },
+  sleep:     { primary: 0x223344, iris: 0x556688 },
+  excited:   { primary: 0xffee00, iris: 0xffee44 },
+  thinking:  { primary: 0xaaaaff, iris: 0x8888ff },
+  sad:       { primary: 0x6688aa, iris: 0x557799 },
+  surprised: { primary: 0xff88cc, iris: 0xff66aa },
+  angry:     { primary: 0xff4444, iris: 0xff2222 },
+};
 
-  resize() {
-    const s = Math.min(window.innerWidth * 0.86, 360);
-    this.canvas.width = this.canvas.height = s;
-    this.W = s; this.CX = s / 2; this.CY = s / 2;
+class RobotRenderer3D {
+  constructor(container) {
+    this.container = container;
+    this.emotion = 'sleep';
+    this.talking = false;
+    this.action = 'none';
+    this.actionTimer = 0;
+    this.blinkAmt = 0;
+    this.blinking = false;
+    this.blinkTimer = 0;
+    this.blinkNext = 3000 + Math.random() * 5000;
+    this.bobPhase = 0;
+    this.talkPhase = 0;
+    this.excitedPhase = 0;
+    this.excitedY = 0;
+    this.headTiltX = 0;
+    this.headTiltXTgt = 0;
+    this.headTiltY = 0;
+    this.headTiltYTgt = 0;
+    this.listening = false;
+    this.listenPhase = 0;
+
+    this.camAngle = 0;
+    this.camPitch = 0.35;
+    this.camDist = 9;
+    this._lastDrag = null;
+
+    this.moveInput = { x: 0, z: 0 };
+    this.velocity = { x: 0, z: 0 };
+    this.targetRotY = Math.PI;
+
+    this._initScene();
+    this._buildRobot();
+    this.lastTS = performance.now();
+    this._animate = this._animate.bind(this);
+    requestAnimationFrame(this._animate);
   }
 
   setEmotion(e) { this.emotion = e; }
   setTalking(v) { this.talking = v; }
-  setAction(a)  { if (a === 'none') return; this.action = a; this.actionTimer = 0; }
-  blink()       { if (!this.blinking) { this.blinking = true; this.blinkAmt = 0; } }
+  setAction(a) {
+    if (a === 'none') return;
+    this.action = a;
+    this.actionTimer = 0;
+  }
+  blink() { if (!this.blinking) { this.blinking = true; this.blinkAmt = 0; } }
+  setListening(v) { this.listening = v; }
+  setMoveDirection(x, z) { this.moveInput.x = x; this.moveInput.z = z; }
 
-  // ⑧ 感情ごとにまばたき間隔を変える
+  resize() {
+    const w = this.container.clientWidth;
+    const h = this.container.clientHeight;
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(w, h);
+  }
+
+  _camDragStart(x, y) { this._lastDrag = { x, y }; }
+  _camDragMove(x, y) {
+    if (!this._lastDrag) return;
+    this.camAngle -= (x - this._lastDrag.x) * 0.006;
+    this.camPitch = Math.max(0.1, Math.min(1.1, this.camPitch + (y - this._lastDrag.y) * 0.006));
+    this._lastDrag = { x, y };
+  }
+  _camDragEnd() { this._lastDrag = null; }
+
+  _initScene() {
+    const w = this.container.clientWidth;
+    const h = this.container.clientHeight;
+
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x030912);
+    this.scene.fog = new THREE.FogExp2(0x030912, 0.025);
+
+    this.camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 120);
+
+    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer.setSize(w, h);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.container.appendChild(this.renderer.domElement);
+
+    this.ambientLight = new THREE.AmbientLight(0x334466, 0.5);
+    this.scene.add(this.ambientLight);
+
+    this.headLight = new THREE.PointLight(0x66aaff, 1.2, 18);
+    this.headLight.castShadow = true;
+    this.scene.add(this.headLight);
+
+    const dirLight = new THREE.DirectionalLight(0x668899, 0.4);
+    dirLight.position.set(5, 12, 5);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.set(512, 512);
+    this.scene.add(dirLight);
+
+    const hemiLight = new THREE.HemisphereLight(0x1a2a44, 0x050d1e, 0.3);
+    this.scene.add(hemiLight);
+
+    const grid = new THREE.GridHelper(60, 60, 0x1a2a44, 0x0a1525);
+    grid.material.transparent = true;
+    grid.material.opacity = 0.6;
+    this.scene.add(grid);
+
+    const groundGeo = new THREE.PlaneGeometry(80, 80);
+    const groundMat = new THREE.MeshStandardMaterial({
+      color: 0x050d1e, roughness: 0.95, metalness: 0.05
+    });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.01;
+    ground.receiveShadow = true;
+    this.scene.add(ground);
+  }
+
+  _buildRobot() {
+    this.robotGroup = new THREE.Group();
+    this.bodyPivot = new THREE.Group();
+    this.robotGroup.add(this.bodyPivot);
+
+    const headGeo = new THREE.SphereGeometry(1.0, 32, 32);
+    const headMat = new THREE.MeshStandardMaterial({
+      color: 0x0d1a2e, roughness: 0.3, metalness: 0.6,
+      emissive: 0x0a1525, emissiveIntensity: 0.3,
+    });
+    this.headMesh = new THREE.Mesh(headGeo, headMat);
+    this.headMesh.position.y = 2.8;
+    this.headMesh.castShadow = true;
+    this.bodyPivot.add(this.headMesh);
+
+    const glowGeo = new THREE.SphereGeometry(1.06, 32, 32);
+    this.headGlow = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({
+      color: 0x66aaff, transparent: true, opacity: 0.08, side: THREE.BackSide
+    }));
+    this.headGlow.position.y = 2.8;
+    this.bodyPivot.add(this.headGlow);
+
+    const antPoleGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.45, 8);
+    this.antPoleMat = new THREE.MeshBasicMaterial({ color: 0x66aaff });
+    const antPole = new THREE.Mesh(antPoleGeo, this.antPoleMat);
+    antPole.position.set(0, 4.03, 0);
+    this.bodyPivot.add(antPole);
+
+    const antTipGeo = new THREE.SphereGeometry(0.06, 12, 12);
+    this.antTip = new THREE.Mesh(antTipGeo, this.antPoleMat.clone());
+    this.antTip.position.set(0, 4.3, 0);
+    this.bodyPivot.add(this.antTip);
+
+    this._buildEyes();
+
+    const neckGeo = new THREE.CylinderGeometry(0.18, 0.22, 0.3, 8);
+    const neckMat = new THREE.MeshStandardMaterial({ color: 0x0d1a2e, roughness: 0.5, metalness: 0.5 });
+    const neck = new THREE.Mesh(neckGeo, neckMat);
+    neck.position.y = 1.65;
+    this.bodyPivot.add(neck);
+
+    const bodyGeo = new THREE.BoxGeometry(1.8, 0.6, 0.9);
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: 0x0a1020, roughness: 0.4, metalness: 0.5,
+      emissive: 0x0a1525, emissiveIntensity: 0.15,
+    });
+    this.bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
+    this.bodyMesh.position.y = 1.2;
+    this.bodyMesh.castShadow = true;
+    this.bodyPivot.add(this.bodyMesh);
+
+    const bodyEdges = new THREE.EdgesGeometry(bodyGeo);
+    this.bodyLine = new THREE.LineSegments(bodyEdges,
+      new THREE.LineBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.3 }));
+    this.bodyLine.position.copy(this.bodyMesh.position);
+    this.bodyPivot.add(this.bodyLine);
+
+    this.leds = [];
+    for (let i = 0; i < 5; i++) {
+      const ledGeo = new THREE.SphereGeometry(0.04, 8, 8);
+      const ledMat = new THREE.MeshBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.5 });
+      const led = new THREE.Mesh(ledGeo, ledMat);
+      led.position.set(-0.6 + i * 0.3, 1.2, 0.46);
+      this.bodyPivot.add(led);
+      this.leds.push(led);
+    }
+
+    this._buildTrack(1);
+    this._buildTrack(-1);
+
+    this.robotGroup.rotation.y = Math.PI;
+    this.scene.add(this.robotGroup);
+  }
+
+  _buildEyes() {
+    this.eyes = {};
+    for (const side of ['left', 'right']) {
+      const sign = side === 'left' ? -1 : 1;
+      const g = new THREE.Group();
+      g.position.set(sign * 0.38, 2.85, 0.88);
+
+      const sclera = new THREE.Mesh(
+        new THREE.CircleGeometry(0.22, 32),
+        new THREE.MeshBasicMaterial({ color: 0xdce9f5 })
+      );
+      g.add(sclera);
+
+      const iris = new THREE.Mesh(
+        new THREE.CircleGeometry(0.11, 24),
+        new THREE.MeshBasicMaterial({ color: 0x55aaff })
+      );
+      iris.position.z = 0.005;
+      g.add(iris);
+
+      const pupil = new THREE.Mesh(
+        new THREE.CircleGeometry(0.05, 16),
+        new THREE.MeshBasicMaterial({ color: 0x0a0a1a })
+      );
+      pupil.position.z = 0.01;
+      g.add(pupil);
+
+      const highlight = new THREE.Mesh(
+        new THREE.CircleGeometry(0.03, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 })
+      );
+      highlight.position.set(0.06, 0.06, 0.015);
+      g.add(highlight);
+
+      const sleepEye = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.38, 0.04),
+        new THREE.MeshBasicMaterial({ color: 0xdce9f5, transparent: true, opacity: 0.3 })
+      );
+      sleepEye.visible = false;
+      g.add(sleepEye);
+
+      const arcShape = new THREE.Shape();
+      const ar = 0.18;
+      arcShape.absarc(0, 0, ar, 0, Math.PI, false);
+      arcShape.absarc(0, 0, ar - 0.05, Math.PI, 0, true);
+      const happyEye = new THREE.Mesh(
+        new THREE.ShapeGeometry(arcShape),
+        new THREE.MeshBasicMaterial({ color: 0xdce9f5 })
+      );
+      happyEye.rotation.z = Math.PI;
+      happyEye.position.y = 0.02;
+      happyEye.visible = false;
+      g.add(happyEye);
+
+      const angryEye = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.38, 0.05),
+        new THREE.MeshBasicMaterial({ color: 0xdce9f5 })
+      );
+      angryEye.rotation.z = sign * 0.4;
+      angryEye.visible = false;
+      g.add(angryEye);
+
+      this.bodyPivot.add(g);
+      this.eyes[side] = { group: g, sclera, iris, pupil, highlight, sleepEye, happyEye, angryEye };
+    }
+  }
+
+  _buildTrack(sideSign) {
+    const trackGroup = new THREE.Group();
+    const tx = sideSign * (0.9 + 0.2);
+
+    const trackGeo = new THREE.CylinderGeometry(0.2, 0.2, 1.2, 12);
+    const trackMat = new THREE.MeshStandardMaterial({
+      color: 0x0c1425, roughness: 0.6, metalness: 0.4,
+      emissive: 0x0a1020, emissiveIntensity: 0.1,
+    });
+    const trackBody = new THREE.Mesh(trackGeo, trackMat);
+    trackBody.position.set(tx, 0.7, 0);
+    trackBody.castShadow = true;
+    trackGroup.add(trackBody);
+
+    const trackEdges = new THREE.EdgesGeometry(trackGeo);
+    const trackLine = new THREE.LineSegments(trackEdges,
+      new THREE.LineBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.2 }));
+    trackLine.position.copy(trackBody.position);
+    trackGroup.add(trackLine);
+
+    for (const wy of [0.25, 1.15]) {
+      const wheelGeo = new THREE.TorusGeometry(0.14, 0.02, 8, 16);
+      const wheelMat = new THREE.MeshBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.3 });
+      const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+      wheel.position.set(tx, wy, 0);
+      wheel.rotation.y = Math.PI / 2;
+      trackGroup.add(wheel);
+
+      const axle = new THREE.Mesh(
+        new THREE.SphereGeometry(0.03, 8, 8),
+        new THREE.MeshBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.4 })
+      );
+      axle.position.set(tx, wy, 0);
+      trackGroup.add(axle);
+    }
+
+    for (let i = 0; i < 6; i++) {
+      const ty = 0.3 + i * 0.15;
+      const points = [new THREE.Vector3(tx - 0.12, ty, 0), new THREE.Vector3(tx + 0.12, ty, 0)];
+      const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+      const line = new THREE.Line(lineGeo,
+        new THREE.LineBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.15 }));
+      trackGroup.add(line);
+    }
+
+    this.bodyPivot.add(trackGroup);
+  }
+
   _rndBlink() {
     const rates = {
-      idle:      [3000, 5000],
-      happy:     [1800, 3500],
-      excited:   [1200, 2500],
-      thinking:  [5000, 9000],  // 集中中は瞬きが少ない
-      sad:       [4000, 8000],
-      surprised: [7000,12000],  // 驚き目は瞬きしにくい
-      angry:     [1500, 3000],
+      idle: [3000, 5000], happy: [1800, 3500], excited: [1200, 2500],
+      thinking: [5000, 9000], sad: [4000, 8000], surprised: [7000, 12000], angry: [1500, 3000],
     };
     const [min, range] = rates[this.emotion] || [3000, 5000];
     return min + Math.random() * range;
   }
 
-  _loop(ts) {
+  _animate(ts) {
     const dt = Math.min(0.05, (ts - this.lastTS) / 1000);
     this.lastTS = ts;
     this._update(dt);
-    this._render();
-    requestAnimationFrame(this._loop.bind(this));
+    this._updateEyes();
+    this._updateColors();
+    this._updateCamera();
+    this.renderer.render(this.scene, this.camera);
+    requestAnimationFrame(this._animate);
   }
 
   _update(dt) {
     const isSleep = this.emotion === 'sleep';
     const lerp = 1 - Math.exp(-8 * dt);
 
-    // ボブ
     const bobSpeed = isSleep ? 0.35 : this.talking ? 4.0 : 1.0;
-    const bobAmp   = isSleep ? 0.004 : 0.010;
+    const bobAmp = isSleep ? 0.015 : 0.03;
     this.bobPhase += dt * bobSpeed;
-    this.bobY = Math.sin(this.bobPhase) * (this.W * bobAmp);
+    this.bodyPivot.position.y = Math.sin(this.bobPhase) * bobAmp;
 
-    // excited バウンス
     if (this.emotion === 'excited') {
       this.excitedPhase += dt * 7.5;
-      this.excitedY = -Math.abs(Math.sin(this.excitedPhase)) * (this.W * 0.034);
+      this.excitedY = Math.abs(Math.sin(this.excitedPhase)) * 0.12;
     } else {
       this.excitedPhase = 0;
       this.excitedY += (0 - this.excitedY) * Math.min(1, dt * 10);
     }
+    this.bodyPivot.position.y += this.excitedY;
 
-    // ⑧ マイクロトレモア（感情ごとに振幅変化）
-    const tremorAmps = {
-      excited: 0.0025,
-      angry:   0.0055,
-      sad:     0,
-      idle:    0,
-      thinking:0.0008,
-      happy:   0.0005,
-      surprised:0.0015,
-    };
-    const amp = tremorAmps[this.emotion] || 0;
-    this.tremorPhase += dt * 28;
-    this.tremorX = amp * Math.sin(this.tremorPhase * 2.3) * this.W;
-    this.tremorY = amp * Math.cos(this.tremorPhase * 1.7) * this.W;
-
-    // ⑧ 感情連動まばたき
     if (!isSleep) {
       this.blinkTimer += dt * 1000;
       if (!this.blinking && this.blinkTimer > this.blinkNext) {
@@ -424,118 +676,164 @@ class EyeRenderer {
       this.blinkAmt = 0;
     }
 
-    // Nod / Shake
     if (this.action !== 'none') {
       this.actionTimer += dt;
       if (this.action === 'nod') {
-        this.headTiltTgt = Math.sin(this.actionTimer * Math.PI / 0.3) * 0.10;
-        if (this.actionTimer > 0.7) { this.action = 'none'; this.headTiltTgt = 0; }
+        this.headTiltXTgt = Math.sin(this.actionTimer * Math.PI / 0.3) * 0.15;
+        if (this.actionTimer > 0.7) { this.action = 'none'; this.headTiltXTgt = 0; }
       } else if (this.action === 'shake') {
-        this.headTiltTgt = Math.sin(this.actionTimer * Math.PI * 3) * 0.09;
-        if (this.actionTimer > 0.9) { this.action = 'none'; this.headTiltTgt = 0; }
+        this.headTiltYTgt = Math.sin(this.actionTimer * Math.PI * 3) * 0.12;
+        if (this.actionTimer > 0.9) { this.action = 'none'; this.headTiltYTgt = 0; }
       }
     }
-    this.headTilt += (this.headTiltTgt - this.headTilt) * lerp;
+    this.headTiltX += (this.headTiltXTgt - this.headTiltX) * lerp;
+    this.headTiltY += (this.headTiltYTgt - this.headTiltY) * lerp;
+    this.headMesh.rotation.x = this.headTiltX;
+    this.headMesh.rotation.y = this.headTiltY;
 
     if (this.talking) this.talkPhase += dt * 10;
-  }
+    if (this.listening) this.listenPhase += dt * 8;
 
-  _render() {
-    const { ctx, W, CX, CY } = this;
-    ctx.clearRect(0, 0, W, W);
-    ctx.save();
-    // ⑧ トレモアをトランスレートに反映
-    ctx.translate(CX + this.tremorX, CY + this.bobY + this.tremorY);
-    ctx.rotate(this.headTilt);
-    ctx.translate(-(CX + this.tremorX), -(CY + this.bobY + this.tremorY));
-    this._drawEyes(ctx, CX + this.tremorX, CY + this.bobY + this.tremorY);
-    ctx.restore();
-  }
+    const ca = this.camAngle;
+    const fwd = [-Math.sin(ca), -Math.cos(ca)];
+    const rgt = [Math.cos(ca), -Math.sin(ca)];
+    const wx = this.moveInput.x * rgt[0] + this.moveInput.z * fwd[0];
+    const wz = this.moveInput.x * rgt[1] + this.moveInput.z * fwd[1];
 
-  _drawEyes(ctx, cx, cy) {
-    const W   = this.W;
-    const em  = this.emotion;
-    const sp  = W * 0.200;
-    const hw  = W * 0.100;
-    const bSY = 1 - this.blinkAmt * 0.97;
+    const speed = 4.0;
+    const accel = 12.0;
+    const friction = 8.0;
 
-    const yOff = {
-      sleep:0, idle:0, happy:0, excited:0,
-      thinking: -W * 0.006,
-      sad:       W * 0.018,
-      surprised:-W * 0.010,
-      angry:0,
-    };
-    const ey = cy - W * 0.010 + (yOff[em] ?? 0) + this.excitedY;
-    const talkScale = this.talking ? 1 + Math.sin(this.talkPhase) * 0.04 : 1;
-
-    this._drawOneEye(ctx, cx - sp, ey, hw, bSY * talkScale, em, false);
-    this._drawOneEye(ctx, cx + sp, ey, hw, bSY * talkScale, em, true);
-  }
-
-  _drawOneEye(ctx, x, y, hw, blinkSY, em, isRight) {
-    const W   = this.W;
-    const col = this._color();
-
-    const P = {
-      sleep:     { hRatio: 0.10,               tilt: 0,                  shape: 'rect'    },
-      idle:      { hRatio: 1.00,               tilt: 0,                  shape: 'ellipse' },
-      happy:     { hRatio: 0,                  tilt: 0,                  shape: 'arc'     },
-      excited:   { hRatio: 1.15,               tilt: 0,                  shape: 'ellipse' },
-      thinking:  { hRatio: isRight?0.70:0.45,  tilt: 0,                  shape: 'ellipse' },
-      sad:       { hRatio: 0.70,               tilt: isRight?-0.26:0.26, shape: 'ellipse' },
-      surprised: { hRatio: 1.30,               tilt: 0,                  shape: 'ellipse' },
-      angry:     { hRatio: 0.16,               tilt: isRight?0.40:-0.40, shape: 'rect'   },
-    };
-    const p = P[em] ?? P.idle;
-
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(1, blinkSY);
-    ctx.rotate(p.tilt);
-    ctx.globalAlpha = (em === 'sleep') ? 0.30 : 1.0;
-
-    if (p.shape === 'arc') {
-      const r = hw * 0.80;
-      ctx.beginPath();
-      ctx.arc(0, r * 0.15, r, Math.PI + 0.18, -0.18, false);
-      ctx.strokeStyle = col.fill;
-      ctx.lineWidth   = W * 0.048;
-      ctx.lineCap     = 'round';
-      ctx.stroke();
-      ctx.restore();
-      return;
+    if (Math.abs(this.moveInput.x) > 0.01 || Math.abs(this.moveInput.z) > 0.01) {
+      this.velocity.x += (wx * speed - this.velocity.x) * Math.min(1, accel * dt);
+      this.velocity.z += (wz * speed - this.velocity.z) * Math.min(1, accel * dt);
+      this.targetRotY = Math.atan2(wx, wz) + Math.PI;
+    } else {
+      this.velocity.x += (0 - this.velocity.x) * Math.min(1, friction * dt);
+      this.velocity.z += (0 - this.velocity.z) * Math.min(1, friction * dt);
     }
 
-    if (p.shape === 'rect') {
-      const rw = hw * 0.95, rh = hw * p.hRatio;
-      ctx.beginPath();
-      ctx.roundRect(-rw, -rh, rw * 2, rh * 2, rh * 0.5);
-      ctx.fillStyle = col.fill;
-      ctx.fill();
-      ctx.restore();
-      return;
-    }
+    this.robotGroup.position.x += this.velocity.x * dt;
+    this.robotGroup.position.z += this.velocity.z * dt;
 
-    ctx.beginPath();
-    ctx.ellipse(0, 0, hw, hw * p.hRatio, 0, 0, Math.PI * 2);
-    ctx.fillStyle = col.fill;
-    ctx.fill();
-    ctx.restore();
+    let angleDiff = this.targetRotY - this.robotGroup.rotation.y;
+    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+    this.robotGroup.rotation.y += angleDiff * (1 - Math.exp(-10 * dt));
   }
 
-  _color() { return { fill: '#dce9f5' }; }
+  _updateEyes() {
+    const em = this.emotion;
+    const blink = 1 - this.blinkAmt * 0.95;
+    const talkScale = this.talking ? 1 + Math.sin(this.talkPhase) * 0.06 : 1;
+    const sc = blink * talkScale;
+
+    for (const [side, eye] of Object.entries(this.eyes)) {
+      const isRight = side === 'right';
+      eye.sclera.visible = false;
+      eye.iris.visible = false;
+      eye.pupil.visible = false;
+      eye.highlight.visible = false;
+      eye.sleepEye.visible = false;
+      eye.happyEye.visible = false;
+      eye.angryEye.visible = false;
+
+      if (em === 'sleep') {
+        eye.sleepEye.visible = true;
+        eye.group.scale.set(1, 1, 1);
+      } else if (em === 'happy') {
+        eye.happyEye.visible = true;
+        eye.group.scale.set(1, sc, 1);
+      } else if (em === 'angry') {
+        eye.angryEye.visible = true;
+        eye.group.scale.set(1, sc, 1);
+      } else {
+        eye.sclera.visible = true;
+        eye.iris.visible = true;
+        eye.pupil.visible = true;
+        eye.highlight.visible = true;
+
+        let s = 1.0;
+        if (em === 'excited') s = 1.15;
+        else if (em === 'surprised') s = 1.3;
+        else if (em === 'thinking') s = isRight ? 1.0 : 0.7;
+        else if (em === 'sad') s = 0.85;
+        eye.group.scale.set(s, s * sc, s);
+
+        if (em === 'sad') {
+          eye.group.rotation.z = isRight ? -0.15 : 0.15;
+        } else if (em === 'thinking') {
+          eye.group.position.y = 2.85 + (isRight ? 0.03 : -0.03);
+          eye.group.rotation.z = 0;
+        } else {
+          eye.group.rotation.z = 0;
+          eye.group.position.y = 2.85;
+        }
+      }
+    }
+  }
+
+  _updateColors() {
+    const col = EMOTION_COLORS[this.emotion] || EMOTION_COLORS.idle;
+    const c = new THREE.Color(col.primary);
+
+    this.headLight.color.copy(c);
+    this.headLight.position.set(
+      this.robotGroup.position.x,
+      this.robotGroup.position.y + 3.5,
+      this.robotGroup.position.z
+    );
+
+    let intensity = this.emotion === 'sleep' ? 0.3 : 1.2;
+    if (this.listening) {
+      intensity += Math.sin(this.listenPhase) * 0.5;
+    }
+    this.headLight.intensity = intensity;
+
+    this.headGlow.material.color.copy(c);
+    this.headGlow.material.opacity = this.emotion === 'sleep' ? 0.03 : 0.1;
+
+    this.antPoleMat.color.copy(c);
+    this.antTip.material.color.copy(c);
+
+    this.bodyLine.material.color.copy(c);
+
+    const irisCol = new THREE.Color(col.iris);
+    for (const eye of Object.values(this.eyes)) {
+      eye.iris.material.color.copy(irisCol);
+    }
+
+    const isSleep = this.emotion === 'sleep';
+    this.leds.forEach((led, i) => {
+      led.material.color.copy(c);
+      led.material.opacity = isSleep ? 0.1 : (0.3 + Math.sin(i * 1.2 + this.bobPhase * 3) * 0.3);
+    });
+  }
+
+  _updateCamera() {
+    const rx = this.robotGroup.position.x;
+    const ry = this.robotGroup.position.y;
+    const rz = this.robotGroup.position.z;
+
+    const cx = rx + this.camDist * Math.sin(this.camAngle) * Math.cos(this.camPitch);
+    const cy = ry + this.camDist * Math.sin(this.camPitch) + 1.5;
+    const cz = rz + this.camDist * Math.cos(this.camAngle) * Math.cos(this.camPitch);
+
+    this.camera.position.lerp(new THREE.Vector3(cx, cy, cz), 0.06);
+    const lookAt = new THREE.Vector3(rx, ry + 2.0, rz);
+    this.camera.lookAt(lookAt);
+  }
 }
 
 // ════════════════════════════════════════════════════
 // APP CONTROLLER
 // ════════════════════════════════════════════════════
-const canvas    = document.getElementById('robot-canvas');
-const statusDt  = { className: '' }; // ステータスドット削除済み（ダミー）
-const micLabel  = document.getElementById('mic-label');    // ⑨
-const resetHint = document.getElementById('reset-hint');
+const container3d = document.getElementById('robot-3d');
+const statusDt    = { className: '' };
+const micLabel    = document.getElementById('mic-label');
+const resetHint   = document.getElementById('reset-hint');
 
-const robot = new EyeRenderer(canvas);
+const robot = new RobotRenderer3D(container3d);
 window.addEventListener('resize', () => robot.resize());
 
 let isBusy         = false;
@@ -545,40 +843,36 @@ let sleeping       = true;
 let continuousMode = false;
 let listeningActive= false;
 let sleepTimer     = null;
-let proactiveTimer = null;  // ⑦
+let proactiveTimer = null;
 let currentAudio   = null;
 
-const SLEEP_MS      = 300_000; // 5分
-const PROACTIVE_MS  = 120_000; // ⑦ 2分無言でプロアクティブ発言
+const SLEEP_MS      = 300_000;
+const PROACTIVE_MS  = 120_000;
 
-// ② 拡張ウェイクワード＋信頼度閾値
 const WAKE_WORDS         = /起きて|おきて|起こして|おこして|おはよ|秋山|あきやま|ねえ|ねぇ|スタート|起動|きどう/;
 const WAKE_CONFIDENCE_MIN = 0.50;
 const SLEEP_WORDS         = /おやすみ|寝て|ねて|バイバイ|またね|終わり|おわり/;
 
-// ① 思考中フレーズ
-const THINKING_PHRASES = [
-  '少々お待ちください。'
-];
+const THINKING_PHRASES = ['少々お待ちください。'];
 
-// ⑨ ステータス表示（マイクラベル付き）
 function setStatus(state) {
   statusDt.className = state;
   if (state === 'listening') {
     micLabel.classList.add('visible');
+    robot.setListening(true);
   } else {
     micLabel.classList.remove('visible');
+    robot.setListening(false);
   }
 }
 
 // ════════════════════════════════════════════════════
-// ⑥ 3層記憶システム
+// 3層記憶システム
 // ════════════════════════════════════════════════════
-const FACT_KEY  = 'looi_memory';   // 事実記憶
-const PROC_KEY  = 'looi_proc';     // 手続き記憶（話題パターン）
-const EMO_KEY   = 'looi_emo';      // 感情記憶
+const FACT_KEY = 'looi_memory';
+const PROC_KEY = 'looi_proc';
+const EMO_KEY  = 'looi_emo';
 
-// 事実記憶
 function getMemory() { return JSON.parse(localStorage.getItem(FACT_KEY) || '[]'); }
 function addMemory(fact) {
   if (!fact || fact.length < 3) return;
@@ -587,11 +881,9 @@ function addMemory(fact) {
     mem.push(fact);
     if (mem.length > 30) mem.shift();
     localStorage.setItem(FACT_KEY, JSON.stringify(mem));
-    console.log('[memory:fact]', fact);
   }
 }
 
-// 手続き記憶：話題×時間帯を蓄積
 function trackProc(text) {
   const procs = JSON.parse(localStorage.getItem(PROC_KEY) || '[]');
   procs.push({ text: text.slice(0, 30), hour: new Date().getHours(), ts: Date.now() });
@@ -601,14 +893,10 @@ function trackProc(text) {
 function getTopTopics() {
   const procs = JSON.parse(localStorage.getItem(PROC_KEY) || '[]');
   const counts = {};
-  procs.forEach(p => {
-    const key = p.text.slice(0, 10);
-    counts[key] = (counts[key] || 0) + 1;
-  });
+  procs.forEach(p => { const key = p.text.slice(0, 10); counts[key] = (counts[key] || 0) + 1; });
   return Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,3).map(e=>e[0]);
 }
 
-// 感情記憶：最近の会話の感情傾向
 function trackEmo(emotion) {
   const emos = JSON.parse(localStorage.getItem(EMO_KEY) || '[]');
   emos.push({ emotion, ts: Date.now() });
@@ -625,15 +913,11 @@ function getRecentMood() {
   return null;
 }
 
-function clearAllMemory() {
-  [FACT_KEY, PROC_KEY, EMO_KEY].forEach(k => localStorage.removeItem(k));
-}
+function clearAllMemory() { [FACT_KEY, PROC_KEY, EMO_KEY].forEach(k => localStorage.removeItem(k)); }
 
 // ════════════════════════════════════════════════════
-// ⑤ TTS（ブラウザ音声合成フォールバック付き）
+// TTS
 // ════════════════════════════════════════════════════
-
-// ⑤ ブラウザ内蔵TTSフォールバック
 function speakFallback(text, onEnd) {
   if (!window.speechSynthesis) { onEnd?.(); return; }
   window.speechSynthesis.cancel();
@@ -642,7 +926,6 @@ function speakFallback(text, onEnd) {
   utt.onstart = () => robot.setTalking(true);
   utt.onend   = () => { robot.setTalking(false); onEnd?.(); };
   utt.onerror = () => { robot.setTalking(false); onEnd?.(); };
-  // ⑤ 音声が見つからない場合に備えてタイムアウト
   setTimeout(() => {
     if (!window.speechSynthesis.speaking) { robot.setTalking(false); onEnd?.(); }
   }, 8000);
@@ -651,11 +934,7 @@ function speakFallback(text, onEnd) {
 
 function speak(text, onEnd) {
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-  // ⑤ オフライン確認
-  if (!navigator.onLine) {
-    speakFallback(text, onEnd);
-    return;
-  }
+  if (!navigator.onLine) { speakFallback(text, onEnd); return; }
   fetch('/api/tts', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text }),
@@ -666,27 +945,14 @@ function speak(text, onEnd) {
     const audio = new Audio(url);
     currentAudio = audio;
     audio.onplay  = () => robot.setTalking(true);
-    audio.onended = () => {
-      robot.setTalking(false);
-      URL.revokeObjectURL(url); currentAudio = null;
-      onEnd?.();
-    };
-    audio.onerror = () => {
-      robot.setTalking(false);
-      URL.revokeObjectURL(url); currentAudio = null;
-      onEnd?.();
-    };
+    audio.onended = () => { robot.setTalking(false); URL.revokeObjectURL(url); currentAudio = null; onEnd?.(); };
+    audio.onerror = () => { robot.setTalking(false); URL.revokeObjectURL(url); currentAudio = null; onEnd?.(); };
     audio.play().catch(() => {
-      robot.setTalking(false);
-      URL.revokeObjectURL(url); currentAudio = null;
+      robot.setTalking(false); URL.revokeObjectURL(url); currentAudio = null;
       speakFallback(text, onEnd);
     });
   })
-  .catch(() => {
-    robot.setTalking(false);
-    // ⑤ Edge TTS失敗時はブラウザTTSで代替
-    speakFallback(text, onEnd);
-  });
+  .catch(() => { robot.setTalking(false); speakFallback(text, onEnd); });
 }
 
 // ════════════════════════════════════════════════════
@@ -697,7 +963,6 @@ function resetSleepTimer() {
   sleepTimer = setTimeout(goToSleep, SLEEP_MS);
 }
 
-// ⑦ プロアクティブタイマー
 function resetProactiveTimer() {
   clearTimeout(proactiveTimer);
   if (!sleeping) proactiveTimer = setTimeout(doProactiveChat, PROACTIVE_MS);
@@ -712,14 +977,12 @@ function goToSleep() {
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   try { recognition?.abort(); } catch(e) {}
   continuousMode = false;
-  canvas.classList.remove('continuous', 'listening-once');
   isBusy = false;
   robot.setEmotion('sleep');
   setStatus('sleeping');
   if (!isIOS) setTimeout(startWakeWordListening, 600);
 }
 
-// ⑦ 時刻に応じた挨拶
 function getTimeGreeting() {
   const h = new Date().getHours();
   if (h < 4)  return '社長、夜分遅くに失礼いたします。何かございましたか？';
@@ -737,15 +1000,14 @@ function wakeUp() {
   robot.setEmotion('excited');
   robot.setAction('nod');
   setStatus('speaking');
-  speak(getTimeGreeting(), () => { // ⑦ 時刻別挨拶
+  speak(getTimeGreeting(), () => {
     robot.setEmotion('idle');
     resetSleepTimer();
-    resetProactiveTimer(); // ⑦
+    resetProactiveTimer();
     setTimeout(() => startListening(), 500);
   });
 }
 
-// ⑦ プロアクティブ発話（2分無言で話しかける）
 const PROACTIVE_MSGS = [
   '社長、何かお手伝いできることはございますか？',
   '社長、本日のご予定はいかがでしょうか？',
@@ -761,67 +1023,41 @@ function doProactiveChat() {
   robot.setEmotion('happy');
   setStatus('speaking');
   speak(msg, () => {
-    isBusy = false;
-    robot.setEmotion('idle');
-    resetSleepTimer();
-    resetProactiveTimer(); // ⑦ 次のプロアクティブをセット
+    isBusy = false; robot.setEmotion('idle');
+    resetSleepTimer(); resetProactiveTimer();
     setTimeout(() => startListening(), 500);
   });
 }
 
 // ════════════════════════════════════════════════════
-// ② ウェイクワード検出（信頼度スコア付き）
+// ウェイクワード検出
 // ════════════════════════════════════════════════════
 const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
 
 function stopWakeWordListening() {
-  if (sleepRecRef) {
-    try { sleepRecRef.abort(); } catch(e) {}
-    sleepRecRef = null;
-  }
+  if (sleepRecRef) { try { sleepRecRef.abort(); } catch(e) {} sleepRecRef = null; }
 }
 
 function startWakeWordListening() {
   if (!SpeechRec || !sleeping) return;
-  if (sleepRecRef) return; // 既に起動中なら重複起動しない
+  if (sleepRecRef) return;
   const sr = new SpeechRec();
   sleepRecRef = sr;
-  sr.lang = 'ja-JP';
-  sr.continuous = true;   // iOS: start()の呼び出し回数を最小化
-  sr.interimResults = false;
-
+  sr.lang = 'ja-JP'; sr.continuous = true; sr.interimResults = false;
   sr.onresult = e => {
     const last = e.results[e.results.length - 1];
     if (!last.isFinal) return;
-    const text = last[0].transcript;
-    console.log(`[wake] "${text}"`);
-    if (WAKE_WORDS.test(text)) wakeUp();
+    if (WAKE_WORDS.test(last[0].transcript)) wakeUp();
   };
   sr.onend = () => {
-    // continuous=trueでもブラウザが認識を終了することがある（iOS等）
-    // その場合のみ再起動（頻度を下げるため間隔を長めに）
-    if (sleeping && sleepRecRef === sr) {
-      sleepRecRef = null;
-      setTimeout(startWakeWordListening, 2000);
-    }
+    if (sleeping && sleepRecRef === sr) { sleepRecRef = null; setTimeout(startWakeWordListening, 2000); }
   };
   sr.onerror = e => {
-    console.warn('[wake] error:', e.error);
-    if (e.error === 'not-allowed') return; // マイク拒否時は再試行しない
-    if (sleeping && sleepRecRef === sr) {
-      sleepRecRef = null;
-      setTimeout(startWakeWordListening, 3000);
-    }
+    if (e.error === 'not-allowed') return;
+    if (sleeping && sleepRecRef === sr) { sleepRecRef = null; setTimeout(startWakeWordListening, 3000); }
   };
-  try {
-    sr.start();
-    console.log('[wake] listening started (continuous)');
-  } catch(e) {
-    console.warn('[wake] start() threw:', e);
-    sleepRecRef = null;
-    if (sleeping) setTimeout(startWakeWordListening, 3000);
-  }
+  try { sr.start(); } catch(e) { sleepRecRef = null; if (sleeping) setTimeout(startWakeWordListening, 3000); }
 }
 
 // ════════════════════════════════════════════════════
@@ -831,71 +1067,45 @@ async function sendMessage(text) {
   if (sleeping || isBusy || !text.trim()) return;
   resetSleepTimer();
 
-  // 寝かしつけワード
   if (SLEEP_WORDS.test(text)) {
-    isBusy = true;
-    robot.setEmotion('sad');
-    setStatus('speaking');
+    isBusy = true; robot.setEmotion('sad'); setStatus('speaking');
     speak('かしこまりました。ごゆっくりお休みください。', goToSleep);
     return;
   }
 
-  isBusy = true;
-  setStatus('thinking');
-  robot.setEmotion('thinking');
-
-  // ① 即座に思考中フレーズを発話（API待機中）
+  isBusy = true; setStatus('thinking'); robot.setEmotion('thinking');
   const thinkPhrase = THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)];
-  speak(thinkPhrase, null); // コールバックなし＝APIが返ったら中断
-
-  // ⑥ 手続き記憶に話題を記録
+  speak(thinkPhrase, null);
   trackProc(text);
 
   try {
     const res = await fetch('/api/chat', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: text,
-        memory:  getMemory(),             // 事実記憶（フォールバック）
-        proc:    getTopTopics(),           // ⑥ 手続き記憶
-        mood:    getRecentMood(),          // ⑥ 感情記憶
-      }),
+      body: JSON.stringify({ message: text, memory: getMemory(), proc: getTopTopics(), mood: getRecentMood() }),
     });
-
-    // ① 思考中フレーズを止めて本返答へ
     if (currentAudio) { currentAudio.pause(); currentAudio = null; robot.setTalking(false); }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
 
     const data = await res.json();
     if (data.remember) addMemory(data.remember);
-    trackEmo(data.emotion || 'idle');  // ⑥ 感情記録
-
+    trackEmo(data.emotion || 'idle');
     robot.setEmotion(data.emotion || 'idle');
     if (data.action && data.action !== 'none') robot.setAction(data.action);
     setStatus('speaking');
     speak(data.message || '', () => {
-      isBusy = false;
-      resetSleepTimer();
-      resetProactiveTimer();             // ⑦
-      setTimeout(() => startListening(), 1200); // ③ エコー消えるまで待つ
+      isBusy = false; resetSleepTimer(); resetProactiveTimer();
+      setTimeout(() => startListening(), 1200);
     });
   } catch(err) {
-    // ① 思考中フレーズを止める
     if (currentAudio) { currentAudio.pause(); currentAudio = null; robot.setTalking(false); }
     if (window.speechSynthesis) window.speechSynthesis.cancel();
-
-    // ⑤ ネットワークエラー時のフレンドリーメッセージ
     const errMsgs = [
       '申し訳ございません。通信が不安定のようです。もう一度お試しください。',
       '恐れ入ります。接続に問題が発生しております。少々お待ちください。',
     ];
-    const errMsg = errMsgs[Math.floor(Math.random() * errMsgs.length)];
-    robot.setEmotion('sad');
-    setStatus('speaking');
-    speak(errMsg, () => {
-      isBusy = false;
-      resetSleepTimer();
-      setTimeout(() => startListening(), 1200); // ③
+    robot.setEmotion('sad'); setStatus('speaking');
+    speak(errMsgs[Math.floor(Math.random() * errMsgs.length)], () => {
+      isBusy = false; resetSleepTimer(); setTimeout(() => startListening(), 1200);
     });
   }
 }
@@ -905,24 +1115,17 @@ async function sendMessage(text) {
 // ════════════════════════════════════════════════════
 async function doReset() {
   try { await fetch('/api/reset', { method: 'POST' }); } catch(e) {}
-  clearAllMemory(); // ⑥ 全3層記憶をクリア
+  clearAllMemory();
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
   if (window.speechSynthesis) window.speechSynthesis.cancel();
   stopWakeWordListening();
-  clearTimeout(sleepTimer);
-  clearTimeout(proactiveTimer); // ⑦
+  clearTimeout(sleepTimer); clearTimeout(proactiveTimer);
   clearTimeout(sendDebounceTimer); pendingTranscript = '';
   try { recognition?.abort(); } catch(e) {}
-  continuousMode = false;
-  canvas.classList.remove('continuous', 'listening-once');
-  isBusy = false;
-  sleeping = false;
-  robot.setEmotion('excited');
-  setStatus('speaking');
+  continuousMode = false; isBusy = false; sleeping = false;
+  robot.setEmotion('excited'); setStatus('speaking');
   speak('リセットいたしました。何なりとお申し付けください。', () => {
-    robot.setEmotion('idle');
-    resetSleepTimer();
-    resetProactiveTimer(); // ⑦
+    robot.setEmotion('idle'); resetSleepTimer(); resetProactiveTimer();
     setTimeout(() => startListening(), 500);
   });
 }
@@ -937,23 +1140,15 @@ const textSend  = document.getElementById('text-send');
 function submitText() {
   const text = textInput.value.trim();
   if (!text || isBusy) return;
-  textInput.value = '';
-  textInput.blur();
-  if (sleeping) {
-    sleeping = false;
-    stopWakeWordListening();
-  }
+  textInput.value = ''; textInput.blur();
+  if (sleeping) { sleeping = false; stopWakeWordListening(); }
   clearTimeout(sendDebounceTimer); pendingTranscript = '';
   try { recognition?.abort(); } catch(e) {}
   listeningActive = false;
-  canvas.classList.remove('listening-once');
   sendMessage(text);
 }
-
 textSend.addEventListener('click', submitText);
-textInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); submitText(); }
-});
+textInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); submitText(); } });
 
 // ════════════════════════════════════════════════════
 // 会話用音声認識
@@ -963,56 +1158,35 @@ function startListening() {
   try { recognition.start(); } catch(e) {}
 }
 
-// 発話をデバウンスで蓄積し、間が空いてから送信する
 let pendingTranscript = '';
 let sendDebounceTimer = null;
-const SEND_DELAY_MS   = 1500; // 1.5秒無言で送信確定
+const SEND_DELAY_MS   = 1500;
 
 function flushTranscript() {
-  clearTimeout(sendDebounceTimer);
-  sendDebounceTimer = null;
-  const text = pendingTranscript.trim();
-  pendingTranscript = '';
+  clearTimeout(sendDebounceTimer); sendDebounceTimer = null;
+  const text = pendingTranscript.trim(); pendingTranscript = '';
   if (!text) return;
   try { recognition.abort(); } catch(e) {}
   listeningActive = false;
-  canvas.classList.remove('listening-once');
   resetSleepTimer();
   sendMessage(text);
 }
 
 if (SpeechRec) {
   recognition = new SpeechRec();
-  recognition.lang = 'ja-JP';
-  recognition.continuous = true;
-  recognition.interimResults = true;
+  recognition.lang = 'ja-JP'; recognition.continuous = true; recognition.interimResults = true;
 
   recognition.onstart = () => {
-    listeningActive = true;
-    canvas.classList.add('listening-once');
-    setStatus('listening');
-    robot.setEmotion('happy');
+    listeningActive = true; setStatus('listening'); robot.setEmotion('happy');
   };
 
   recognition.onresult = e => {
-    let interim = '';
     let finalText = '';
     for (let i = 0; i < e.results.length; i++) {
-      if (e.results[i].isFinal) {
-        finalText += e.results[i][0].transcript;
-      } else {
-        interim += e.results[i][0].transcript;
-      }
+      if (e.results[i].isFinal) finalText += e.results[i][0].transcript;
     }
-
     if (finalText) {
       pendingTranscript = finalText;
-      robot.setEmotion('happy');
-      clearTimeout(sendDebounceTimer);
-      sendDebounceTimer = setTimeout(flushTranscript, SEND_DELAY_MS);
-    }
-
-    if (interim) {
       robot.setEmotion('happy');
       clearTimeout(sendDebounceTimer);
       sendDebounceTimer = setTimeout(flushTranscript, SEND_DELAY_MS);
@@ -1021,67 +1195,151 @@ if (SpeechRec) {
 
   recognition.onend = () => {
     listeningActive = false;
-    canvas.classList.remove('listening-once');
     if (pendingTranscript && sendDebounceTimer) {
-      // デバウンス待ち中に認識が切れた場合、即送信
-      clearTimeout(sendDebounceTimer);
-      flushTranscript();
-      return;
+      clearTimeout(sendDebounceTimer); flushTranscript(); return;
     }
     if (!isBusy && !sleeping) setTimeout(() => startListening(), 400);
   };
 
   recognition.onerror = e => {
     listeningActive = false;
-    canvas.classList.remove('listening-once');
-    if (e.error === 'no-speech') {
-      if (!isBusy && !sleeping) setTimeout(() => startListening(), 400);
-      return;
-    }
+    if (e.error === 'no-speech') { if (!isBusy && !sleeping) setTimeout(() => startListening(), 400); return; }
     if (!isBusy && !sleeping) setTimeout(() => startListening(), 1000);
   };
-
-  // ── キャンバス操作 ──────────────────────────────────
-  let pressTimer = null;
-  canvas.addEventListener('pointerdown', () => {
-    pressTimer = setTimeout(() => {
-      pressTimer = null;
-      if (sleeping) { wakeUp(); return; }
-      goToSleep();
-    }, 600);
-  });
-  canvas.addEventListener('pointerup', () => {
-    if (pressTimer) {
-      clearTimeout(pressTimer); pressTimer = null;
-      if (sleeping) { wakeUp(); return; }
-      if (currentAudio) { currentAudio.pause(); currentAudio = null; robot.setTalking(false); }
-      if (window.speechSynthesis) window.speechSynthesis.cancel();
-      clearTimeout(sendDebounceTimer); pendingTranscript = '';
-      try { recognition.abort(); } catch(e) {}
-      isBusy = false;
-      listeningActive = false;
-      canvas.classList.remove('listening-once');
-      resetSleepTimer();
-      resetProactiveTimer(); // ⑦
-      setTimeout(() => startListening(), 300);
-    }
-  });
-  canvas.addEventListener('pointercancel', () => {
-    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
-  });
-
 } else {
   setStatus('ready');
 }
 
-// ⑤ オフライン/オンライン検出
+// ════════════════════════════════════════════════════
+// 3Dコンテナ操作（タップ/長押し + カメラ回転）
+// ════════════════════════════════════════════════════
+{
+  const el = robot.renderer.domElement;
+  let ptrStart = null;
+  let ptrMoved = 0;
+  let pressTimer = null;
+
+  el.addEventListener('pointerdown', e => {
+    if (e.target.closest('#text-input-bar, #joystick-area, #task-panel')) return;
+    ptrStart = { x: e.clientX, y: e.clientY };
+    ptrMoved = 0;
+    robot._camDragStart(e.clientX, e.clientY);
+
+    pressTimer = setTimeout(() => {
+      pressTimer = null;
+      if (ptrMoved < 10) {
+        if (sleeping) wakeUp(); else goToSleep();
+      }
+    }, 600);
+  });
+
+  el.addEventListener('pointermove', e => {
+    if (!ptrStart) return;
+    ptrMoved = Math.abs(e.clientX - ptrStart.x) + Math.abs(e.clientY - ptrStart.y);
+    if (ptrMoved > 5) robot._camDragMove(e.clientX, e.clientY);
+  });
+
+  el.addEventListener('pointerup', () => {
+    if (pressTimer) {
+      clearTimeout(pressTimer); pressTimer = null;
+      if (ptrMoved < 10) {
+        if (sleeping) { wakeUp(); }
+        else {
+          if (currentAudio) { currentAudio.pause(); currentAudio = null; robot.setTalking(false); }
+          if (window.speechSynthesis) window.speechSynthesis.cancel();
+          clearTimeout(sendDebounceTimer); pendingTranscript = '';
+          try { recognition.abort(); } catch(e) {}
+          isBusy = false; listeningActive = false;
+          resetSleepTimer(); resetProactiveTimer();
+          setTimeout(() => startListening(), 300);
+        }
+      }
+    }
+    ptrStart = null;
+    robot._camDragEnd();
+  });
+
+  el.addEventListener('pointercancel', () => {
+    if (pressTimer) { clearTimeout(pressTimer); pressTimer = null; }
+    ptrStart = null; robot._camDragEnd();
+  });
+
+  el.addEventListener('wheel', e => {
+    robot.camDist = Math.max(4, Math.min(20, robot.camDist + e.deltaY * 0.01));
+  }, { passive: true });
+}
+
+// ════════════════════════════════════════════════════
+// キーボード移動
+// ════════════════════════════════════════════════════
+{
+  const keys = {};
+  window.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT') return;
+    keys[e.key] = true;
+    updateKeyMove();
+  });
+  window.addEventListener('keyup', e => {
+    keys[e.key] = false;
+    updateKeyMove();
+  });
+  function updateKeyMove() {
+    let x = 0, z = 0;
+    if (keys['ArrowUp'] || keys['w']) z = 1;
+    if (keys['ArrowDown'] || keys['s']) z = -1;
+    if (keys['ArrowLeft'] || keys['a']) x = -1;
+    if (keys['ArrowRight'] || keys['d']) x = 1;
+    const len = Math.sqrt(x*x + z*z);
+    if (len > 0) { x /= len; z /= len; }
+    robot.setMoveDirection(x, z);
+  }
+}
+
+// ════════════════════════════════════════════════════
+// タッチジョイスティック
+// ════════════════════════════════════════════════════
+{
+  const area = document.getElementById('joystick-area');
+  const knob = document.getElementById('joystick-knob');
+  const RANGE = 30;
+  let active = false;
+  let center = { x: 0, y: 0 };
+
+  area.addEventListener('touchstart', e => {
+    e.preventDefault(); active = true;
+    const r = area.getBoundingClientRect();
+    center = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  }, { passive: false });
+
+  area.addEventListener('touchmove', e => {
+    if (!active) return;
+    e.preventDefault();
+    const t = e.touches[0];
+    let dx = t.clientX - center.x;
+    let dy = t.clientY - center.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if (dist > RANGE) { dx = dx/dist*RANGE; dy = dy/dist*RANGE; }
+    knob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+    robot.setMoveDirection(dx / RANGE, -dy / RANGE);
+  }, { passive: false });
+
+  const endTouch = () => {
+    active = false;
+    knob.style.transform = 'translate(-50%, -50%)';
+    robot.setMoveDirection(0, 0);
+  };
+  area.addEventListener('touchend', endTouch);
+  area.addEventListener('touchcancel', endTouch);
+}
+
+// ════════════════════════════════════════════════════
+// オフライン/オンライン検出
+// ════════════════════════════════════════════════════
 window.addEventListener('offline', () => {
   if (!sleeping && !isBusy) {
-    isBusy = true;
-    robot.setEmotion('sad');
+    isBusy = true; robot.setEmotion('sad');
     speakFallback('恐れ入ります。ネットワーク接続が切断されたようです。', () => {
-      isBusy = false;
-      robot.setEmotion('idle');
+      isBusy = false; robot.setEmotion('idle');
       setTimeout(() => startListening(), 800);
     });
   }
@@ -1090,32 +1348,15 @@ window.addEventListener('online', () => {
   if (!sleeping && !isBusy) {
     robot.setEmotion('excited');
     speakFallback('ネットワーク接続が復旧いたしました。ご用件をどうぞ。', () => {
-      robot.setEmotion('idle');
-      setTimeout(() => startListening(), 500);
+      robot.setEmotion('idle'); setTimeout(() => startListening(), 500);
     });
   }
 });
 
-// ── 初期化 ─────────────────────────────────────────
-function unlockAudio() {
-  try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const buf = ctx.createBuffer(1, 1, 22050);
-    const src = ctx.createBufferSource();
-    src.buffer = buf; src.connect(ctx.destination); src.start(0);
-    ctx.resume();
-  } catch(e) {}
-  try {
-    const a = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=');
-    a.volume = 0.01;
-    a.play().then(() => a.pause()).catch(() => {});
-  } catch(e) {}
-}
-
 // ════════════════════════════════════════════════════
 // 8:00 自動起床 + モーニングブリーフィング
 // ════════════════════════════════════════════════════
-let morningFired = null; // 同日2回発火防止
+let morningFired = null;
 
 function checkMorningBriefing() {
   const now = new Date();
@@ -1129,16 +1370,8 @@ function checkMorningBriefing() {
 
 async function doMorningBriefing() {
   if (isBusy) return;
-  // 寝ていたら起こす
-  if (sleeping) {
-    sleeping = false;
-    stopWakeWordListening();
-  }
-  isBusy = true;
-  robot.setEmotion('excited');
-  robot.setAction('nod');
-  setStatus('thinking');
-
+  if (sleeping) { sleeping = false; stopWakeWordListening(); }
+  isBusy = true; robot.setEmotion('excited'); robot.setAction('nod'); setStatus('thinking');
   try {
     const res = await fetch('/api/morning-briefing');
     const data = await res.json();
@@ -1146,24 +1379,18 @@ async function doMorningBriefing() {
     if (data.action) robot.setAction(data.action);
     setStatus('speaking');
     speak(data.message || '社長、おはようございます。', () => {
-      isBusy = false;
-      robot.setEmotion('idle');
-      resetSleepTimer();
-      resetProactiveTimer();
+      isBusy = false; robot.setEmotion('idle');
+      resetSleepTimer(); resetProactiveTimer();
       setTimeout(() => startListening(), 500);
     });
   } catch(e) {
-    robot.setEmotion('idle');
-    setStatus('speaking');
+    robot.setEmotion('idle'); setStatus('speaking');
     speak('社長、おはようございます。本日もよろしくお願いいたします。', () => {
-      isBusy = false;
-      resetSleepTimer();
-      setTimeout(() => startListening(), 500);
+      isBusy = false; resetSleepTimer(); setTimeout(() => startListening(), 500);
     });
   }
 }
-
-setInterval(checkMorningBriefing, 30000); // 30秒ごとにチェック
+setInterval(checkMorningBriefing, 30000);
 
 // ════════════════════════════════════════════════════
 // タスク管理パネル
@@ -1177,28 +1404,20 @@ const taskAddBtn  = document.getElementById('task-add-btn');
 const taskListEl  = document.getElementById('task-list');
 let taskFilter    = 'pending';
 
-// 今日の日付をデフォルトにセット
 taskDueIn.value = new Date().toISOString().slice(0, 10);
 
-taskBtn.addEventListener('click', () => {
-  taskPanel.classList.add('open');
-  loadTasks();
-});
+taskBtn.addEventListener('click', () => { taskPanel.classList.add('open'); loadTasks(); });
 taskClose.addEventListener('click', () => taskPanel.classList.remove('open'));
 
 document.querySelectorAll('.task-filter-btn').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.task-filter-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    taskFilter = btn.dataset.filter;
-    loadTasks();
+    btn.classList.add('active'); taskFilter = btn.dataset.filter; loadTasks();
   });
 });
 
 taskAddBtn.addEventListener('click', addTask);
-taskTitleIn.addEventListener('keydown', e => {
-  if (e.key === 'Enter') { e.preventDefault(); addTask(); }
-});
+taskTitleIn.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addTask(); } });
 
 async function addTask() {
   const title = taskTitleIn.value.trim();
@@ -1209,9 +1428,8 @@ async function addTask() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, due_date: due }),
     });
-    taskTitleIn.value = '';
-    loadTasks();
-  } catch(e) { console.error('[task] add failed', e); }
+    taskTitleIn.value = ''; loadTasks();
+  } catch(e) {}
 }
 
 async function loadTasks() {
@@ -1228,10 +1446,7 @@ async function loadTasks() {
 }
 
 function renderTasks(tasks) {
-  if (tasks.length === 0) {
-    taskListEl.innerHTML = '<li class="task-empty">タスクはありません</li>';
-    return;
-  }
+  if (tasks.length === 0) { taskListEl.innerHTML = '<li class="task-empty">タスクはありません</li>'; return; }
   const today = new Date().toISOString().slice(0, 10);
   taskListEl.innerHTML = tasks.map(t => {
     const isOverdue = t.due_date && t.due_date < today && !t.done;
@@ -1246,28 +1461,31 @@ function renderTasks(tasks) {
   }).join('');
 }
 
-function escHtml(s) {
-  const d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
+function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
 async function toggleTask(id, currentDone) {
-  if (currentDone) return; // 完了を戻す操作は省略
-  try {
-    await fetch(`/api/tasks/${id}/done`, { method: 'POST' });
-    loadTasks();
-  } catch(e) { console.error('[task] toggle failed', e); }
+  if (currentDone) return;
+  try { await fetch(`/api/tasks/${id}/done`, { method: 'POST' }); loadTasks(); } catch(e) {}
 }
 
 async function deleteTask(id) {
-  try {
-    await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
-    loadTasks();
-  } catch(e) { console.error('[task] delete failed', e); }
+  try { await fetch(`/api/tasks/${id}`, { method: 'DELETE' }); loadTasks(); } catch(e) {}
 }
 
 // ── 初期化 ─────────────────────────────────────────
+function unlockAudio() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const buf = ctx.createBuffer(1, 1, 22050);
+    const src = ctx.createBufferSource();
+    src.buffer = buf; src.connect(ctx.destination); src.start(0); ctx.resume();
+  } catch(e) {}
+  try {
+    const a = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA=');
+    a.volume = 0.01; a.play().then(() => a.pause()).catch(() => {});
+  } catch(e) {}
+}
+
 window.addEventListener('load', () => {
   robot.setEmotion('sleep');
   setStatus('sleeping');
