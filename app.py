@@ -614,7 +614,7 @@ def chat():
 def tts():
     data  = request.get_json() or {}
     text  = data.get("text", "").strip()
-    voice = data.get("voice", "ja-JP-NanamiNeural")
+    voice = data.get("voice", "ja-JP-KeitaNeural")
     if not text:
         return jsonify({"error": "テキストが空です"}), 400
 

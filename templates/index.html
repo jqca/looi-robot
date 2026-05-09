@@ -308,14 +308,14 @@
 // 3D ROBOT RENDERER (Three.js)
 // ════════════════════════════════════════════════════
 const EMOTION_COLORS = {
-  idle:      { primary: 0xD4A830, lens: 0x55aaff, body: 0xB89530 },
-  happy:     { primary: 0xE8C840, lens: 0x44ddaa, body: 0xCCA835 },
-  sleep:     { primary: 0x5A4A20, lens: 0x334455, body: 0x6A5A28 },
-  excited:   { primary: 0xFFDD33, lens: 0x66ccff, body: 0xDDBB30 },
-  thinking:  { primary: 0xC0A040, lens: 0x8888ff, body: 0xAA9030 },
-  sad:       { primary: 0x8A7A40, lens: 0x557799, body: 0x7A6A30 },
-  surprised: { primary: 0xFFCC44, lens: 0xff88cc, body: 0xDDAA35 },
-  angry:     { primary: 0xDD6622, lens: 0xff4444, body: 0xBB5520 },
+  idle:      { primary: 0xF5C842, lens: 0x44AAFF, body: 0xF5C842 },
+  happy:     { primary: 0xFFDD55, lens: 0x44DDAA, body: 0xFFDD55 },
+  sleep:     { primary: 0x9A8A50, lens: 0x556688, body: 0xC0A840 },
+  excited:   { primary: 0xFFEE44, lens: 0x66DDFF, body: 0xFFEE44 },
+  thinking:  { primary: 0xE0C050, lens: 0x8888FF, body: 0xE0C050 },
+  sad:       { primary: 0xBBAA55, lens: 0x6688AA, body: 0xBBAA55 },
+  surprised: { primary: 0xFFDD55, lens: 0xFF88CC, body: 0xFFDD55 },
+  angry:     { primary: 0xEE7733, lens: 0xFF4444, body: 0xDD8830 },
 };
 
 class RobotRenderer3D {
@@ -339,6 +339,16 @@ class RobotRenderer3D {
     this.headTiltYTgt = 0;
     this.listening = false;
     this.listenPhase = 0;
+
+    // Idle curiosity (eye wander + head tilt)
+    this.idleTimer = 0;
+    this.idleWanderX = 0;
+    this.idleWanderY = 0;
+    this.idleWanderTgtX = 0;
+    this.idleWanderTgtY = 0;
+    this.nextIdleWander = 2000 + Math.random() * 4000;
+    this.idleTiltZ = 0;
+    this.idleTiltZTgt = 0;
 
     this.camAngle = 0;
     this.camPitch = 0.35;
@@ -444,39 +454,44 @@ class RobotRenderer3D {
     this.bodyPivot = new THREE.Group();
     this.robotGroup.add(this.bodyPivot);
 
-    // ── BODY (box compactor style) ──
-    const bodyGeo = new THREE.BoxGeometry(1.6, 1.3, 1.4);
+    // ── BODY (rounded box — friendly shape) ──
+    const bodyShape = new THREE.Shape();
+    const bw = 0.75, bh = 0.6, br = 0.15;
+    bodyShape.moveTo(-bw + br, -bh);
+    bodyShape.lineTo(bw - br, -bh);
+    bodyShape.quadraticCurveTo(bw, -bh, bw, -bh + br);
+    bodyShape.lineTo(bw, bh - br);
+    bodyShape.quadraticCurveTo(bw, bh, bw - br, bh);
+    bodyShape.lineTo(-bw + br, bh);
+    bodyShape.quadraticCurveTo(-bw, bh, -bw, bh - br);
+    bodyShape.lineTo(-bw, -bh + br);
+    bodyShape.quadraticCurveTo(-bw, -bh, -bw + br, -bh);
+    const bodyGeo = new THREE.ExtrudeGeometry(bodyShape, { depth: 1.3, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.08, bevelSegments: 3 });
+    bodyGeo.center();
     this.bodyMat = new THREE.MeshStandardMaterial({
-      color: 0xB89530, roughness: 0.55, metalness: 0.3,
-      emissive: 0x4A3A10, emissiveIntensity: 0.15,
+      color: 0xF5C842, roughness: 0.45, metalness: 0.15,
+      emissive: 0x6A5520, emissiveIntensity: 0.1,
     });
     this.bodyMesh = new THREE.Mesh(bodyGeo, this.bodyMat);
     this.bodyMesh.position.y = 1.55;
     this.bodyMesh.castShadow = true;
     this.bodyPivot.add(this.bodyMesh);
 
-    const bodyEdges = new THREE.EdgesGeometry(bodyGeo);
+    // Body edge highlight
+    const bodyEdges = new THREE.EdgesGeometry(bodyGeo, 30);
     this.bodyLine = new THREE.LineSegments(bodyEdges,
-      new THREE.LineBasicMaterial({ color: 0xD4A830, transparent: true, opacity: 0.35 }));
+      new THREE.LineBasicMaterial({ color: 0xE8B830, transparent: true, opacity: 0.25 }));
     this.bodyLine.position.copy(this.bodyMesh.position);
     this.bodyPivot.add(this.bodyLine);
 
-    // Body panel lines (horizontal)
-    for (const py of [-0.2, 0.15]) {
-      const pts = [new THREE.Vector3(-0.78, 1.55 + py, 0.71), new THREE.Vector3(0.78, 1.55 + py, 0.71)];
-      const lg = new THREE.BufferGeometry().setFromPoints(pts);
-      this.bodyPivot.add(new THREE.Line(lg,
-        new THREE.LineBasicMaterial({ color: 0x8A7528, transparent: true, opacity: 0.4 })));
-    }
-
-    // Body "compactor door" front detail
-    const doorGeo = new THREE.BoxGeometry(1.2, 0.8, 0.03);
-    const doorMat = new THREE.MeshStandardMaterial({
-      color: 0xA08828, roughness: 0.6, metalness: 0.25
+    // Belly panel (lighter accent)
+    const bellyGeo = new THREE.BoxGeometry(1.1, 0.5, 0.03);
+    const bellyMat = new THREE.MeshStandardMaterial({
+      color: 0xFADC68, roughness: 0.5, metalness: 0.1
     });
-    const door = new THREE.Mesh(doorGeo, doorMat);
-    door.position.set(0, 1.55, 0.72);
-    this.bodyPivot.add(door);
+    const belly = new THREE.Mesh(bellyGeo, bellyMat);
+    belly.position.set(0, 1.55, 0.68);
+    this.bodyPivot.add(belly);
 
     // ── NECK (telescoping stalk) ──
     const neckGeo = new THREE.CylinderGeometry(0.08, 0.10, 0.7, 8);
@@ -526,79 +541,99 @@ class RobotRenderer3D {
   _buildEyes() {
     this.eyes = {};
     const metalMat = new THREE.MeshStandardMaterial({
-      color: 0x555555, roughness: 0.35, metalness: 0.7
+      color: 0x6A6A6A, roughness: 0.3, metalness: 0.5
     });
 
     // Bridge connecting the two eye tubes
-    const bridgeGeo = new THREE.BoxGeometry(0.45, 0.12, 0.12);
+    const bridgeGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.35, 8);
     const bridge = new THREE.Mesh(bridgeGeo, metalMat);
-    bridge.position.set(0, 0, 0);
+    bridge.rotation.z = Math.PI / 2;
+    bridge.position.set(0, 0, 0.05);
     this.eyeUnit.add(bridge);
 
     for (const side of ['left', 'right']) {
       const sign = side === 'left' ? -1 : 1;
       const g = new THREE.Group();
-      g.position.set(sign * 0.32, 0, 0);
+      g.position.set(sign * 0.34, 0, 0);
 
-      // Eye tube (binocular barrel)
-      const tubeGeo = new THREE.CylinderGeometry(0.22, 0.24, 0.50, 24);
+      // Eye tube (binocular barrel) — BIGGER
+      const tubeGeo = new THREE.CylinderGeometry(0.30, 0.33, 0.45, 32);
       const tubeMat = new THREE.MeshStandardMaterial({
-        color: 0x4A4A4A, roughness: 0.3, metalness: 0.7
+        color: 0x5A5A5A, roughness: 0.25, metalness: 0.5
       });
       const tube = new THREE.Mesh(tubeGeo, tubeMat);
       tube.rotation.x = Math.PI / 2;
       tube.castShadow = true;
       g.add(tube);
 
-      // Lens ring (rim around the front)
-      const rimGeo = new THREE.TorusGeometry(0.23, 0.025, 8, 24);
+      // Lens ring (rim)
+      const rimGeo = new THREE.TorusGeometry(0.31, 0.03, 8, 32);
       const rimMat = new THREE.MeshStandardMaterial({
-        color: 0x666666, roughness: 0.3, metalness: 0.8
+        color: 0x7A7A7A, roughness: 0.25, metalness: 0.6
       });
       const rim = new THREE.Mesh(rimGeo, rimMat);
-      rim.position.z = 0.25;
+      rim.position.z = 0.23;
       g.add(rim);
 
-      // Lens (the blue "eye" — glowing iris)
-      const lens = new THREE.Mesh(
-        new THREE.CircleGeometry(0.20, 32),
-        new THREE.MeshBasicMaterial({ color: 0x55aaff })
+      // Lens background (white sclera)
+      const lensBack = new THREE.Mesh(
+        new THREE.CircleGeometry(0.28, 32),
+        new THREE.MeshBasicMaterial({ color: 0xf0f5ff })
       );
-      lens.position.z = 0.26;
+      lensBack.position.z = 0.225;
+      g.add(lensBack);
+
+      // Iris (large, bright blue)
+      const lens = new THREE.Mesh(
+        new THREE.CircleGeometry(0.18, 32),
+        new THREE.MeshBasicMaterial({ color: 0x44AAFF })
+      );
+      lens.position.z = 0.23;
       g.add(lens);
 
-      // Pupil (dark center)
+      // Pupil (dark center — moves for gaze!)
+      const pupilGroup = new THREE.Group();
+      pupilGroup.position.z = 0.235;
       const pupil = new THREE.Mesh(
-        new THREE.CircleGeometry(0.07, 16),
+        new THREE.CircleGeometry(0.08, 16),
         new THREE.MeshBasicMaterial({ color: 0x0a0a1a })
       );
-      pupil.position.z = 0.265;
-      g.add(pupil);
+      pupilGroup.add(pupil);
 
-      // Highlight (reflection)
+      // Highlight (big, white catch-light)
       const highlight = new THREE.Mesh(
-        new THREE.CircleGeometry(0.04, 12),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 })
+        new THREE.CircleGeometry(0.045, 12),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 })
       );
-      highlight.position.set(0.06, 0.06, 0.27);
-      g.add(highlight);
+      highlight.position.set(0.06, 0.06, 0.001);
+      pupilGroup.add(highlight);
+
+      // Small secondary highlight
+      const highlight2 = new THREE.Mesh(
+        new THREE.CircleGeometry(0.02, 8),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 })
+      );
+      highlight2.position.set(-0.04, -0.04, 0.001);
+      pupilGroup.add(highlight2);
+
+      g.add(pupilGroup);
 
       // Upper eyelid (shutter plate)
-      const lidGeo = new THREE.BoxGeometry(0.50, 0.26, 0.04);
+      const lidGeo = new THREE.BoxGeometry(0.66, 0.32, 0.05);
       const lidMat = new THREE.MeshStandardMaterial({
-        color: 0x4A4A4A, roughness: 0.35, metalness: 0.6
+        color: 0x5A5A5A, roughness: 0.3, metalness: 0.5
       });
       const eyelid = new THREE.Mesh(lidGeo, lidMat);
-      eyelid.position.set(0, 0.34, 0.18);
+      eyelid.position.set(0, 0.42, 0.16);
       g.add(eyelid);
 
       // Lower eyelid
       const lowerLid = new THREE.Mesh(lidGeo.clone(), lidMat.clone());
-      lowerLid.position.set(0, -0.34, 0.18);
+      lowerLid.position.set(0, -0.42, 0.16);
       g.add(lowerLid);
 
       this.eyeUnit.add(g);
-      this.eyes[side] = { group: g, tube, lens, pupil, highlight, rim, eyelid, lowerLid };
+      this.eyes[side] = { group: g, tube, lens, lensBack, pupil: pupilGroup, highlight, rim, eyelid, lowerLid };
     }
   }
 
@@ -751,8 +786,8 @@ class RobotRenderer3D {
     const isSleep = this.emotion === 'sleep';
     const lerp = 1 - Math.exp(-8 * dt);
 
-    const bobSpeed = isSleep ? 0.35 : this.talking ? 4.0 : 1.0;
-    const bobAmp = isSleep ? 0.015 : 0.03;
+    const bobSpeed = isSleep ? 0.5 : this.talking ? 4.0 : 1.2;
+    const bobAmp = isSleep ? 0.02 : 0.05;
     this.bobPhase += dt * bobSpeed;
     this.bodyPivot.position.y = Math.sin(this.bobPhase) * bobAmp;
 
@@ -797,6 +832,24 @@ class RobotRenderer3D {
     this.eyeUnit.rotation.x = this.headTiltX;
     this.eyeUnit.rotation.y = this.headTiltY;
 
+    // Idle curiosity — eye wander + head tilt
+    if (!isSleep && this.action === 'none' && !this.talking) {
+      this.idleTimer += dt * 1000;
+      if (this.idleTimer > this.nextIdleWander) {
+        this.idleTimer = 0;
+        this.nextIdleWander = 2000 + Math.random() * 5000;
+        this.idleWanderTgtX = (Math.random() - 0.5) * 0.08;
+        this.idleWanderTgtY = (Math.random() - 0.5) * 0.06;
+        this.idleTiltZTgt = (Math.random() - 0.5) * 0.12;
+      }
+      this.idleWanderX += (this.idleWanderTgtX - this.idleWanderX) * lerp * 0.3;
+      this.idleWanderY += (this.idleWanderTgtY - this.idleWanderY) * lerp * 0.3;
+      this.idleTiltZ += (this.idleTiltZTgt - this.idleTiltZ) * lerp * 0.2;
+    } else {
+      this.idleWanderX *= 0.95; this.idleWanderY *= 0.95; this.idleTiltZ *= 0.95;
+    }
+    this.eyeUnit.rotation.z = this.idleTiltZ;
+
     if (this.talking) this.talkPhase += dt * 10;
     if (this.listening) this.listenPhase += dt * 8;
 
@@ -834,23 +887,23 @@ class RobotRenderer3D {
     let lidClose = this.blinkAmt * 0.95;
 
     if (em === 'sleep') lidClose = 0.95;
-    else if (em === 'sad') lidClose = Math.max(lidClose, 0.4);
-    else if (em === 'happy') lidClose = Math.max(lidClose, 0.3);
+    else if (em === 'sad') lidClose = Math.max(lidClose, 0.35);
+    else if (em === 'happy') lidClose = Math.max(lidClose, 0.25);
     else if (em === 'angry') lidClose = Math.max(lidClose, 0.5);
 
     for (const [side, eye] of Object.entries(this.eyes)) {
       const isRight = side === 'right';
 
       // Eyelid position — slides down to cover lens
-      const openY = 0.34;
+      const openY = 0.42;
       const closedY = 0.08;
       const upperY = openY - lidClose * (openY - closedY);
       eye.eyelid.position.y = upperY;
 
       // Lower lid slides up slightly
-      const lowerOpenY = -0.34;
+      const lowerOpenY = -0.42;
       const lowerClosedY = -0.08;
-      const lowerY = lowerOpenY + lidClose * (lowerClosedY - lowerOpenY) * 0.3;
+      const lowerY = lowerOpenY + lidClose * (lowerClosedY - lowerOpenY) * 0.25;
       eye.lowerLid.position.y = lowerY;
 
       // Angry: tilt eyelids inward
@@ -862,19 +915,31 @@ class RobotRenderer3D {
         eye.eyelid.rotation.z = 0;
       }
 
+      // Pupil gaze (wander) — moves within lens
+      const gazeX = this.idleWanderX * 0.8;
+      const gazeY = this.idleWanderY * 0.6;
+      eye.pupil.position.x = gazeX;
+      eye.pupil.position.y = gazeY;
+
       // Lens visibility
       eye.lens.visible = true;
-      eye.pupil.visible = true;
-      eye.highlight.visible = lidClose < 0.8;
+      eye.lensBack.visible = true;
+      eye.pupil.visible = lidClose < 0.85;
 
       // Thinking: one eye slightly more closed
       if (em === 'thinking' && !isRight) {
-        eye.eyelid.position.y = openY - 0.55 * (openY - closedY);
+        eye.eyelid.position.y = openY - 0.5 * (openY - closedY);
       }
 
-      // Excited: eyes slightly wider (shift eyelids further up)
+      // Excited: eyes slightly wider
       if (em === 'excited') {
-        eye.eyelid.position.y = Math.min(eye.eyelid.position.y + 0.04, openY + 0.05);
+        eye.eyelid.position.y = Math.min(eye.eyelid.position.y + 0.05, openY + 0.06);
+      }
+
+      // Surprised: eyes wide open
+      if (em === 'surprised') {
+        eye.eyelid.position.y = openY + 0.06;
+        eye.lowerLid.position.y = lowerOpenY - 0.03;
       }
     }
 
@@ -882,7 +947,7 @@ class RobotRenderer3D {
     if (em === 'sad') {
       this.eyeUnit.rotation.x += (-0.1 - this.eyeUnit.rotation.x) * 0.05;
     } else if (em === 'happy') {
-      this.eyeUnit.rotation.x += (0.05 - this.eyeUnit.rotation.x) * 0.05;
+      this.eyeUnit.rotation.x += (0.06 - this.eyeUnit.rotation.x) * 0.05;
     }
   }
 
@@ -1035,7 +1100,7 @@ function speakFallback(text, onEnd) {
   if (!window.speechSynthesis) { onEnd?.(); return; }
   window.speechSynthesis.cancel();
   const utt = new SpeechSynthesisUtterance(text);
-  utt.lang = 'ja-JP'; utt.rate = 1.1; utt.pitch = 1.05;
+  utt.lang = 'ja-JP'; utt.rate = 1.15; utt.pitch = 1.3;
   utt.onstart = () => robot.setTalking(true);
   utt.onend   = () => { robot.setTalking(false); onEnd?.(); };
   utt.onerror = () => { robot.setTalking(false); onEnd?.(); };
