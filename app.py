@@ -15,8 +15,6 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import requests as http_requests
-import psycopg2
-import psycopg2.extras
 
 from flask import Flask, render_template, request, jsonify, session, make_response
 
@@ -45,6 +43,7 @@ DATABASE_URL = os.getenv("DATABASE_URL", "")
 def _get_db():
     if not DATABASE_URL:
         return None
+    import psycopg2
     return psycopg2.connect(DATABASE_URL)
 
 
