@@ -1107,10 +1107,10 @@ if (SR) {
 robotCanvas.addEventListener('click', () => {
   robot.blink?.();
   const msgs = [
-    '社長、何かございましたか？',
-    'はい、秋山です。お呼びでしょうか？',
-    '社長、ご用件をどうぞ。',
-    'お手伝いできることはございますか？',
+    'なあに？よんだ？',
+    'わーい！さわってくれた！',
+    'いっしょにあそぼう！',
+    'なにかしたいことある？',
   ];
   const m = msgs[Math.floor(Math.random() * msgs.length)];
   robot.setEmotion('happy');
@@ -1145,7 +1145,7 @@ window.addEventListener('load', async () => {
     }, 600);
   } catch {
     robot.setEmotion('excited'); robot.setAction('nod');
-    showBubble('社長、おはようございます。秋山です。何なりとお申し付けください。');
+    showBubble('やあ！秋山さんだよ！きょうもいっしょにあそぼう！');
   }
   setStatus('ready', 'まってるよ！');
 });
