@@ -1484,6 +1484,20 @@ function startWakeWordListening() {
 // ════════════════════════════════════════════════════
 // 会話
 // ════════════════════════════════════════════════════
+// ── Client-side action keyword detection (reliable fallback) ──
+function detectActionFromText(text) {
+  const t = text.toLowerCase();
+  if (/踊っ|踊り|ダンス|dance/.test(t)) return 'dance';
+  if (/ジャンプ|じゃんぷ|跳ん|飛んで|jump/.test(t)) return 'jump';
+  if (/くるくる|ぐるぐる|回って|回転|spin/.test(t)) return 'spin';
+  if (/後ろを向|振り返|反対.*向|turn.?around/.test(t)) return 'turn_around';
+  if (/右.*向|右.*回|右.*曲|turn.?right/.test(t)) return 'turn_right';
+  if (/左.*向|左.*回|左.*曲|turn.?left/.test(t)) return 'turn_left';
+  if (/前.*進|前進|進んで|まっすぐ|forward/.test(t)) return 'forward';
+  if (/後ろ.*下|バック|後退|backward/.test(t)) return 'backward';
+  return null;
+}
+
 async function sendMessage(text) {
   if (sleeping || isBusy || !text.trim()) return;
   resetSleepTimer();
@@ -1494,9 +1508,17 @@ async function sendMessage(text) {
     return;
   }
 
-  isBusy = true; setStatus('thinking'); robot.setEmotion('thinking');
-  const thinkPhrase = THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)];
-  speak(thinkPhrase, null);
+  // Detect action from keywords immediately (don't wait for API)
+  const detectedAction = detectActionFromText(text);
+  if (detectedAction) {
+    robot.setAction(detectedAction);
+  }
+
+  isBusy = true; setStatus('thinking'); robot.setEmotion(detectedAction ? 'happy' : 'thinking');
+  if (!detectedAction) {
+    const thinkPhrase = THINKING_PHRASES[Math.floor(Math.random() * THINKING_PHRASES.length)];
+    speak(thinkPhrase, null);
+  }
   trackProc(text);
 
   try {
@@ -1510,8 +1532,10 @@ async function sendMessage(text) {
     const data = await res.json();
     if (data.remember) addMemory(data.remember);
     trackEmo(data.emotion || 'idle');
-    robot.setEmotion(data.emotion || 'idle');
-    if (data.action && data.action !== 'none') robot.setAction(data.action);
+    robot.setEmotion(data.emotion || (detectedAction ? 'happy' : 'idle'));
+    // API action takes priority, but fall back to detected action
+    const finalAction = (data.action && data.action !== 'none') ? data.action : null;
+    if (finalAction) robot.setAction(finalAction);
     setStatus('speaking');
     speak(data.message || '', () => {
       isBusy = false; resetSleepTimer(); resetProactiveTimer();
