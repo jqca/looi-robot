@@ -11,6 +11,8 @@ import sys
 import logging
 import traceback
 import asyncio
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import requests as http_requests
 
@@ -216,9 +218,17 @@ def do_web_search(query: str) -> str:
 # ─────────────────────────────────────────────────────
 # 記憶付きシステムプロンプトを動的構築
 # ─────────────────────────────────────────────────────
+def _now_jp() -> str:
+    """日本時間の現在日時を文字列で返す"""
+    WEEKDAYS = ["月", "火", "水", "木", "金", "土", "日"]
+    now = datetime.now(ZoneInfo("Asia/Tokyo"))
+    wd = WEEKDAYS[now.weekday()]
+    return f"{now.year}年{now.month}月{now.day}日（{wd}曜日）{now.hour}時{now.minute}分"
+
+
 def _build_system(memory: list, proc: list = None, mood: str = None) -> str:
     """3層記憶（事実・手続き・感情）をシステムプロンプトに統合"""
-    parts = [BASE_SYSTEM_PROMPT]
+    parts = [BASE_SYSTEM_PROMPT, f"\n\n【現在日時】{_now_jp()}"]
 
     if memory:
         mem_lines = "\n".join(f"- {f}" for f in memory[:20])
@@ -448,7 +458,7 @@ def kids_chat():
     if len(history) > 30:
         history = history[-30:]
 
-    base   = KIDS_BASE_PROMPT.format(name=robot_name)
+    base   = KIDS_BASE_PROMPT.format(name=robot_name) + f"\n\n【いまのじかん】{_now_jp()}"
     system = base if not memory else base + "\n【おぼえてること】\n" + "\n".join(f"- {f}" for f in memory[:10])
 
     try:
