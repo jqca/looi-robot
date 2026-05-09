@@ -308,14 +308,14 @@
 // 3D ROBOT RENDERER (Three.js)
 // ════════════════════════════════════════════════════
 const EMOTION_COLORS = {
-  idle:      { primary: 0x66aaff, iris: 0x55aaff },
-  happy:     { primary: 0x44ffaa, iris: 0x33ffbb },
-  sleep:     { primary: 0x223344, iris: 0x556688 },
-  excited:   { primary: 0xffee00, iris: 0xffee44 },
-  thinking:  { primary: 0xaaaaff, iris: 0x8888ff },
-  sad:       { primary: 0x6688aa, iris: 0x557799 },
-  surprised: { primary: 0xff88cc, iris: 0xff66aa },
-  angry:     { primary: 0xff4444, iris: 0xff2222 },
+  idle:      { primary: 0xD4A830, lens: 0x55aaff, body: 0xB89530 },
+  happy:     { primary: 0xE8C840, lens: 0x44ddaa, body: 0xCCA835 },
+  sleep:     { primary: 0x5A4A20, lens: 0x334455, body: 0x6A5A28 },
+  excited:   { primary: 0xFFDD33, lens: 0x66ccff, body: 0xDDBB30 },
+  thinking:  { primary: 0xC0A040, lens: 0x8888ff, body: 0xAA9030 },
+  sad:       { primary: 0x8A7A40, lens: 0x557799, body: 0x7A6A30 },
+  surprised: { primary: 0xFFCC44, lens: 0xff88cc, body: 0xDDAA35 },
+  angry:     { primary: 0xDD6622, lens: 0xff4444, body: 0xBB5520 },
 };
 
 class RobotRenderer3D {
@@ -438,68 +438,78 @@ class RobotRenderer3D {
     this.bodyPivot = new THREE.Group();
     this.robotGroup.add(this.bodyPivot);
 
-    const headGeo = new THREE.SphereGeometry(1.0, 32, 32);
-    const headMat = new THREE.MeshStandardMaterial({
-      color: 0x1a2e4a, roughness: 0.35, metalness: 0.4,
-      emissive: 0x1a2a44, emissiveIntensity: 0.4,
+    // ── BODY (box compactor style) ──
+    const bodyGeo = new THREE.BoxGeometry(1.6, 1.3, 1.4);
+    this.bodyMat = new THREE.MeshStandardMaterial({
+      color: 0xB89530, roughness: 0.55, metalness: 0.3,
+      emissive: 0x4A3A10, emissiveIntensity: 0.15,
     });
-    this.headMesh = new THREE.Mesh(headGeo, headMat);
-    this.headMesh.position.y = 2.8;
-    this.headMesh.castShadow = true;
-    this.bodyPivot.add(this.headMesh);
-
-    const glowGeo = new THREE.SphereGeometry(1.08, 32, 32);
-    this.headGlow = new THREE.Mesh(glowGeo, new THREE.MeshBasicMaterial({
-      color: 0x66aaff, transparent: true, opacity: 0.15, side: THREE.BackSide
-    }));
-    this.headGlow.position.y = 2.8;
-    this.bodyPivot.add(this.headGlow);
-
-    const antPoleGeo = new THREE.CylinderGeometry(0.025, 0.025, 0.45, 8);
-    this.antPoleMat = new THREE.MeshBasicMaterial({ color: 0x66aaff });
-    const antPole = new THREE.Mesh(antPoleGeo, this.antPoleMat);
-    antPole.position.set(0, 4.03, 0);
-    this.bodyPivot.add(antPole);
-
-    const antTipGeo = new THREE.SphereGeometry(0.06, 12, 12);
-    this.antTip = new THREE.Mesh(antTipGeo, this.antPoleMat.clone());
-    this.antTip.position.set(0, 4.3, 0);
-    this.bodyPivot.add(this.antTip);
-
-    this._buildEyes();
-
-    const neckGeo = new THREE.CylinderGeometry(0.18, 0.22, 0.3, 8);
-    const neckMat = new THREE.MeshStandardMaterial({ color: 0x0d1a2e, roughness: 0.5, metalness: 0.5 });
-    const neck = new THREE.Mesh(neckGeo, neckMat);
-    neck.position.y = 1.65;
-    this.bodyPivot.add(neck);
-
-    const bodyGeo = new THREE.BoxGeometry(1.8, 0.6, 0.9);
-    const bodyMat = new THREE.MeshStandardMaterial({
-      color: 0x0a1020, roughness: 0.4, metalness: 0.5,
-      emissive: 0x0a1525, emissiveIntensity: 0.15,
-    });
-    this.bodyMesh = new THREE.Mesh(bodyGeo, bodyMat);
-    this.bodyMesh.position.y = 1.2;
+    this.bodyMesh = new THREE.Mesh(bodyGeo, this.bodyMat);
+    this.bodyMesh.position.y = 1.55;
     this.bodyMesh.castShadow = true;
     this.bodyPivot.add(this.bodyMesh);
 
     const bodyEdges = new THREE.EdgesGeometry(bodyGeo);
     this.bodyLine = new THREE.LineSegments(bodyEdges,
-      new THREE.LineBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.3 }));
+      new THREE.LineBasicMaterial({ color: 0xD4A830, transparent: true, opacity: 0.35 }));
     this.bodyLine.position.copy(this.bodyMesh.position);
     this.bodyPivot.add(this.bodyLine);
 
+    // Body panel lines (horizontal)
+    for (const py of [-0.2, 0.15]) {
+      const pts = [new THREE.Vector3(-0.78, 1.55 + py, 0.71), new THREE.Vector3(0.78, 1.55 + py, 0.71)];
+      const lg = new THREE.BufferGeometry().setFromPoints(pts);
+      this.bodyPivot.add(new THREE.Line(lg,
+        new THREE.LineBasicMaterial({ color: 0x8A7528, transparent: true, opacity: 0.4 })));
+    }
+
+    // Body "compactor door" front detail
+    const doorGeo = new THREE.BoxGeometry(1.2, 0.8, 0.03);
+    const doorMat = new THREE.MeshStandardMaterial({
+      color: 0xA08828, roughness: 0.6, metalness: 0.25
+    });
+    const door = new THREE.Mesh(doorGeo, doorMat);
+    door.position.set(0, 1.55, 0.72);
+    this.bodyPivot.add(door);
+
+    // ── NECK (telescoping stalk) ──
+    const neckGeo = new THREE.CylinderGeometry(0.08, 0.10, 0.7, 8);
+    const metalMat = new THREE.MeshStandardMaterial({
+      color: 0x666666, roughness: 0.4, metalness: 0.6
+    });
+    const neck = new THREE.Mesh(neckGeo, metalMat);
+    neck.position.y = 2.55;
+    this.bodyPivot.add(neck);
+
+    // Neck joint ring
+    const ringGeo = new THREE.TorusGeometry(0.11, 0.025, 8, 16);
+    const ring = new THREE.Mesh(ringGeo, metalMat.clone());
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 2.2;
+    this.bodyPivot.add(ring);
+
+    // ── EYE UNIT (binocular assembly) ──
+    this.eyeUnit = new THREE.Group();
+    this.eyeUnit.position.y = 3.1;
+    this._buildEyes();
+    this.bodyPivot.add(this.eyeUnit);
+
+    // ── ARMS ──
+    this._buildArm(1);
+    this._buildArm(-1);
+
+    // ── LEDs on body front ──
     this.leds = [];
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < 3; i++) {
       const ledGeo = new THREE.SphereGeometry(0.04, 8, 8);
-      const ledMat = new THREE.MeshBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.5 });
+      const ledMat = new THREE.MeshBasicMaterial({ color: 0xD4A830, transparent: true, opacity: 0.6 });
       const led = new THREE.Mesh(ledGeo, ledMat);
-      led.position.set(-0.6 + i * 0.3, 1.2, 0.46);
+      led.position.set(-0.3 + i * 0.3, 1.0, 0.72);
       this.bodyPivot.add(led);
       this.leds.push(led);
     }
 
+    // ── TRACKS ──
     this._buildTrack(1);
     this._buildTrack(-1);
 
@@ -509,87 +519,138 @@ class RobotRenderer3D {
 
   _buildEyes() {
     this.eyes = {};
+    const metalMat = new THREE.MeshStandardMaterial({
+      color: 0x555555, roughness: 0.35, metalness: 0.7
+    });
+
+    // Bridge connecting the two eye tubes
+    const bridgeGeo = new THREE.BoxGeometry(0.45, 0.12, 0.12);
+    const bridge = new THREE.Mesh(bridgeGeo, metalMat);
+    bridge.position.set(0, 0, 0);
+    this.eyeUnit.add(bridge);
+
     for (const side of ['left', 'right']) {
       const sign = side === 'left' ? -1 : 1;
       const g = new THREE.Group();
-      g.position.set(sign * 0.35, 2.9, 0.88);
+      g.position.set(sign * 0.32, 0, 0);
 
-      const sclera = new THREE.Mesh(
-        new THREE.CircleGeometry(0.30, 32),
-        new THREE.MeshBasicMaterial({ color: 0xeef4ff })
-      );
-      g.add(sclera);
+      // Eye tube (binocular barrel)
+      const tubeGeo = new THREE.CylinderGeometry(0.22, 0.24, 0.50, 24);
+      const tubeMat = new THREE.MeshStandardMaterial({
+        color: 0x4A4A4A, roughness: 0.3, metalness: 0.7
+      });
+      const tube = new THREE.Mesh(tubeGeo, tubeMat);
+      tube.rotation.x = Math.PI / 2;
+      tube.castShadow = true;
+      g.add(tube);
 
-      const iris = new THREE.Mesh(
-        new THREE.CircleGeometry(0.16, 24),
+      // Lens ring (rim around the front)
+      const rimGeo = new THREE.TorusGeometry(0.23, 0.025, 8, 24);
+      const rimMat = new THREE.MeshStandardMaterial({
+        color: 0x666666, roughness: 0.3, metalness: 0.8
+      });
+      const rim = new THREE.Mesh(rimGeo, rimMat);
+      rim.position.z = 0.25;
+      g.add(rim);
+
+      // Lens (the blue "eye" — glowing iris)
+      const lens = new THREE.Mesh(
+        new THREE.CircleGeometry(0.20, 32),
         new THREE.MeshBasicMaterial({ color: 0x55aaff })
       );
-      iris.position.z = 0.005;
-      g.add(iris);
+      lens.position.z = 0.26;
+      g.add(lens);
 
+      // Pupil (dark center)
       const pupil = new THREE.Mesh(
         new THREE.CircleGeometry(0.07, 16),
         new THREE.MeshBasicMaterial({ color: 0x0a0a1a })
       );
-      pupil.position.z = 0.01;
+      pupil.position.z = 0.265;
       g.add(pupil);
 
+      // Highlight (reflection)
       const highlight = new THREE.Mesh(
-        new THREE.CircleGeometry(0.05, 12),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9 })
+        new THREE.CircleGeometry(0.04, 12),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.85 })
       );
-      highlight.position.set(0.08, 0.08, 0.015);
+      highlight.position.set(0.06, 0.06, 0.27);
       g.add(highlight);
 
-      const highlight2 = new THREE.Mesh(
-        new THREE.CircleGeometry(0.025, 8),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 })
-      );
-      highlight2.position.set(-0.05, -0.06, 0.015);
-      g.add(highlight2);
+      // Upper eyelid (shutter plate)
+      const lidGeo = new THREE.BoxGeometry(0.50, 0.26, 0.04);
+      const lidMat = new THREE.MeshStandardMaterial({
+        color: 0x4A4A4A, roughness: 0.35, metalness: 0.6
+      });
+      const eyelid = new THREE.Mesh(lidGeo, lidMat);
+      eyelid.position.set(0, 0.34, 0.18);
+      g.add(eyelid);
 
-      const sleepEye = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.50, 0.05),
-        new THREE.MeshBasicMaterial({ color: 0xeef4ff, transparent: true, opacity: 0.4 })
-      );
-      sleepEye.visible = false;
-      g.add(sleepEye);
+      // Lower eyelid
+      const lowerLid = new THREE.Mesh(lidGeo.clone(), lidMat.clone());
+      lowerLid.position.set(0, -0.34, 0.18);
+      g.add(lowerLid);
 
-      const arcShape = new THREE.Shape();
-      const ar = 0.25;
-      arcShape.absarc(0, 0, ar, 0, Math.PI, false);
-      arcShape.absarc(0, 0, ar - 0.06, Math.PI, 0, true);
-      const happyEye = new THREE.Mesh(
-        new THREE.ShapeGeometry(arcShape),
-        new THREE.MeshBasicMaterial({ color: 0xeef4ff })
-      );
-      happyEye.rotation.z = Math.PI;
-      happyEye.position.y = 0.02;
-      happyEye.visible = false;
-      g.add(happyEye);
-
-      const angryEye = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.50, 0.06),
-        new THREE.MeshBasicMaterial({ color: 0xeef4ff })
-      );
-      angryEye.rotation.z = sign * 0.35;
-      angryEye.visible = false;
-      g.add(angryEye);
-
-      this.bodyPivot.add(g);
-      this.eyes[side] = { group: g, sclera, iris, pupil, highlight, sleepEye, happyEye, angryEye };
+      this.eyeUnit.add(g);
+      this.eyes[side] = { group: g, tube, lens, pupil, highlight, rim, eyelid, lowerLid };
     }
+  }
+
+  _buildArm(sideSign) {
+    const armGroup = new THREE.Group();
+    const ax = sideSign * 0.95;
+    const metalMat = new THREE.MeshStandardMaterial({
+      color: 0x666666, roughness: 0.4, metalness: 0.6
+    });
+
+    // Shoulder joint
+    const shoulderGeo = new THREE.SphereGeometry(0.08, 12, 12);
+    const shoulder = new THREE.Mesh(shoulderGeo, metalMat);
+    shoulder.position.set(ax, 1.7, 0);
+    armGroup.add(shoulder);
+
+    // Upper arm
+    const upperGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.5, 8);
+    const upper = new THREE.Mesh(upperGeo, metalMat);
+    upper.position.set(ax + sideSign * 0.15, 1.45, 0);
+    upper.rotation.z = sideSign * 0.3;
+    armGroup.add(upper);
+
+    // Elbow
+    const elbowGeo = new THREE.SphereGeometry(0.06, 8, 8);
+    const elbow = new THREE.Mesh(elbowGeo, metalMat);
+    elbow.position.set(ax + sideSign * 0.28, 1.22, 0);
+    armGroup.add(elbow);
+
+    // Forearm
+    const foreGeo = new THREE.CylinderGeometry(0.04, 0.04, 0.4, 8);
+    const fore = new THREE.Mesh(foreGeo, metalMat);
+    fore.position.set(ax + sideSign * 0.28, 1.0, 0);
+    armGroup.add(fore);
+
+    // Hand (simple claw — two fingers)
+    for (const fz of [-0.04, 0.04]) {
+      const fingerGeo = new THREE.BoxGeometry(0.03, 0.15, 0.02);
+      const fingerMat = new THREE.MeshStandardMaterial({
+        color: 0xB89530, roughness: 0.5, metalness: 0.3
+      });
+      const finger = new THREE.Mesh(fingerGeo, fingerMat);
+      finger.position.set(ax + sideSign * 0.28, 0.73, fz);
+      armGroup.add(finger);
+    }
+
+    this.bodyPivot.add(armGroup);
   }
 
   _buildTrack(sideSign) {
     const trackGroup = new THREE.Group();
-    const tx = sideSign * 1.12;
-    const trackW = 0.28;   // width (side to side)
-    const trackH = 0.90;   // height (tall)
-    const trackD = 1.40;   // depth (front to back)
+    const tx = sideSign * 1.02;
+    const trackW = 0.30;
+    const trackH = 0.85;
+    const trackD = 1.50;
     const wheelR = 0.22;
 
-    // ── Track belt (rounded box shape using extruded shape) ──
+    // ── Track belt ──
     const beltShape = new THREE.Shape();
     const br = wheelR;
     const halfH = trackH / 2;
@@ -604,73 +665,57 @@ class RobotRenderer3D {
     beltShape.lineTo(-halfD, -halfH + br);
     beltShape.absarc(-halfD + br, -halfH + br, br, Math.PI, Math.PI * 1.5, false);
 
-    const extrudeSettings = { depth: trackW, bevelEnabled: false };
-    const beltGeo = new THREE.ExtrudeGeometry(beltShape, extrudeSettings);
+    const beltGeo = new THREE.ExtrudeGeometry(beltShape, { depth: trackW, bevelEnabled: false });
     const beltMat = new THREE.MeshStandardMaterial({
-      color: 0x0c1828, roughness: 0.7, metalness: 0.3,
-      emissive: 0x060e1a, emissiveIntensity: 0.15,
+      color: 0x2A2A2A, roughness: 0.8, metalness: 0.2,
+      emissive: 0x111111, emissiveIntensity: 0.1,
     });
     const belt = new THREE.Mesh(beltGeo, beltMat);
     belt.rotation.y = Math.PI / 2;
-    belt.position.set(tx - trackW / 2, 0.55, 0);
+    belt.position.set(tx - trackW / 2, 0.52, 0);
     belt.castShadow = true;
     trackGroup.add(belt);
 
-    // ── Belt outline ──
+    // Belt outline
     const beltEdges = new THREE.EdgesGeometry(beltGeo);
     const beltLine = new THREE.LineSegments(beltEdges,
-      new THREE.LineBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.25 }));
+      new THREE.LineBasicMaterial({ color: 0x8A7528, transparent: true, opacity: 0.3 }));
     beltLine.rotation.y = Math.PI / 2;
-    beltLine.position.set(tx - trackW / 2, 0.55, 0);
+    beltLine.position.set(tx - trackW / 2, 0.52, 0);
     trackGroup.add(beltLine);
 
-    // ── Drive wheels (front and rear) ──
+    // Drive wheels
     for (const wz of [-trackD / 2 + br, trackD / 2 - br]) {
       const wheelGeo = new THREE.CylinderGeometry(wheelR - 0.02, wheelR - 0.02, trackW + 0.02, 16);
       const wheelMat = new THREE.MeshStandardMaterial({
-        color: 0x1a2a44, roughness: 0.5, metalness: 0.4,
+        color: 0x3A3A3A, roughness: 0.5, metalness: 0.5,
       });
       const wheel = new THREE.Mesh(wheelGeo, wheelMat);
       wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(tx, 0.55, wz);
+      wheel.position.set(tx, 0.52, wz);
       trackGroup.add(wheel);
 
-      // Wheel hub
       const hubGeo = new THREE.CylinderGeometry(0.05, 0.05, trackW + 0.06, 8);
-      const hubMat = new THREE.MeshBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.5 });
+      const hubMat = new THREE.MeshBasicMaterial({ color: 0xD4A830, transparent: true, opacity: 0.4 });
       const hub = new THREE.Mesh(hubGeo, hubMat);
       hub.rotation.z = Math.PI / 2;
-      hub.position.set(tx, 0.55, wz);
+      hub.position.set(tx, 0.52, wz);
       trackGroup.add(hub);
     }
 
-    // ── Tread marks on outer side ──
-    const treadCount = 10;
+    // Tread marks
+    const treadCount = 12;
     const treadSpacing = trackD / (treadCount + 1);
     for (let i = 1; i <= treadCount; i++) {
       const tz = -trackD / 2 + treadSpacing * i;
       const outerX = tx + sideSign * (trackW / 2 + 0.005);
       const pts = [
-        new THREE.Vector3(outerX, 0.55 - trackH / 2 + 0.08, tz),
-        new THREE.Vector3(outerX, 0.55 + trackH / 2 - 0.08, tz)
+        new THREE.Vector3(outerX, 0.52 - trackH / 2 + 0.06, tz),
+        new THREE.Vector3(outerX, 0.52 + trackH / 2 - 0.06, tz)
       ];
-      const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
-      const line = new THREE.Line(lineGeo,
-        new THREE.LineBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.18 }));
-      trackGroup.add(line);
-    }
-
-    // ── Bottom tread marks ──
-    for (let i = 1; i <= treadCount; i++) {
-      const tz = -trackD / 2 + treadSpacing * i;
-      const pts = [
-        new THREE.Vector3(tx - trackW / 2 - 0.005, 0.55 - trackH / 2 + 0.01, tz),
-        new THREE.Vector3(tx + trackW / 2 + 0.005, 0.55 - trackH / 2 + 0.01, tz)
-      ];
-      const lineGeo = new THREE.BufferGeometry().setFromPoints(pts);
-      const line = new THREE.Line(lineGeo,
-        new THREE.LineBasicMaterial({ color: 0x66aaff, transparent: true, opacity: 0.12 }));
-      trackGroup.add(line);
+      const lg = new THREE.BufferGeometry().setFromPoints(pts);
+      trackGroup.add(new THREE.Line(lg,
+        new THREE.LineBasicMaterial({ color: 0x555555, transparent: true, opacity: 0.25 })));
     }
 
     this.bodyPivot.add(trackGroup);
@@ -730,6 +775,7 @@ class RobotRenderer3D {
       this.blinkAmt = 0;
     }
 
+    // Head (eyeUnit) tilt for nod/shake actions
     if (this.action !== 'none') {
       this.actionTimer += dt;
       if (this.action === 'nod') {
@@ -742,8 +788,8 @@ class RobotRenderer3D {
     }
     this.headTiltX += (this.headTiltXTgt - this.headTiltX) * lerp;
     this.headTiltY += (this.headTiltYTgt - this.headTiltY) * lerp;
-    this.headMesh.rotation.x = this.headTiltX;
-    this.headMesh.rotation.y = this.headTiltY;
+    this.eyeUnit.rotation.x = this.headTiltX;
+    this.eyeUnit.rotation.y = this.headTiltY;
 
     if (this.talking) this.talkPhase += dt * 10;
     if (this.listening) this.listenPhase += dt * 8;
@@ -778,89 +824,96 @@ class RobotRenderer3D {
 
   _updateEyes() {
     const em = this.emotion;
-    const blink = 1 - this.blinkAmt * 0.95;
-    const talkScale = this.talking ? 1 + Math.sin(this.talkPhase) * 0.06 : 1;
-    const sc = blink * talkScale;
+    // Eyelid control: 0 = fully open, 1 = fully closed
+    let lidClose = this.blinkAmt * 0.95;
+
+    if (em === 'sleep') lidClose = 0.95;
+    else if (em === 'sad') lidClose = Math.max(lidClose, 0.4);
+    else if (em === 'happy') lidClose = Math.max(lidClose, 0.3);
+    else if (em === 'angry') lidClose = Math.max(lidClose, 0.5);
 
     for (const [side, eye] of Object.entries(this.eyes)) {
       const isRight = side === 'right';
-      eye.sclera.visible = false;
-      eye.iris.visible = false;
-      eye.pupil.visible = false;
-      eye.highlight.visible = false;
-      eye.sleepEye.visible = false;
-      eye.happyEye.visible = false;
-      eye.angryEye.visible = false;
 
-      if (em === 'sleep') {
-        eye.sleepEye.visible = true;
-        eye.group.scale.set(1, 1, 1);
-      } else if (em === 'happy') {
-        eye.happyEye.visible = true;
-        eye.group.scale.set(1, sc, 1);
-      } else if (em === 'angry') {
-        eye.angryEye.visible = true;
-        eye.group.scale.set(1, sc, 1);
+      // Eyelid position — slides down to cover lens
+      const openY = 0.34;
+      const closedY = 0.08;
+      const upperY = openY - lidClose * (openY - closedY);
+      eye.eyelid.position.y = upperY;
+
+      // Lower lid slides up slightly
+      const lowerOpenY = -0.34;
+      const lowerClosedY = -0.08;
+      const lowerY = lowerOpenY + lidClose * (lowerClosedY - lowerOpenY) * 0.3;
+      eye.lowerLid.position.y = lowerY;
+
+      // Angry: tilt eyelids inward
+      if (em === 'angry') {
+        eye.eyelid.rotation.z = isRight ? 0.25 : -0.25;
+      } else if (em === 'sad') {
+        eye.eyelid.rotation.z = isRight ? -0.2 : 0.2;
       } else {
-        eye.sclera.visible = true;
-        eye.iris.visible = true;
-        eye.pupil.visible = true;
-        eye.highlight.visible = true;
-
-        let s = 1.0;
-        if (em === 'excited') s = 1.15;
-        else if (em === 'surprised') s = 1.3;
-        else if (em === 'thinking') s = isRight ? 1.0 : 0.7;
-        else if (em === 'sad') s = 0.85;
-        eye.group.scale.set(s, s * sc, s);
-
-        if (em === 'sad') {
-          eye.group.rotation.z = isRight ? -0.15 : 0.15;
-        } else if (em === 'thinking') {
-          eye.group.position.y = 2.9 + (isRight ? 0.03 : -0.03);
-          eye.group.rotation.z = 0;
-        } else {
-          eye.group.rotation.z = 0;
-          eye.group.position.y = 2.9;
-        }
+        eye.eyelid.rotation.z = 0;
       }
+
+      // Lens visibility
+      eye.lens.visible = true;
+      eye.pupil.visible = true;
+      eye.highlight.visible = lidClose < 0.8;
+
+      // Thinking: one eye slightly more closed
+      if (em === 'thinking' && !isRight) {
+        eye.eyelid.position.y = openY - 0.55 * (openY - closedY);
+      }
+
+      // Excited: eyes slightly wider (shift eyelids further up)
+      if (em === 'excited') {
+        eye.eyelid.position.y = Math.min(eye.eyelid.position.y + 0.04, openY + 0.05);
+      }
+    }
+
+    // Eye unit tilt for emotions
+    if (em === 'sad') {
+      this.eyeUnit.rotation.x += (-0.1 - this.eyeUnit.rotation.x) * 0.05;
+    } else if (em === 'happy') {
+      this.eyeUnit.rotation.x += (0.05 - this.eyeUnit.rotation.x) * 0.05;
     }
   }
 
   _updateColors() {
     const col = EMOTION_COLORS[this.emotion] || EMOTION_COLORS.idle;
-    const c = new THREE.Color(col.primary);
+    const primary = new THREE.Color(col.primary);
+    const lensCol = new THREE.Color(col.lens);
+    const bodyCol = new THREE.Color(col.body);
 
-    this.headLight.color.copy(c);
+    // Point light follows robot
+    this.headLight.color.copy(primary);
     this.headLight.position.set(
       this.robotGroup.position.x,
       this.robotGroup.position.y + 3.5,
       this.robotGroup.position.z
     );
 
-    let intensity = this.emotion === 'sleep' ? 0.3 : 1.2;
+    let intensity = this.emotion === 'sleep' ? 0.4 : 1.5;
     if (this.listening) {
       intensity += Math.sin(this.listenPhase) * 0.5;
     }
     this.headLight.intensity = intensity;
 
-    this.headGlow.material.color.copy(c);
-    this.headGlow.material.opacity = this.emotion === 'sleep' ? 0.05 : 0.18;
+    // Body color
+    this.bodyMat.color.copy(bodyCol);
+    this.bodyLine.material.color.copy(primary);
 
-    this.antPoleMat.color.copy(c);
-    this.antTip.material.color.copy(c);
-
-    this.bodyLine.material.color.copy(c);
-
-    const irisCol = new THREE.Color(col.iris);
+    // Lens color per emotion
     for (const eye of Object.values(this.eyes)) {
-      eye.iris.material.color.copy(irisCol);
+      eye.lens.material.color.copy(lensCol);
     }
 
+    // LEDs
     const isSleep = this.emotion === 'sleep';
     this.leds.forEach((led, i) => {
-      led.material.color.copy(c);
-      led.material.opacity = isSleep ? 0.1 : (0.3 + Math.sin(i * 1.2 + this.bobPhase * 3) * 0.3);
+      led.material.color.copy(primary);
+      led.material.opacity = isSleep ? 0.15 : (0.4 + Math.sin(i * 1.5 + this.bobPhase * 3) * 0.3);
     });
   }
 
