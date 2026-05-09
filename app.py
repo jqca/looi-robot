@@ -43,8 +43,12 @@ DATABASE_URL = os.getenv("DATABASE_URL", "")
 def _get_db():
     if not DATABASE_URL:
         return None
-    import psycopg2
-    return psycopg2.connect(DATABASE_URL)
+    try:
+        import psycopg2
+        return psycopg2.connect(DATABASE_URL)
+    except Exception as e:
+        logger.error(f"[db] 接続失敗: {e}")
+        return None
 
 
 def _init_db():
@@ -687,7 +691,14 @@ def debug_info():
 # ─────────────────────────────────────────────────────
 # 起動
 # ─────────────────────────────────────────────────────
-_init_db()
+_db_initialized = False
+
+@app.before_request
+def _ensure_db():
+    global _db_initialized
+    if not _db_initialized:
+        _init_db()
+        _db_initialized = True
 
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5050))
