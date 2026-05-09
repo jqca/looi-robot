@@ -877,6 +877,20 @@ function spawnConfetti(rect, count = 24) {
 // ── TTS（Edge TTS / ja-JP-NanamiNeural） ─────
 let currentAudio = null;
 
+function speakFallback(text, onEnd) {
+  if (!window.speechSynthesis) { onEnd?.(); return; }
+  window.speechSynthesis.cancel();
+  const utt = new SpeechSynthesisUtterance(text);
+  utt.lang = 'ja-JP'; utt.rate = 1.1; utt.pitch = 1.15;
+  utt.onstart = () => robot.setTalking(true);
+  utt.onend   = () => { robot.setTalking(false); onEnd?.(); };
+  utt.onerror = () => { robot.setTalking(false); onEnd?.(); };
+  setTimeout(() => {
+    if (!window.speechSynthesis.speaking) { robot.setTalking(false); onEnd?.(); }
+  }, 8000);
+  window.speechSynthesis.speak(utt);
+}
+
 function speak(text, onEnd) {
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
 
@@ -901,9 +915,13 @@ function speak(text, onEnd) {
       URL.revokeObjectURL(url); currentAudio = null;
       onEnd?.();
     };
-    audio.play().catch(() => { robot.setTalking(false); onEnd?.(); });
+    audio.play().catch(() => {
+      robot.setTalking(false);
+      URL.revokeObjectURL(url); currentAudio = null;
+      speakFallback(text, onEnd);
+    });
   })
-  .catch(() => { robot.setTalking(false); onEnd?.(); });
+  .catch(() => { robot.setTalking(false); speakFallback(text, onEnd); });
 }
 
 // ── Send message ─────────────────────────────

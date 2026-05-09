@@ -460,7 +460,11 @@ function speak(text, onEnd) {
       URL.revokeObjectURL(url); currentAudio = null;
       onEnd?.();
     };
-    audio.play().catch(() => { robot.setTalking(false); onEnd?.(); });
+    audio.play().catch(() => {
+      robot.setTalking(false);
+      URL.revokeObjectURL(url); currentAudio = null;
+      speakFallback(text, onEnd);
+    });
   })
   .catch(() => {
     robot.setTalking(false);
