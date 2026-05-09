@@ -688,7 +688,7 @@ async function doReset() {
   sleeping = false;
   robot.setEmotion('excited');
   setStatus('speaking');
-  speak('リセットしたよ！また話しかけてね！', () => {
+  speak('リセットいたしました。何なりとお申し付けください。', () => {
     robot.setEmotion('idle');
     resetSleepTimer();
     resetProactiveTimer(); // ⑦
@@ -788,7 +788,7 @@ window.addEventListener('offline', () => {
   if (!sleeping && !isBusy) {
     isBusy = true;
     robot.setEmotion('sad');
-    speakFallback('あれ、ネットが切れちゃった！つながったら教えてね', () => {
+    speakFallback('恐れ入ります。ネットワーク接続が切断されたようです。', () => {
       isBusy = false;
       robot.setEmotion('idle');
       setTimeout(() => startListening(), 800);
@@ -798,7 +798,7 @@ window.addEventListener('offline', () => {
 window.addEventListener('online', () => {
   if (!sleeping && !isBusy) {
     robot.setEmotion('excited');
-    speakFallback('ネット復活したよ！また話しかけてね！', () => {
+    speakFallback('ネットワーク接続が復旧いたしました。ご用件をどうぞ。', () => {
       robot.setEmotion('idle');
       setTimeout(() => startListening(), 500);
     });
