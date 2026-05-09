@@ -653,7 +653,22 @@ def kids_greet():
 @app.route("/api/debug")
 def debug_info():
     key = ANTHROPIC_API_KEY
-    result = {"api_key": "未設定" if not key else f"設定済み({key[:8]}...)", "model": MODEL}
+    result = {
+        "api_key": "未設定" if not key else f"設定済み({key[:8]}...)",
+        "model": MODEL,
+        "database": "未設定" if not DATABASE_URL else "接続済み",
+    }
+    if DATABASE_URL:
+        try:
+            conn = _get_db()
+            with conn.cursor() as cur:
+                cur.execute("SELECT COUNT(*) FROM conversation_history")
+                result["db_history_count"] = cur.fetchone()[0]
+                cur.execute("SELECT COUNT(*) FROM user_memory")
+                result["db_memory_count"] = cur.fetchone()[0]
+            conn.close()
+        except Exception as e:
+            result["db_error"] = str(e)[:100]
     if key:
         import anthropic
         client = anthropic.Anthropic(api_key=key)
