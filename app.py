@@ -642,12 +642,14 @@ def tts():
     data  = request.get_json() or {}
     text  = data.get("text", "").strip()
     voice = data.get("voice", "ja-JP-KeitaNeural")
+    pitch = data.get("pitch", "+0Hz")
+    rate  = data.get("rate", "+0%")
     if not text:
         return jsonify({"error": "テキストが空です"}), 400
 
     async def _gen():
         import edge_tts
-        communicate = edge_tts.Communicate(text, voice)
+        communicate = edge_tts.Communicate(text, voice, pitch=pitch, rate=rate)
         audio = b""
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
@@ -849,7 +851,7 @@ def kids_chat():
     if not user_msg:
         return jsonify({"error": "メッセージが空です"}), 400
 
-    robot_name = session.get("kids_robot_name", "秋山さん")
+    robot_name = session.get("kids_robot_name", "ノア")
     if "kids_history" not in session:
         session["kids_history"] = []
     history = list(session["kids_history"])
@@ -888,7 +890,7 @@ def kids_set_name():
         session["kids_robot_name"] = name
         session["kids_history"] = []
         session.modified = True
-    return jsonify({"name": session.get("kids_robot_name", "秋山さん")})
+    return jsonify({"name": session.get("kids_robot_name", "ノア")})
 
 
 @app.route("/api/kids/reset", methods=["POST"])
@@ -899,8 +901,8 @@ def kids_reset():
 
 @app.route("/api/kids/greet", methods=["GET"])
 def kids_greet():
-    name = session.get("kids_robot_name", "秋山さん")
-    return jsonify({"message": f"やあ！{name}だよ！きょうもいっしょにあそぼう！", "emotion": "happy", "action": "nod"})
+    name = session.get("kids_robot_name", "ノア")
+    return jsonify({"message": f"やあ！{name}だよ！きょうもいっしょにあそぼう！", "emotion": "excited", "action": "nod"})
 
 
 @app.route("/api/debug")

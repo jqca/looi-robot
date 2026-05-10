@@ -661,7 +661,7 @@ function speakFallback(text, onEnd) {
 
 function speak(text, onEnd) {
   if (currentAudio) { currentAudio.pause(); currentAudio = null; }
-  fetch('/api/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text}) })
+  fetch('/api/tts', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text, voice:'ja-JP-NanamiNeural', pitch:'+40Hz', rate:'+15%'}) })
   .then(r => { if (!r.ok) throw new Error('TTS failed'); return r.blob(); })
   .then(blob => {
     const url = URL.createObjectURL(blob);
