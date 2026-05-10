@@ -1225,6 +1225,20 @@ class RobotRenderer3D {
           this.bodyPivot.position.x = 0;
         }
 
+      // ── Head look actions (hold direction, then return) ──
+      } else if (this.action === 'look_up') {
+        this.headTiltXTgt = -0.30;
+        if (this.actionTimer > 2.5) { this.action = 'none'; this.headTiltXTgt = 0; }
+      } else if (this.action === 'look_down') {
+        this.headTiltXTgt = 0.30;
+        if (this.actionTimer > 2.5) { this.action = 'none'; this.headTiltXTgt = 0; }
+      } else if (this.action === 'look_right') {
+        this.headTiltYTgt = 0.40;
+        if (this.actionTimer > 2.5) { this.action = 'none'; this.headTiltYTgt = 0; }
+      } else if (this.action === 'look_left') {
+        this.headTiltYTgt = -0.40;
+        if (this.actionTimer > 2.5) { this.action = 'none'; this.headTiltYTgt = 0; }
+
       // ── Jump action ──
       } else if (this.action === 'jump') {
         const jt = this.actionTimer;

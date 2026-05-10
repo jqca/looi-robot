@@ -317,15 +317,21 @@ web_search ツールを必ず使って調べてから答えてください。
 - shake: 否定・難しい案件
 - forward: 前に進む（「前に進んで」「前進して」「進んで」等）
 - backward: 後ろに下がる（「後ろに下がって」「バックして」等）
-- turn_right: 右を向く（「右を向いて」「右に回って」等）
-- turn_left: 左を向く（「左を向いて」「左に回って」等）
+- look_up: 顔を上に向ける（「上向いて」「上を見て」「上を向いて」「天井見て」等）
+- look_down: 顔を下に向ける（「下向いて」「下を見て」「下を向いて」「足元見て」等）
+- look_right: 顔を右に向ける（「右向いて」「右を見て」「右を向いて」等）
+- look_left: 顔を左に向ける（「左向いて」「左を見て」「左を向いて」等）
+- turn_right: 体ごと右に回転（「右に回って」「右に体を回して」等）
+- turn_left: 体ごと左に回転（「左に回って」「左に体を回して」等）
 - turn_around: 後ろを向く（「後ろを向いて」「振り返って」「反対向いて」等）
 - spin: くるくる回る（「回って」「回転して」「くるくる」等）
 - dance: 踊る（「踊って」「ダンスして」「踊り」等）
 - jump: ジャンプ（「ジャンプして」「跳んで」「飛んで」等）
 
-★重要: ユーザーが体の動きを指示したら、必ず対応するactionを返してください。
-  動きの指示には楽しく応じること。例: 「はい、踊りますね！」+ action: "dance"
+★重要: ユーザーが動きを指示したら、必ず対応するactionを返してください。
+  「右向いて」「上見て」等の顔の向き指示にはlook_系アクションを使うこと。
+  「右に回って」等の体全体の動きにはturn_系アクションを使うこと。
+  動きの指示には楽しく応じること。例: 「はい、右を向きますね！」+ action: "look_right"
 
 "remember" フィールド（省略可）:
 今回の会話でユーザーについて新しく知った重要な情報（名前・職業・趣味・好みなど）を
@@ -554,7 +560,8 @@ def _parse_result(raw_text: str, max_msg: int = 100, valid_emotions=None) -> dic
     if result["emotion"] not in valid_emotions:
         result["emotion"] = "idle"
     valid_actions = {"none", "nod", "shake", "forward", "backward",
-                     "turn_right", "turn_left", "turn_around", "spin", "dance", "jump"}
+                     "turn_right", "turn_left", "turn_around", "spin", "dance", "jump",
+                     "look_up", "look_down", "look_right", "look_left"}
     if result["action"] not in valid_actions:
         result["action"] = "none"
 
