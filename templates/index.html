@@ -851,10 +851,7 @@ class RobotRenderer3D {
 
   _buildArm(sideSign) {
     const armGroup = new THREE.Group();
-    // Pose: upper arm 45° forward, elbow bends 45° → forearm horizontal
-    // All lengths 2x original. Positions calculated from trigonometry.
     const ax = sideSign * 0.72;
-    const lateralOff = sideSign * 0.04;
 
     const metalMat = new THREE.MeshStandardMaterial({
       color: 0x6A8878, roughness: 0.45, metalness: 0.45
@@ -866,96 +863,81 @@ class RobotRenderer3D {
       color: 0xB8CCC0, roughness: 0.40, metalness: 0.20
     });
 
-    // ── Calculated joint positions ──
-    const shoulderX = ax + lateralOff;
-    const shoulderY = 1.34, shoulderZ = 0;
-
-    const upperLen = 0.56;  // 2x original (0.28)
-    const foreLen  = 0.48;  // 2x original (0.24)
-    const cos45 = Math.cos(Math.PI / 4);  // 0.707
-    const sin45 = Math.sin(Math.PI / 4);
-
-    // Elbow = shoulder + upper arm at 45° forward
-    const elbowX = shoulderX;
-    const elbowY = shoulderY - cos45 * upperLen;   // 1.34 - 0.396 = 0.944
-    const elbowZ = shoulderZ + sin45 * upperLen;   // 0 + 0.396 = 0.396
-
-    // Upper arm center = midpoint between shoulder and elbow
-    const upperCX = shoulderX;
-    const upperCY = (shoulderY + elbowY) / 2;      // 1.142
-    const upperCZ = (shoulderZ + elbowZ) / 2;      // 0.198
-
-    // Wrist = elbow + forearm horizontal forward
-    const wristX = elbowX;
-    const wristY = elbowY;                          // 0.944
-    const wristZ = elbowZ + foreLen;                // 0.396 + 0.48 = 0.876
-
-    // Forearm center = midpoint between elbow and wrist
-    const foreCZ = (elbowZ + wristZ) / 2;          // 0.636
-
-    // Shoulder mount bracket
+    // Shoulder bracket on body surface
     const bracket = new THREE.Mesh(
       new THREE.BoxGeometry(0.22, 0.14, 0.18), metalMat);
-    bracket.position.set(ax, 1.38, 0);
+    bracket.position.set(ax, 1.37, 0);
     armGroup.add(bracket);
 
-    // Shoulder joint
-    const shoulder = new THREE.Mesh(
-      new THREE.SphereGeometry(0.13, 16, 16), jointMat);
-    shoulder.position.set(shoulderX, shoulderY, shoulderZ);
-    armGroup.add(shoulder);
+    // ── Joint chain using nested Groups (guarantees connections) ──
+    const upperLen = 0.40;
+    const foreLen  = 0.35;
+    const shoulderTiltX = 0.5;             // ~29° forward
+    const shoulderTiltZ = sideSign * 0.25; // ~14° outward
+    const elbowBend = 1.0;                 // ~57° additional bend
 
-    // Upper arm — connects shoulder to elbow exactly
-    const upper = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.11, 0.10, upperLen, 12), metalMat);
-    upper.position.set(upperCX, upperCY, upperCZ);
-    upper.rotation.x = Math.PI / 4;
-    armGroup.add(upper);
+    // Shoulder pivot
+    const shoulderPivot = new THREE.Group();
+    shoulderPivot.position.set(ax + sideSign * 0.04, 1.34, 0);
+    shoulderPivot.rotation.x = shoulderTiltX;
+    shoulderPivot.rotation.z = shoulderTiltZ;
 
-    // Elbow joint
-    const elbow = new THREE.Mesh(
-      new THREE.SphereGeometry(0.11, 12, 12), jointMat);
-    elbow.position.set(elbowX, elbowY, elbowZ);
-    armGroup.add(elbow);
+    shoulderPivot.add(new THREE.Mesh(
+      new THREE.SphereGeometry(0.12, 16, 16), jointMat));
 
-    // Forearm — connects elbow to wrist exactly
-    const fore = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.10, 0.085, foreLen, 12), metalMat);
-    fore.position.set(wristX, wristY, foreCZ);
-    fore.rotation.x = Math.PI / 2;
-    armGroup.add(fore);
+    // Upper arm cylinder (child of shoulder → always connected)
+    const upperCyl = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.09, 0.085, upperLen, 12), metalMat);
+    upperCyl.position.y = -upperLen / 2;
+    shoulderPivot.add(upperCyl);
 
-    // Wrist joint
-    const wrist = new THREE.Mesh(
-      new THREE.SphereGeometry(0.09, 10, 10), jointMat);
-    wrist.position.set(wristX, wristY, wristZ);
-    armGroup.add(wrist);
+    // Elbow pivot (at bottom of upper arm)
+    const elbowPivot = new THREE.Group();
+    elbowPivot.position.y = -upperLen;
+    elbowPivot.rotation.x = elbowBend;
 
-    // Hand palm — hanging down from wrist
+    elbowPivot.add(new THREE.Mesh(
+      new THREE.SphereGeometry(0.10, 12, 12), jointMat));
+
+    // Forearm cylinder (child of elbow → always connected)
+    const foreCyl = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.085, 0.07, foreLen, 12), metalMat);
+    foreCyl.position.y = -foreLen / 2;
+    elbowPivot.add(foreCyl);
+
+    // Hand group (at bottom of forearm, counter-rotated to vertical)
+    const handGroup = new THREE.Group();
+    handGroup.position.y = -foreLen;
+    handGroup.rotation.x = -(shoulderTiltX + elbowBend);
+
+    handGroup.add(new THREE.Mesh(
+      new THREE.SphereGeometry(0.08, 10, 10), jointMat));
+
     const palm = new THREE.Mesh(
-      new THREE.BoxGeometry(0.22, 0.14, 0.22), handMat);
-    palm.position.set(wristX, wristY - 0.08, wristZ);
-    armGroup.add(palm);
+      new THREE.BoxGeometry(0.20, 0.10, 0.20), handMat);
+    palm.position.y = -0.07;
+    handGroup.add(palm);
 
-    // Fingers (3 — hanging down from palm)
-    for (const fo of [-0.065, 0, 0.065]) {
+    for (const fo of [-0.06, 0, 0.06]) {
       const finger = new THREE.Mesh(
-        new THREE.BoxGeometry(0.06, 0.12, 0.05), handMat);
-      finger.position.set(wristX, wristY - 0.19, wristZ + fo);
-      armGroup.add(finger);
+        new THREE.BoxGeometry(0.055, 0.08, 0.045), handMat);
+      finger.position.set(0, -0.15, fo);
+      handGroup.add(finger);
       const tip = new THREE.Mesh(
-        new THREE.SphereGeometry(0.033, 8, 8), handMat);
-      tip.position.set(wristX, wristY - 0.26, wristZ + fo);
-      armGroup.add(tip);
+        new THREE.SphereGeometry(0.030, 8, 8), handMat);
+      tip.position.set(0, -0.20, fo);
+      handGroup.add(tip);
     }
 
-    // Thumb (sticks out to the side)
     const thumb = new THREE.Mesh(
-      new THREE.BoxGeometry(0.05, 0.10, 0.055), handMat);
-    thumb.position.set(wristX + sideSign * 0.10, wristY - 0.06, wristZ);
+      new THREE.BoxGeometry(0.045, 0.08, 0.05), handMat);
+    thumb.position.set(sideSign * 0.09, -0.05, 0);
     thumb.rotation.z = sideSign * 0.5;
-    armGroup.add(thumb);
+    handGroup.add(thumb);
 
+    elbowPivot.add(handGroup);
+    shoulderPivot.add(elbowPivot);
+    armGroup.add(shoulderPivot);
     this.bodyPivot.add(armGroup);
   }
 
