@@ -963,9 +963,10 @@ class RobotRenderer3D {
     if (!pivot) return;
 
     // Default pose → Raised pose interpolation
-    const defSX = -0.7, raiseSX = 2.5;   // shoulder forward tilt → swung up
-    const defSZ = 0.25, raiseSZ = 0.20;  // outward tilt (abs value)
-    const defEX = -0.8, raiseEX = 0.2;   // elbow bend → nearly straight
+    // Negative rotation.x = forward (face side), so raise goes forward then up
+    const defSX = -0.7, raiseSX = -2.8;  // swing forward → up (NOT backward)
+    const defSZ = 0.25, raiseSZ = 0.35;  // slightly more outward when raised
+    const defEX = -0.8, raiseEX = 0.3;   // elbow straightens
 
     const sx = defSX + (raiseSX - defSX) * raise;
     const sz = sideSign * (defSZ + (raiseSZ - defSZ) * raise);
@@ -1275,13 +1276,13 @@ class RobotRenderer3D {
         this.headTiltYTgt = -0.40;
         if (this.actionTimer > 2.5) { this.action = 'none'; this.headTiltYTgt = 0; }
 
-      // ── Arm raise actions ──
+      // ── Arm raise actions (R/L swapped due to robotGroup π flip) ──
       } else if (this.action === 'raise_right') {
-        this.armRaiseTgtR = 1;
-        if (this.actionTimer > 3.0) { this.action = 'none'; this.armRaiseTgtR = 0; }
-      } else if (this.action === 'raise_left') {
-        this.armRaiseTgtL = 1;
+        this.armRaiseTgtL = 1;  // sideSign=-1 arm = screen RIGHT
         if (this.actionTimer > 3.0) { this.action = 'none'; this.armRaiseTgtL = 0; }
+      } else if (this.action === 'raise_left') {
+        this.armRaiseTgtR = 1;  // sideSign=+1 arm = screen LEFT
+        if (this.actionTimer > 3.0) { this.action = 'none'; this.armRaiseTgtR = 0; }
       } else if (this.action === 'raise_both') {
         this.armRaiseTgtR = 1; this.armRaiseTgtL = 1;
         if (this.actionTimer > 3.0) { this.action = 'none'; this.armRaiseTgtR = 0; this.armRaiseTgtL = 0; }
