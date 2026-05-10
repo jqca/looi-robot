@@ -872,9 +872,9 @@ class RobotRenderer3D {
     // ── Joint chain using nested Groups (guarantees connections) ──
     const upperLen = 0.40;
     const foreLen  = 0.35;
-    const shoulderTiltX = 0.5;             // ~29° forward
+    const shoulderTiltX = -0.5;            // ~29° forward (negative = toward +Z = face side)
     const shoulderTiltZ = sideSign * 0.25; // ~14° outward
-    const elbowBend = 1.0;                 // ~57° additional bend
+    const elbowBend = -1.0;                // ~57° additional bend (same direction as face)
 
     // Shoulder pivot
     const shoulderPivot = new THREE.Group();
