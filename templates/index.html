@@ -571,7 +571,7 @@ class RobotRenderer3D {
       emissive: 0x3A5A48, emissiveIntensity: 0.06,
     });
     this.bodyMesh = new THREE.Mesh(bodyGeo, this.bodyMat);
-    this.bodyMesh.position.y = 1.55;
+    this.bodyMesh.position.y = 1.27;
     this.bodyMesh.castShadow = true;
     this.bodyPivot.add(this.bodyMesh);
 
@@ -589,7 +589,7 @@ class RobotRenderer3D {
       color: 0xC8DDD0, roughness: 0.55, metalness: 0.08
     });
     const hatch = new THREE.Mesh(hatchGeo, hatchMat);
-    hatch.position.set(0, 1.55, bDepth / 2 + 0.05);
+    hatch.position.set(0, 1.27, bDepth / 2 + 0.05);
     this.bodyPivot.add(hatch);
 
     // Hatch horizontal seam lines
@@ -598,7 +598,7 @@ class RobotRenderer3D {
       const seam = new THREE.Mesh(seamGeo, new THREE.MeshStandardMaterial({
         color: 0x6A9A80, roughness: 0.6, metalness: 0.3
       }));
-      seam.position.set(0, 1.55 + hy, bDepth / 2 + 0.076);
+      seam.position.set(0, 1.27 + hy, bDepth / 2 + 0.076);
       this.bodyPivot.add(seam);
     }
 
@@ -614,7 +614,7 @@ class RobotRenderer3D {
     ];
     for (const [rx, ry] of rivets) {
       const r = new THREE.Mesh(rivetGeo, rivetMat);
-      r.position.set(rx, 1.55 + ry, rZ);
+      r.position.set(rx, 1.27 + ry, rZ);
       this.bodyPivot.add(r);
     }
 
@@ -624,7 +624,7 @@ class RobotRenderer3D {
       const hinge = new THREE.Mesh(
         new THREE.CylinderGeometry(0.022, 0.022, 0.06, 8), hingeMat);
       hinge.rotation.x = Math.PI / 2;
-      hinge.position.set(hx, 1.55 + hatchH/2 - 0.04, bDepth / 2 + 0.08);
+      hinge.position.set(hx, 1.27 + hatchH/2 - 0.04, bDepth / 2 + 0.08);
       this.bodyPivot.add(hinge);
     }
 
@@ -635,7 +635,7 @@ class RobotRenderer3D {
           new THREE.BoxGeometry(0.10, 0.014, 0.014),
           new THREE.MeshStandardMaterial({ color: 0x3A4A42, roughness: 0.9, metalness: 0.1 })
         );
-        vent.position.set(sx * (hatchW/2 + 0.12), 1.55 + (vi - 1) * 0.07, bDepth / 2 + 0.05);
+        vent.position.set(sx * (hatchW/2 + 0.12), 1.27 + (vi - 1) * 0.07, bDepth / 2 + 0.05);
         this.bodyPivot.add(vent);
       }
     }
@@ -645,14 +645,14 @@ class RobotRenderer3D {
       new THREE.BoxGeometry(bwT * 1.75, 0.04, bDepth * 0.82),
       new THREE.MeshStandardMaterial({ color: 0x7AAA98, roughness: 0.55, metalness: 0.15 })
     );
-    topPlate.position.set(0, 1.55 + bh + 0.02, 0);
+    topPlate.position.set(0, 1.27 + bh + 0.02, 0);
     this.bodyPivot.add(topPlate);
 
     const handleMat = new THREE.MeshStandardMaterial({ color: 0x7A9A8A, roughness: 0.4, metalness: 0.5 });
     const handle = new THREE.Mesh(
       new THREE.TorusGeometry(0.06, 0.015, 6, 12, Math.PI), handleMat);
     handle.rotation.y = Math.PI / 2;
-    handle.position.set(0, 1.55 + bh + 0.10, -0.10);
+    handle.position.set(0, 1.27 + bh + 0.10, -0.10);
     this.bodyPivot.add(handle);
 
     // ── Bottom bumper (wider, darker) ──
@@ -660,7 +660,7 @@ class RobotRenderer3D {
       new THREE.BoxGeometry(bwB * 2.05, 0.06, bDepth * 0.90),
       new THREE.MeshStandardMaterial({ color: 0x5A7A6A, roughness: 0.7, metalness: 0.20 })
     );
-    bumper.position.set(0, 1.55 - bh - 0.01, 0);
+    bumper.position.set(0, 1.27 - bh - 0.01, 0);
     this.bodyPivot.add(bumper);
 
     // ── NECK (telescoping stalk) ──
@@ -669,19 +669,19 @@ class RobotRenderer3D {
       color: 0x7A9A8A, roughness: 0.4, metalness: 0.5
     });
     const neck = new THREE.Mesh(neckGeo, metalMat);
-    neck.position.y = 2.55;
+    neck.position.y = 2.27;
     this.bodyPivot.add(neck);
 
     // Neck joint ring
     const ringGeo = new THREE.TorusGeometry(0.11, 0.025, 8, 16);
     const ring = new THREE.Mesh(ringGeo, metalMat.clone());
     ring.rotation.x = Math.PI / 2;
-    ring.position.y = 2.2;
+    ring.position.y = 1.92;
     this.bodyPivot.add(ring);
 
     // ── EYE UNIT (binocular assembly) ──
     this.eyeUnit = new THREE.Group();
-    this.eyeUnit.position.y = 3.1;
+    this.eyeUnit.position.y = 2.82;
     this._buildEyes();
     this.bodyPivot.add(this.eyeUnit);
 
@@ -843,63 +843,63 @@ class RobotRenderer3D {
     // Shoulder mount bracket
     const bracket = new THREE.Mesh(
       new THREE.BoxGeometry(0.16, 0.10, 0.14), metalMat);
-    bracket.position.set(ax, 1.65, 0);
+    bracket.position.set(ax, 1.37, 0);
     armGroup.add(bracket);
 
     // Shoulder joint
     const shoulder = new THREE.Mesh(
       new THREE.SphereGeometry(0.10, 16, 16), jointMat);
-    shoulder.position.set(ax + sideSign * 0.06, 1.63, 0);
+    shoulder.position.set(ax + sideSign * 0.06, 1.35, 0);
     armGroup.add(shoulder);
 
     // Upper arm
     const upper = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.07, 0.065, 0.38, 12), metalMat);
-    upper.position.set(ax + sideSign * 0.12, 1.42, 0);
+      new THREE.CylinderGeometry(0.07, 0.065, 0.28, 12), metalMat);
+    upper.position.set(ax + sideSign * 0.12, 1.18, 0);
     upper.rotation.z = sideSign * 0.20;
     armGroup.add(upper);
 
     // Elbow joint
     const elbow = new THREE.Mesh(
       new THREE.SphereGeometry(0.08, 12, 12), jointMat);
-    elbow.position.set(ax + sideSign * 0.16, 1.22, 0);
+    elbow.position.set(ax + sideSign * 0.16, 1.03, 0);
     armGroup.add(elbow);
 
     // Forearm
     const fore = new THREE.Mesh(
-      new THREE.CylinderGeometry(0.065, 0.055, 0.34, 12), metalMat);
-    fore.position.set(ax + sideSign * 0.16, 1.03, 0);
+      new THREE.CylinderGeometry(0.065, 0.055, 0.22, 12), metalMat);
+    fore.position.set(ax + sideSign * 0.16, 0.90, 0);
     armGroup.add(fore);
 
     // Wrist joint
     const wrist = new THREE.Mesh(
       new THREE.SphereGeometry(0.065, 10, 10), jointMat);
-    wrist.position.set(ax + sideSign * 0.16, 0.84, 0);
+    wrist.position.set(ax + sideSign * 0.16, 0.80, 0);
     armGroup.add(wrist);
 
     // Hand palm
     const palm = new THREE.Mesh(
-      new THREE.BoxGeometry(0.10, 0.10, 0.12), handMat);
-    palm.position.set(ax + sideSign * 0.16, 0.76, 0);
+      new THREE.BoxGeometry(0.12, 0.08, 0.14), handMat);
+    palm.position.set(ax + sideSign * 0.16, 0.75, 0);
     armGroup.add(palm);
 
     // Fingers (3 fingers)
-    for (const fz of [-0.04, 0, 0.04]) {
+    for (const fz of [-0.045, 0, 0.045]) {
       const finger = new THREE.Mesh(
-        new THREE.BoxGeometry(0.035, 0.12, 0.03), handMat);
-      finger.position.set(ax + sideSign * 0.16, 0.65, fz);
+        new THREE.BoxGeometry(0.035, 0.08, 0.03), handMat);
+      finger.position.set(ax + sideSign * 0.16, 0.68, fz);
       armGroup.add(finger);
       // Fingertip
       const tip = new THREE.Mesh(
-        new THREE.SphereGeometry(0.018, 8, 8), handMat);
-      tip.position.set(ax + sideSign * 0.16, 0.59, fz);
+        new THREE.SphereGeometry(0.020, 8, 8), handMat);
+      tip.position.set(ax + sideSign * 0.16, 0.64, fz);
       armGroup.add(tip);
     }
 
     // Thumb
     const thumb = new THREE.Mesh(
-      new THREE.BoxGeometry(0.03, 0.08, 0.035), handMat);
-    thumb.position.set(ax + sideSign * 0.22, 0.73, sideSign * -0.04);
+      new THREE.BoxGeometry(0.03, 0.07, 0.035), handMat);
+    thumb.position.set(ax + sideSign * 0.22, 0.74, sideSign * -0.04);
     thumb.rotation.z = sideSign * 0.5;
     armGroup.add(thumb);
 
@@ -916,7 +916,7 @@ class RobotRenderer3D {
     const topHalf = 0.30;   // half-length of flat top (narrower)
     const hH = 0.375;       // half-height (total 0.75)
     const cr = 0.09;        // corner rounding
-    const beltY = 0.28;     // belt center Y position (bottom sinks slightly into ground for solid contact)
+    const beltY = 0.375;    // belt center Y position (bottom=0, top=0.75=bodyBot)
 
     const shape = new THREE.Shape();
     // Bottom-left → clockwise
@@ -1371,11 +1371,11 @@ class RobotRenderer3D {
     const rz = this.robotGroup.position.z;
 
     const cx = rx + this.camDist * Math.sin(this.camAngle) * Math.cos(this.camPitch);
-    const cy = ry + this.camDist * Math.sin(this.camPitch) + 1.5;
+    const cy = ry + this.camDist * Math.sin(this.camPitch) + 1.2;
     const cz = rz + this.camDist * Math.cos(this.camAngle) * Math.cos(this.camPitch);
 
     this.camera.position.lerp(new THREE.Vector3(cx, cy, cz), 0.06);
-    const lookAt = new THREE.Vector3(rx, ry + 2.0, rz);
+    const lookAt = new THREE.Vector3(rx, ry + 1.6, rz);
     this.camera.lookAt(lookAt);
   }
 }
