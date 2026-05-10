@@ -737,15 +737,6 @@ class RobotRenderer3D {
       tube.castShadow = true;
       g.add(tube);
 
-      // Lens ring (rim)
-      const rimGeo = new THREE.TorusGeometry(0.31, 0.03, 8, 32);
-      const rimMat = new THREE.MeshStandardMaterial({
-        color: 0x7AAA98, roughness: 0.25, metalness: 0.5
-      });
-      const rim = new THREE.Mesh(rimGeo, rimMat);
-      rim.position.z = 0.23;
-      g.add(rim);
-
       // Lens background (white sclera)
       const lensBack = new THREE.Mesh(
         new THREE.CircleGeometry(0.28, 32),
@@ -804,7 +795,7 @@ class RobotRenderer3D {
       g.add(lowerLid);
 
       this.eyeUnit.add(g);
-      this.eyes[side] = { group: g, tube, lens, lensBack, pupil: pupilGroup, highlight, rim, eyelid, lowerLid };
+      this.eyes[side] = { group: g, tube, lens, lensBack, pupil: pupilGroup, highlight, eyelid, lowerLid };
     }
   }
 
