@@ -448,6 +448,10 @@ class RobotRenderer3D {
     this.camDist = 9;
     this._lastDrag = null;
 
+    // Arm raise animation (0=default pose, 1=fully raised)
+    this.armRaiseR = 0; this.armRaiseTgtR = 0;
+    this.armRaiseL = 0; this.armRaiseTgtL = 0;
+
     this.moveInput = { x: 0, z: 0 };
     this.velocity = { x: 0, z: 0 };
     this.targetRotY = Math.PI;
@@ -939,6 +943,38 @@ class RobotRenderer3D {
     shoulderPivot.add(elbowPivot);
     armGroup.add(shoulderPivot);
     this.bodyPivot.add(armGroup);
+
+    // Store references for arm raise animation
+    if (sideSign === 1) {
+      this.shoulderPivotR = shoulderPivot;
+      this.elbowPivotR = elbowPivot;
+      this.handGroupR = handGroup;
+    } else {
+      this.shoulderPivotL = shoulderPivot;
+      this.elbowPivotL = elbowPivot;
+      this.handGroupL = handGroup;
+    }
+  }
+
+  _updateArmPose(sideSign, raise) {
+    const pivot = sideSign === 1 ? this.shoulderPivotR : this.shoulderPivotL;
+    const elbow = sideSign === 1 ? this.elbowPivotR : this.elbowPivotL;
+    const hand  = sideSign === 1 ? this.handGroupR : this.handGroupL;
+    if (!pivot) return;
+
+    // Default pose → Raised pose interpolation
+    const defSX = -0.7, raiseSX = 2.5;   // shoulder forward tilt → swung up
+    const defSZ = 0.25, raiseSZ = 0.20;  // outward tilt (abs value)
+    const defEX = -0.8, raiseEX = 0.2;   // elbow bend → nearly straight
+
+    const sx = defSX + (raiseSX - defSX) * raise;
+    const sz = sideSign * (defSZ + (raiseSZ - defSZ) * raise);
+    const ex = defEX + (raiseEX - defEX) * raise;
+
+    pivot.rotation.x = sx;
+    pivot.rotation.z = sz;
+    elbow.rotation.x = ex;
+    hand.rotation.x = -(sx + ex);  // keep hand vertical
   }
 
   _buildTrack(sideSign) {
@@ -1239,6 +1275,17 @@ class RobotRenderer3D {
         this.headTiltYTgt = -0.40;
         if (this.actionTimer > 2.5) { this.action = 'none'; this.headTiltYTgt = 0; }
 
+      // ── Arm raise actions ──
+      } else if (this.action === 'raise_right') {
+        this.armRaiseTgtR = 1;
+        if (this.actionTimer > 3.0) { this.action = 'none'; this.armRaiseTgtR = 0; }
+      } else if (this.action === 'raise_left') {
+        this.armRaiseTgtL = 1;
+        if (this.actionTimer > 3.0) { this.action = 'none'; this.armRaiseTgtL = 0; }
+      } else if (this.action === 'raise_both') {
+        this.armRaiseTgtR = 1; this.armRaiseTgtL = 1;
+        if (this.actionTimer > 3.0) { this.action = 'none'; this.armRaiseTgtR = 0; this.armRaiseTgtL = 0; }
+
       // ── Jump action ──
       } else if (this.action === 'jump') {
         const jt = this.actionTimer;
@@ -1256,6 +1303,12 @@ class RobotRenderer3D {
     this.headTiltY += (this.headTiltYTgt - this.headTiltY) * lerp;
     this.eyeUnit.rotation.x = this.headTiltX;
     this.eyeUnit.rotation.y = this.headTiltY;
+
+    // Arm raise lerp & pose update
+    this.armRaiseR += (this.armRaiseTgtR - this.armRaiseR) * lerp;
+    this.armRaiseL += (this.armRaiseTgtL - this.armRaiseL) * lerp;
+    this._updateArmPose(1, this.armRaiseR);
+    this._updateArmPose(-1, this.armRaiseL);
 
     // Idle curiosity — eye wander (gaze only, no Z rotation)
     if (!isSleep && this.action === 'none' && !this.talking) {
@@ -1686,6 +1739,11 @@ function detectActionFromText(text) {
   if (/右.*回|turn.?right/.test(t)) return 'turn_right';
   if (/左.*回|turn.?left/.test(t)) return 'turn_left';
   if (/回って|回転/.test(t)) return 'spin';
+  // ── Arm raise ──
+  if (/両手.*挙|両手.*上|両腕.*挙|両腕.*上|万歳|ばんざい|raise.?both/.test(t)) return 'raise_both';
+  if (/右手.*挙|右手.*上|右腕.*挙|右腕.*上|raise.?right/.test(t)) return 'raise_right';
+  if (/左手.*挙|左手.*上|左腕.*挙|左腕.*上|raise.?left/.test(t)) return 'raise_left';
+  if (/手.*挙|手.*上げ/.test(t)) return 'raise_both';
   // Movement
   if (/前.*進|前進|進んで|まっすぐ|forward/.test(t)) return 'forward';
   if (/後ろ.*下|バック|後退|backward/.test(t)) return 'backward';

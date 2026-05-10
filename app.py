@@ -326,6 +326,9 @@ web_search ツールを必ず使って調べてから答えてください。
 - turn_around: 後ろを向く（「後ろを向いて」「振り返って」「反対向いて」等）
 - spin: くるくる回る（「回って」「回転して」「くるくる」等）
 - dance: 踊る（「踊って」「ダンスして」「踊り」等）
+- raise_right: 右手を挙げる（「右手挙げて」「右手を上げて」等）
+- raise_left: 左手を挙げる（「左手挙げて」「左手を上げて」等）
+- raise_both: 両手を挙げる（「両手挙げて」「万歳して」「手を上げて」等）
 - jump: ジャンプ（「ジャンプして」「跳んで」「飛んで」等）
 
 ★重要: ユーザーが動きを指示したら、必ず対応するactionを返してください。
@@ -561,7 +564,8 @@ def _parse_result(raw_text: str, max_msg: int = 100, valid_emotions=None) -> dic
         result["emotion"] = "idle"
     valid_actions = {"none", "nod", "shake", "forward", "backward",
                      "turn_right", "turn_left", "turn_around", "spin", "dance", "jump",
-                     "look_up", "look_down", "look_right", "look_left"}
+                     "look_up", "look_down", "look_right", "look_left",
+                     "raise_right", "raise_left", "raise_both"}
     if result["action"] not in valid_actions:
         result["action"] = "none"
 
