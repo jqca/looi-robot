@@ -699,10 +699,22 @@ function detectActionFromText(text) {
 }
 
 // ── Send message ────────────────────────────────
+let busyTimer = null;
 async function sendMessage(text) {
   if (isBusy || !text.trim()) return;
   isBusy = true;
   textInput.value = '';
+
+  // Safety: reset isBusy after 20s max
+  clearTimeout(busyTimer);
+  busyTimer = setTimeout(() => {
+    if (isBusy) {
+      isBusy = false;
+      robot.setTalking(false);
+      setStatus('ready', 'まってるよ！');
+      if (continuousMode) setTimeout(() => startListening(), 600);
+    }
+  }, 20000);
 
   // Client-side action detection (immediate)
   const clientAction = detectActionFromText(text);
@@ -722,7 +734,8 @@ async function sendMessage(text) {
     if (data.action && data.action !== 'none') robot.setAction(data.action);
 
     setStatus('speaking', 'はなしてるよ！');
-    speak(data.message || '', () => {
+    speak(data.message || 'うーん、ちょっとまってね', () => {
+      clearTimeout(busyTimer);
       isBusy = false;
       if (continuousMode) {
         setStatus('listening', 'きいてるよ！');
@@ -732,9 +745,11 @@ async function sendMessage(text) {
       }
     });
   } catch (e) {
+    clearTimeout(busyTimer);
     robot.setEmotion('sad');
     setStatus('ready', 'まってるよ！');
     isBusy = false;
+    if (continuousMode) setTimeout(() => startListening(), 600);
   }
 }
 
@@ -801,9 +816,17 @@ if (SR) {
   kidsRec.onerror = e => {
     listeningActive = false;
     micLabel.classList.remove('visible');
-    if (e.error === 'no-speech') { if (continuousMode && !isBusy) setTimeout(() => startListening(), 400); return; }
-    continuousMode = false;
-    setStatus('ready', 'まってるよ！');
+    if (e.error === 'no-speech' || e.error === 'aborted') {
+      if (continuousMode && !isBusy) setTimeout(() => startListening(), 400);
+      return;
+    }
+    if (e.error === 'not-allowed' || e.error === 'service-not-available') {
+      continuousMode = false;
+      setStatus('ready', 'まってるよ！');
+      return;
+    }
+    // network or other recoverable errors: retry
+    if (continuousMode && !isBusy) setTimeout(() => startListening(), 1000);
   };
 }
 
@@ -822,15 +845,19 @@ async function initGreeting() {
     const data = await res.json();
     robot.setEmotion(data.emotion || 'excited');
     robot.setAction(data.action || 'nod');
-    speak(data.message);
+    speak(data.message, () => {
+      // Start listening AFTER greeting finishes
+      setStatus('ready', 'まってるよ！');
+      continuousMode = true;
+      setTimeout(() => startListening(), 600);
+    });
   } catch {
     robot.setEmotion('excited');
     robot.setAction('nod');
+    setStatus('ready', 'まってるよ！');
+    continuousMode = true;
+    setTimeout(() => startListening(), 600);
   }
-  setStatus('ready', 'まってるよ！');
-  // Start continuous listening after greeting
-  continuousMode = true;
-  setTimeout(() => startListening(), 2000);
 }
 
 window.addEventListener('load', () => {
