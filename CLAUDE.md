@@ -88,6 +88,8 @@ idle(blue), happy(green), excited(yellow), thinking(purple), sad(blue-gray), sur
 | **upperLen/foreLen** | handGroup counter-rotation計算 |
 | **shoulderTiltZ（外側傾き）** | **肘のX座標 → track衝突チェック必須** |
 | **upperLen + shoulderTiltZ** | 肘が track inner edge X(0.61) より内側か確認 |
+| **rotation.x の符号** | **負=前方(顔側), 正=後方(背面側)** ※π flipに注意 |
+| **sideSign と画面左右** | **sideSign=1→画面LEFT, sideSign=-1→画面RIGHT** (π flip) |
 
 ### チェックリスト（体サイズ変更時）
 1. [ ] bwB/bwT/bh/bDepth変更
