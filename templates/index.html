@@ -1600,6 +1600,24 @@ function detectNewsRequest(text) {
   return NEWS_RE.test(text);
 }
 
+function extractNewsTopic(text) {
+  // 「〜のニュース」「〜ニュース」「〜の最新情報」からトピックを抽出
+  const patterns = [
+    /(?:本日|今日|最新)の(.+?)の(?:ニュース|にゅーす|最新情報)/,
+    /(.+?)の(?:ニュース|にゅーす|最新情報)を?/,
+    /(.+?)(?:ニュース|にゅーす|最新情報)/,
+  ];
+  for (const pat of patterns) {
+    const m = text.match(pat);
+    if (m && m[1]) {
+      // 不要語を除去してトピックだけ残す
+      const topic = m[1].replace(/について|に関する|についての|関連|最新|今日|本日/g, '').trim();
+      if (topic && topic.length >= 1 && topic.length <= 20) return topic;
+    }
+  }
+  return null; // デフォルト(AI)にフォールバック
+}
+
 const newsPanel = document.getElementById('news-panel');
 const newsList = document.getElementById('news-list');
 const newsClose = document.getElementById('news-close');
@@ -1665,18 +1683,20 @@ async function sendMessage(text) {
 
   // ── ニュースリクエスト検出 ──
   if (detectNewsRequest(text)) {
+    const newsTopic = extractNewsTopic(text);
+    const topicLabel = newsTopic || 'AI';
     isBusy = true; setStatus('thinking'); robot.setEmotion('excited');
-    speak('社長、最新のAIニュースをお調べいたします。少々お待ちください。', null);
+    speak(`社長、最新の${topicLabel}ニュースをお調べいたします。少々お待ちください。`, null);
     // Fetch news in parallel with speech (don't block on TTS callback)
     (async () => {
-      const count = await fetchAndShowNews();
+      const count = await fetchAndShowNews(newsTopic);
       // Wait a moment for the intro speech to finish
       await new Promise(r => setTimeout(r, 3000));
       if (currentAudio) { currentAudio.pause(); currentAudio = null; robot.setTalking(false); }
       if (window.speechSynthesis) window.speechSynthesis.cancel();
       robot.setEmotion('happy'); setStatus('speaking');
       if (count > 0) {
-        speak(`本日のAIのニュースは以上の${count}件でございます。画面をご確認ください。`, () => {
+        speak(`本日の${topicLabel}のニュースは以上の${count}件でございます。画面をご確認ください。`, () => {
           isBusy = false; resetSleepTimer(); resetProactiveTimer();
           setTimeout(() => startListening(), 1200);
         });
