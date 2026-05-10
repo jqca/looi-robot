@@ -916,7 +916,7 @@ class RobotRenderer3D {
     const topHalf = 0.30;   // half-length of flat top (narrower)
     const hH = 0.375;       // half-height (total 0.75)
     const cr = 0.09;        // corner rounding
-    const beltY = 0.375;    // belt center Y position (bottom touches ground at y=0)
+    const beltY = 0.28;     // belt center Y position (bottom sinks slightly into ground for solid contact)
 
     const shape = new THREE.Shape();
     // Bottom-left → clockwise
@@ -1106,9 +1106,9 @@ class RobotRenderer3D {
     const lerp = 1 - Math.exp(-8 * dt);
 
     const bobSpeed = isSleep ? 0.5 : this.talking ? 4.0 : 1.2;
-    const bobAmp = isSleep ? 0.02 : 0.05;
+    const bobAmp = isSleep ? 0.02 : 0.04;
     this.bobPhase += dt * bobSpeed;
-    this.bodyPivot.position.y = Math.sin(this.bobPhase) * bobAmp;
+    this.bodyPivot.position.y = Math.max(0, Math.sin(this.bobPhase) * bobAmp);
 
     if (this.emotion === 'excited') {
       this.excitedPhase += dt * 7.5;
