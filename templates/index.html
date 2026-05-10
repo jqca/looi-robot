@@ -527,14 +527,14 @@ class RobotRenderer3D {
     const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x999999, 0.5);
     this.scene.add(hemiLight);
 
-    const grid = new THREE.GridHelper(60, 60, 0x999999, 0xc0c0c0);
+    const grid = new THREE.GridHelper(60, 60, 0x8899AA, 0xA0AAB4);
     grid.material.transparent = true;
-    grid.material.opacity = 0.3;
+    grid.material.opacity = 0.45;
     this.scene.add(grid);
 
     const groundGeo = new THREE.PlaneGeometry(80, 80);
     const groundMat = new THREE.MeshStandardMaterial({
-      color: 0xB0B0B0, roughness: 0.85, metalness: 0.05
+      color: 0x95988E, roughness: 0.90, metalness: 0.02
     });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2;
@@ -727,44 +727,68 @@ class RobotRenderer3D {
       const g = new THREE.Group();
       g.position.set(sign * 0.34, 0, 0);
 
-      // Eye tube (binocular barrel) — open-ended (caps removed to avoid rotating highlight artifact)
+      // Eye tube (binocular barrel) — open-ended
       const tubeGeo = new THREE.CylinderGeometry(0.30, 0.33, 0.45, 64, 1, true);
       const tubeMat = new THREE.MeshStandardMaterial({
-        color: 0x8EBBA8, roughness: 0.4, metalness: 0.15
+        color: 0x6A8A7A, roughness: 0.5, metalness: 0.20
       });
       const tube = new THREE.Mesh(tubeGeo, tubeMat);
       tube.rotation.x = Math.PI / 2;
       tube.castShadow = true;
       g.add(tube);
 
-      // Lens background (white sclera)
-      const lensBack = new THREE.Mesh(
-        new THREE.CircleGeometry(0.28, 32),
-        new THREE.MeshBasicMaterial({ color: 0xf0f5ff })
+      // Tube back cap (prevent see-through)
+      const backCap = new THREE.Mesh(
+        new THREE.CircleGeometry(0.33, 64),
+        new THREE.MeshBasicMaterial({ color: 0x2A3A32 })
       );
-      lensBack.position.z = 0.225;
+      backCap.position.z = -0.225;
+      g.add(backCap);
+
+      // Dark rim around sclera (eye outline for contrast)
+      const eyeOutline = new THREE.Mesh(
+        new THREE.CircleGeometry(0.30, 64),
+        new THREE.MeshBasicMaterial({ color: 0x3A4A44 })
+      );
+      eyeOutline.position.z = 0.220;
+      g.add(eyeOutline);
+
+      // Lens background (sclera — warm off-white)
+      const lensBack = new THREE.Mesh(
+        new THREE.CircleGeometry(0.27, 64),
+        new THREE.MeshBasicMaterial({ color: 0xE8EDF0 })
+      );
+      lensBack.position.z = 0.222;
       g.add(lensBack);
 
-      // Iris (large, bright blue)
+      // Iris outer ring (darker blue edge)
+      const irisOuter = new THREE.Mesh(
+        new THREE.CircleGeometry(0.21, 64),
+        new THREE.MeshBasicMaterial({ color: 0x2277AA })
+      );
+      irisOuter.position.z = 0.225;
+      g.add(irisOuter);
+
+      // Iris (bright blue)
       const lens = new THREE.Mesh(
-        new THREE.CircleGeometry(0.18, 32),
+        new THREE.CircleGeometry(0.17, 64),
         new THREE.MeshBasicMaterial({ color: 0x3399DD })
       );
-      lens.position.z = 0.23;
+      lens.position.z = 0.228;
       g.add(lens);
 
       // Pupil (dark center — moves for gaze!)
       const pupilGroup = new THREE.Group();
-      pupilGroup.position.z = 0.235;
+      pupilGroup.position.z = 0.232;
       const pupil = new THREE.Mesh(
-        new THREE.CircleGeometry(0.08, 16),
-        new THREE.MeshBasicMaterial({ color: 0x0a0a1a })
+        new THREE.CircleGeometry(0.10, 32),
+        new THREE.MeshBasicMaterial({ color: 0x080818 })
       );
       pupilGroup.add(pupil);
 
       // Highlight (big, white catch-light)
       const highlight = new THREE.Mesh(
-        new THREE.CircleGeometry(0.045, 12),
+        new THREE.CircleGeometry(0.05, 16),
         new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 })
       );
       highlight.position.set(0.06, 0.06, 0.001);
@@ -772,18 +796,18 @@ class RobotRenderer3D {
 
       // Small secondary highlight
       const highlight2 = new THREE.Mesh(
-        new THREE.CircleGeometry(0.02, 8),
-        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.6 })
+        new THREE.CircleGeometry(0.025, 10),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 })
       );
       highlight2.position.set(-0.04, -0.04, 0.001);
       pupilGroup.add(highlight2);
 
       g.add(pupilGroup);
 
-      // Upper eyelid (shutter plate)
+      // Upper eyelid (shutter plate — slightly darker than body)
       const lidGeo = new THREE.BoxGeometry(0.66, 0.32, 0.05);
       const lidMat = new THREE.MeshStandardMaterial({
-        color: 0x8EBBA8, roughness: 0.35, metalness: 0.30
+        color: 0x7AA898, roughness: 0.40, metalness: 0.25
       });
       const eyelid = new THREE.Mesh(lidGeo, lidMat);
       eyelid.position.set(0, 0.42, 0.16);
@@ -806,11 +830,14 @@ class RobotRenderer3D {
     // Arm must stay between body surface and track
     const ax = sideSign * 0.67;
     const metalMat = new THREE.MeshStandardMaterial({
-      color: 0x7A9A8A, roughness: 0.4, metalness: 0.5
+      color: 0x6A8878, roughness: 0.45, metalness: 0.45
+    });
+    const jointMat = new THREE.MeshStandardMaterial({
+      color: 0x556A60, roughness: 0.35, metalness: 0.55
     });
 
     const handMat = new THREE.MeshStandardMaterial({
-      color: 0xC8DDD0, roughness: 0.45, metalness: 0.25
+      color: 0xB8CCC0, roughness: 0.40, metalness: 0.20
     });
 
     // Shoulder mount bracket
@@ -821,7 +848,7 @@ class RobotRenderer3D {
 
     // Shoulder joint
     const shoulder = new THREE.Mesh(
-      new THREE.SphereGeometry(0.10, 16, 16), metalMat);
+      new THREE.SphereGeometry(0.10, 16, 16), jointMat);
     shoulder.position.set(ax + sideSign * 0.06, 1.63, 0);
     armGroup.add(shoulder);
 
@@ -834,7 +861,7 @@ class RobotRenderer3D {
 
     // Elbow joint
     const elbow = new THREE.Mesh(
-      new THREE.SphereGeometry(0.08, 12, 12), metalMat);
+      new THREE.SphereGeometry(0.08, 12, 12), jointMat);
     elbow.position.set(ax + sideSign * 0.16, 1.22, 0);
     armGroup.add(elbow);
 
@@ -846,7 +873,7 @@ class RobotRenderer3D {
 
     // Wrist joint
     const wrist = new THREE.Mesh(
-      new THREE.SphereGeometry(0.065, 10, 10), metalMat);
+      new THREE.SphereGeometry(0.065, 10, 10), jointMat);
     wrist.position.set(ax + sideSign * 0.16, 0.84, 0);
     armGroup.add(wrist);
 
