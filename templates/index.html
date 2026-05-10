@@ -727,10 +727,10 @@ class RobotRenderer3D {
       const g = new THREE.Group();
       g.position.set(sign * 0.34, 0, 0);
 
-      // Eye tube (binocular barrel) — BIGGER
-      const tubeGeo = new THREE.CylinderGeometry(0.30, 0.33, 0.45, 32);
+      // Eye tube (binocular barrel) — open-ended (caps removed to avoid rotating highlight artifact)
+      const tubeGeo = new THREE.CylinderGeometry(0.30, 0.33, 0.45, 64, 1, true);
       const tubeMat = new THREE.MeshStandardMaterial({
-        color: 0x8EBBA8, roughness: 0.25, metalness: 0.35
+        color: 0x8EBBA8, roughness: 0.4, metalness: 0.15
       });
       const tube = new THREE.Mesh(tubeGeo, tubeMat);
       tube.rotation.x = Math.PI / 2;
