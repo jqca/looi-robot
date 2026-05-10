@@ -825,10 +825,9 @@ class RobotRenderer3D {
 
   _buildArm(sideSign) {
     const armGroup = new THREE.Group();
-    // Body half-width at shoulder height (y=1.65): ~0.66
-    // Track inner face: 1.02 - 0.16 = 0.86
-    // Arm must stay between body surface and track
-    const ax = sideSign * 0.67;
+    // Arm hangs outside the body (bwB=0.82), clearly visible from front
+    const ax = sideSign * 0.88;
+    const fz = 0.25; // push arm slightly forward so hand is visible from front camera
     const metalMat = new THREE.MeshStandardMaterial({
       color: 0x6A8878, roughness: 0.45, metalness: 0.45
     });
@@ -843,63 +842,63 @@ class RobotRenderer3D {
     // Shoulder mount bracket
     const bracket = new THREE.Mesh(
       new THREE.BoxGeometry(0.16, 0.10, 0.14), metalMat);
-    bracket.position.set(ax, 1.37, 0);
+    bracket.position.set(ax, 1.37, fz);
     armGroup.add(bracket);
 
     // Shoulder joint
     const shoulder = new THREE.Mesh(
       new THREE.SphereGeometry(0.10, 16, 16), jointMat);
-    shoulder.position.set(ax + sideSign * 0.06, 1.35, 0);
+    shoulder.position.set(ax + sideSign * 0.04, 1.35, fz);
     armGroup.add(shoulder);
 
     // Upper arm
     const upper = new THREE.Mesh(
       new THREE.CylinderGeometry(0.07, 0.065, 0.28, 12), metalMat);
-    upper.position.set(ax + sideSign * 0.12, 1.18, 0);
-    upper.rotation.z = sideSign * 0.20;
+    upper.position.set(ax + sideSign * 0.06, 1.18, fz);
+    upper.rotation.z = sideSign * 0.15;
     armGroup.add(upper);
 
     // Elbow joint
     const elbow = new THREE.Mesh(
       new THREE.SphereGeometry(0.08, 12, 12), jointMat);
-    elbow.position.set(ax + sideSign * 0.16, 1.03, 0);
+    elbow.position.set(ax + sideSign * 0.08, 1.03, fz);
     armGroup.add(elbow);
 
     // Forearm
     const fore = new THREE.Mesh(
       new THREE.CylinderGeometry(0.065, 0.055, 0.22, 12), metalMat);
-    fore.position.set(ax + sideSign * 0.16, 0.90, 0);
+    fore.position.set(ax + sideSign * 0.08, 0.90, fz);
     armGroup.add(fore);
 
     // Wrist joint
     const wrist = new THREE.Mesh(
       new THREE.SphereGeometry(0.065, 10, 10), jointMat);
-    wrist.position.set(ax + sideSign * 0.16, 0.80, 0);
+    wrist.position.set(ax + sideSign * 0.08, 0.80, fz);
     armGroup.add(wrist);
 
     // Hand palm
     const palm = new THREE.Mesh(
-      new THREE.BoxGeometry(0.12, 0.08, 0.14), handMat);
-    palm.position.set(ax + sideSign * 0.16, 0.75, 0);
+      new THREE.BoxGeometry(0.14, 0.10, 0.16), handMat);
+    palm.position.set(ax + sideSign * 0.08, 0.74, fz);
     armGroup.add(palm);
 
-    // Fingers (3 fingers)
-    for (const fz of [-0.045, 0, 0.045]) {
+    // Fingers (3 fingers — larger, clearly visible)
+    for (const fo of [-0.05, 0, 0.05]) {
       const finger = new THREE.Mesh(
-        new THREE.BoxGeometry(0.035, 0.08, 0.03), handMat);
-      finger.position.set(ax + sideSign * 0.16, 0.68, fz);
+        new THREE.BoxGeometry(0.04, 0.10, 0.035), handMat);
+      finger.position.set(ax + sideSign * 0.08, 0.65, fz + fo);
       armGroup.add(finger);
-      // Fingertip
+      // Fingertip (rounded)
       const tip = new THREE.Mesh(
-        new THREE.SphereGeometry(0.020, 8, 8), handMat);
-      tip.position.set(ax + sideSign * 0.16, 0.64, fz);
+        new THREE.SphereGeometry(0.022, 8, 8), handMat);
+      tip.position.set(ax + sideSign * 0.08, 0.60, fz + fo);
       armGroup.add(tip);
     }
 
-    // Thumb
+    // Thumb (sticks out to the side)
     const thumb = new THREE.Mesh(
-      new THREE.BoxGeometry(0.03, 0.07, 0.035), handMat);
-    thumb.position.set(ax + sideSign * 0.22, 0.74, sideSign * -0.04);
+      new THREE.BoxGeometry(0.035, 0.08, 0.04), handMat);
+    thumb.position.set(ax + sideSign * 0.16, 0.73, fz);
     thumb.rotation.z = sideSign * 0.5;
     armGroup.add(thumb);
 
