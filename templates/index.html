@@ -372,7 +372,7 @@
 
 <div id="news-panel">
   <div id="news-panel-header">
-    <h2>AIニュース</h2>
+    <h2 id="news-panel-title">ニュース</h2>
     <button id="news-close">✕</button>
   </div>
   <div id="news-list"></div>
@@ -1627,6 +1627,8 @@ newsClose.addEventListener('click', () => {
 });
 
 async function fetchAndShowNews(topic) {
+  // Update panel title based on topic
+  document.getElementById('news-panel-title').textContent = (topic || 'AI') + 'ニュース';
   // Open panel with loading state
   newsPanel.classList.add('open');
   newsList.innerHTML = '<div class="news-loading">ニュースを取得中</div>';
