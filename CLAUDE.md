@@ -65,10 +65,14 @@ idle(blue), happy(green), excited(yellow), thinking(purple), sad(blue-gray), sur
 | body depth (bDepth) | 0.91 | |
 | track center X | 0.77 | bwB + gap(0.04) + trackW/2(0.16) |
 | track Y range | 0 ~ 0.75 | |
+| track inner edge X | 0.61 | track center - trackW/2 |
 | arm shoulder X (ax) | 0.50 | body surface at shoulder height |
 | arm shoulder Y | 1.184 | body center + 0.07 |
 | upperLen | 0.60 | |
 | foreLen | 0.525 | |
+| shoulderTiltX | -0.8 | 46° forward（大きいほど前方へ） |
+| shoulderTiltZ | ±0.08 | 5° outward（**大きくするとtrack衝突**） |
+| elbowBend | -0.8 | 46° additional forward |
 
 ### 依存マップ（何を変えたら何を直す？）
 
@@ -82,6 +86,8 @@ idle(blue), happy(green), excited(yellow), thinking(purple), sad(blue-gray), sur
 | **track center X** | track内全パーツ（wheel, belt, sprocket等） |
 | **arm ax** | bracket X, shoulderPivot X |
 | **upperLen/foreLen** | handGroup counter-rotation計算 |
+| **shoulderTiltZ（外側傾き）** | **肘のX座標 → track衝突チェック必須** |
+| **upperLen + shoulderTiltZ** | 肘が track inner edge X(0.61) より内側か確認 |
 
 ### チェックリスト（体サイズ変更時）
 1. [ ] bwB/bwT/bh/bDepth変更
