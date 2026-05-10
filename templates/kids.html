@@ -392,11 +392,14 @@ class RobotRenderer3D {
       const g = new THREE.Group(); g.position.set(sign*0.34, 0, 0);
       const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.30,0.33,0.45,64,1,true), new THREE.MeshStandardMaterial({color:0x6A8A7A,roughness:0.5,metalness:0.20}));
       tube.rotation.x=Math.PI/2; tube.castShadow=true; g.add(tube);
-      g.add(Object.assign(new THREE.Mesh(new THREE.CircleGeometry(0.33,64), new THREE.MeshBasicMaterial({color:0x2A3A32})), {position: new THREE.Vector3(0,0,-0.225)}));
-      g.add(Object.assign(new THREE.Mesh(new THREE.CircleGeometry(0.30,64), new THREE.MeshBasicMaterial({color:0x3A4A44})), {position: new THREE.Vector3(0,0,0.220)}));
+      const backCap = new THREE.Mesh(new THREE.CircleGeometry(0.33,64), new THREE.MeshBasicMaterial({color:0x2A3A32}));
+      backCap.position.set(0,0,-0.225); g.add(backCap);
+      const eyeOutline = new THREE.Mesh(new THREE.CircleGeometry(0.30,64), new THREE.MeshBasicMaterial({color:0x3A4A44}));
+      eyeOutline.position.set(0,0,0.220); g.add(eyeOutline);
       const lensBack = new THREE.Mesh(new THREE.CircleGeometry(0.27,64), new THREE.MeshBasicMaterial({color:0xE8EDF0}));
       lensBack.position.z=0.222; g.add(lensBack);
-      g.add(Object.assign(new THREE.Mesh(new THREE.CircleGeometry(0.21,64), new THREE.MeshBasicMaterial({color:0x2277AA})), {position: new THREE.Vector3(0,0,0.225)}));
+      const irisOuter = new THREE.Mesh(new THREE.CircleGeometry(0.21,64), new THREE.MeshBasicMaterial({color:0x2277AA}));
+      irisOuter.position.set(0,0,0.225); g.add(irisOuter);
       const lens = new THREE.Mesh(new THREE.CircleGeometry(0.17,64), new THREE.MeshBasicMaterial({color:0x3399DD}));
       lens.position.z=0.228; g.add(lens);
       const pupilGroup = new THREE.Group(); pupilGroup.position.z=0.232;
@@ -480,7 +483,8 @@ class RobotRenderer3D {
     const beltMat = new THREE.MeshStandardMaterial({color:0x3A4A42,roughness:0.85,metalness:0.25,emissive:0x0A1A12,emissiveIntensity:0.08});
     const belt = new THREE.Mesh(beltGeo, beltMat); belt.rotation.y=Math.PI/2; belt.position.set(tx-trackW/2,beltY,0); belt.castShadow=true; trackGroup.add(belt);
     const beltEdges = new THREE.EdgesGeometry(beltGeo);
-    trackGroup.add(Object.assign(new THREE.LineSegments(beltEdges, new THREE.LineBasicMaterial({color:0x6AAA90,transparent:true,opacity:0.25})), {rotation:{x:0,y:Math.PI/2,z:0}, position:new THREE.Vector3(tx-trackW/2,beltY,0)}));
+    const beltLine = new THREE.LineSegments(beltEdges, new THREE.LineBasicMaterial({color:0x6AAA90,transparent:true,opacity:0.25}));
+    beltLine.rotation.y=Math.PI/2; beltLine.position.set(tx-trackW/2,beltY,0); trackGroup.add(beltLine);
 
     const wheelMat=new THREE.MeshStandardMaterial({color:0x4A5A52,roughness:0.50,metalness:0.45});
     const hubMat=new THREE.MeshStandardMaterial({color:0x8EBBA8,roughness:0.35,metalness:0.5});
@@ -490,7 +494,7 @@ class RobotRenderer3D {
     const spR=0.17, spY=beltY+hH-spR*0.6, spZ=-(topHalf*0.75);
     const sprocket=new THREE.Mesh(new THREE.CylinderGeometry(spR,spR,trackW+0.04,20),wheelMat); sprocket.rotation.z=Math.PI/2; sprocket.position.set(tx,spY,spZ); trackGroup.add(sprocket);
     const spHub=new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.05,trackW+0.08,8),hubMat); spHub.rotation.z=Math.PI/2; spHub.position.set(tx,spY,spZ); trackGroup.add(spHub);
-    trackGroup.add(Object.assign(new THREE.Mesh(new THREE.TorusGeometry(spR+0.01,0.015,6,20),darkMat),{position:new THREE.Vector3(tx,spY,spZ)}));
+    const spTeeth=new THREE.Mesh(new THREE.TorusGeometry(spR+0.01,0.015,6,20),darkMat); spTeeth.position.set(tx,spY,spZ); trackGroup.add(spTeeth);
     for(let a=0;a<3;a++){const spoke=new THREE.Mesh(new THREE.BoxGeometry(trackW*0.6,0.025,spR*1.6),hubMat);spoke.position.set(tx,spY,spZ);spoke.rotation.x=(a/3)*Math.PI;trackGroup.add(spoke);}
 
     // Idler
@@ -501,8 +505,8 @@ class RobotRenderer3D {
     // Road wheels
     const rwR=0.11, rwCount=4, rwSpan=botHalf*1.4;
     for(let i=0;i<rwCount;i++){const frac=(i+0.5)/rwCount;const rwZ=-rwSpan/2+frac*rwSpan;const rwY=beltY-hH+rwR+0.015;
-      trackGroup.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(rwR,rwR,trackW+0.02,14),wheelMat),{rotation:{x:0,y:0,z:Math.PI/2},position:new THREE.Vector3(tx,rwY,rwZ)}));
-      trackGroup.add(Object.assign(new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,trackW+0.06,6),hubMat),{rotation:{x:0,y:0,z:Math.PI/2},position:new THREE.Vector3(tx,rwY,rwZ)}));
+      const rw=new THREE.Mesh(new THREE.CylinderGeometry(rwR,rwR,trackW+0.02,14),wheelMat); rw.rotation.z=Math.PI/2; rw.position.set(tx,rwY,rwZ); trackGroup.add(rw);
+      const rwH=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,trackW+0.06,6),hubMat); rwH.rotation.z=Math.PI/2; rwH.position.set(tx,rwY,rwZ); trackGroup.add(rwH);
     }
 
     // Return rollers
@@ -511,12 +515,12 @@ class RobotRenderer3D {
     // Track links
     const linkMat=new THREE.MeshStandardMaterial({color:0x3A4A42,roughness:0.9,metalness:0.3});
     for(let i=0;i<14;i++){const frac=(i+0.5)/14;const lz=-botHalf*0.92+frac*botHalf*1.84;
-      trackGroup.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(trackW+0.06,0.032,0.055),linkMat),{position:new THREE.Vector3(tx,beltY-hH-0.016,lz)}));}
+      const link=new THREE.Mesh(new THREE.BoxGeometry(trackW+0.06,0.032,0.055),linkMat); link.position.set(tx,beltY-hH-0.016,lz); trackGroup.add(link);}
 
     // Suspension arms
     const armMat2=new THREE.MeshStandardMaterial({color:0x5A7A6A,roughness:0.5,metalness:0.45});
     for(let i=0;i<rwCount;i++){const frac=(i+0.5)/rwCount;const aZ=-rwSpan/2+frac*rwSpan;const aY1=beltY-hH+rwR+0.015;const aY2=beltY+0.10;const armLen=aY2-aY1;
-      trackGroup.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(0.022,armLen,0.022),armMat2),{position:new THREE.Vector3(tx,(aY1+aY2)/2,aZ)}));}
+      const sArm=new THREE.Mesh(new THREE.BoxGeometry(0.022,armLen,0.022),armMat2); sArm.position.set(tx,(aY1+aY2)/2,aZ); trackGroup.add(sArm);}
 
     this.bodyPivot.add(trackGroup);
   }
