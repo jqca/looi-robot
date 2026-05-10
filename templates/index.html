@@ -1670,12 +1670,23 @@ function startWakeWordListening() {
 // ── Client-side action keyword detection (reliable fallback) ──
 function detectActionFromText(text) {
   const t = text.toLowerCase();
+  // Dance / Jump
   if (/踊っ|踊り|ダンス|dance/.test(t)) return 'dance';
   if (/ジャンプ|じゃんぷ|跳ん|飛んで|jump/.test(t)) return 'jump';
-  if (/くるくる|ぐるぐる|回って|回転|spin/.test(t)) return 'spin';
-  if (/後ろを向|振り返|反対.*向|turn.?around/.test(t)) return 'turn_around';
-  if (/右.*向|右.*回|右.*曲|turn.?right/.test(t)) return 'turn_right';
-  if (/左.*向|左.*回|左.*曲|turn.?left/.test(t)) return 'turn_left';
+  // Spin (explicit spin words only)
+  if (/くるくる|ぐるぐる|spin/.test(t)) return 'spin';
+  // Turn around (body 180°) — must be before look_* to catch "後ろを向いて"
+  if (/後ろ.*向|振り返|反対.*向|turn.?around/.test(t)) return 'turn_around';
+  // ── Head look (向いて/見て = head only) — must be before turn_* ──
+  if (/上.*向|上.*見|天井.*見|見上げ|look.?up/.test(t)) return 'look_up';
+  if (/下.*向|下.*見|足元.*見|見下ろ|look.?down/.test(t)) return 'look_down';
+  if (/右.*向|右.*見|look.?right/.test(t)) return 'look_right';
+  if (/左.*向|左.*見|look.?left/.test(t)) return 'look_left';
+  // ── Body turn (回って = body rotation) ──
+  if (/右.*回|turn.?right/.test(t)) return 'turn_right';
+  if (/左.*回|turn.?left/.test(t)) return 'turn_left';
+  if (/回って|回転/.test(t)) return 'spin';
+  // Movement
   if (/前.*進|前進|進んで|まっすぐ|forward/.test(t)) return 'forward';
   if (/後ろ.*下|バック|後退|backward/.test(t)) return 'backward';
   return null;
