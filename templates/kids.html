@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>じぶんのロボット！</title>
+<title>じぶんのロボッ��！</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <style>
 /* ══════════════════════════
    RESET & BASE
@@ -164,16 +165,25 @@ html, body {
 }
 
 /* ══════════════════════════
-   ROBOT CANVAS
+   3D ROBOT CONTAINER
 ══════════════════════════ */
-#robot-canvas {
+#robot-container {
+  width: 100%;
+  max-width: 320px;
+  height: 280px;
+  border-radius: 20px;
+  overflow: hidden;
   cursor: pointer;
-  border-radius: 50%;
   filter: drop-shadow(0 0 28px rgba(120,180,255,.3));
   transition: filter .3s;
 }
-#robot-canvas:hover {
+#robot-container:hover {
   filter: drop-shadow(0 0 36px rgba(160,210,255,.5));
+}
+#robot-container canvas {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* ══════════════════════════
@@ -415,8 +425,8 @@ html, body {
     <div id="speech-bubble"><span id="bubble-text"></span></div>
   </div>
 
-  <!-- ロボット顔 -->
-  <canvas id="robot-canvas"></canvas>
+  <!-- 3Dロボット -->
+  <div id="robot-container"></div>
 
   <!-- ステータス -->
   <div id="status-bar">
@@ -504,296 +514,983 @@ html, body {
 
 
 // ════════════════════════════════════════════════
-// ROBOT RENDERER  (kids version — colorful)
+// 3D ROBOT RENDERER (Three.js — same as main page)
 // ════════════════════════════════════════════════
-class KidsRobotRenderer {
-  constructor(canvas) {
-    this.canvas = canvas;
-    this.ctx    = canvas.getContext('2d');
+const EMOTION_COLORS = {
+  idle:      { primary: 0x8EBBA8, lens: 0x3399DD, body: 0x8EBBA8, cheek: 0xFFB0C0 },
+  happy:     { primary: 0x9ECCA0, lens: 0x44BBEE, body: 0x96C4A8, cheek: 0xFF8FA0 },
+  sleep:     { primary: 0x7AA090, lens: 0x6688AA, body: 0x80A898, cheek: 0xCC9AAA },
+  excited:   { primary: 0x80D8B8, lens: 0x55CCFF, body: 0x90CCA8, cheek: 0xFF7788 },
+  thinking:  { primary: 0x88AAC0, lens: 0x7799EE, body: 0x88B0A8, cheek: 0xBBAACC },
+  sad:       { primary: 0x7A9A90, lens: 0x6688AA, body: 0x80A09A, cheek: 0xAA99AA },
+  surprised: { primary: 0x80CCB8, lens: 0xEE88CC, body: 0x90C0A8, cheek: 0xFF88AA },
+  angry:     { primary: 0xCC8878, lens: 0xFF4444, body: 0xA09888, cheek: 0xFF5555 },
+};
 
-    this.emotion     = 'idle';
-    this.action      = 'none';
-    this.blinkAmt    = 0;
-    this.blinking    = false;
-    this.blinkTimer  = 0;
-    this.blinkNext   = this._rndBlink();
-    this.pupilX      = 0; this.pupilY      = 0;
-    this.tPupilX     = 0; this.tPupilY     = 0;
-    this.bobPhase    = 0; this.bobY        = 0;
-    this.headTilt    = 0; this.headTiltTgt = 0;
+class RobotRenderer3D {
+  constructor(container) {
+    this.container = container;
+    this.emotion = 'idle';
+    this.talking = false;
+    this.action = 'none';
     this.actionTimer = 0;
-    this.talking     = false;
-    this.talkPhase   = 0;
-    this.lastTS      = 0;
+    this.blinkAmt = 0;
+    this.blinking = false;
+    this.blinkTimer = 0;
+    this.blinkNext = 3000 + Math.random() * 5000;
+    this.bobPhase = 0;
+    this.talkPhase = 0;
+    this.excitedPhase = 0;
+    this.excitedY = 0;
+    this.headTiltX = 0;
+    this.headTiltXTgt = 0;
+    this.headTiltY = 0;
+    this.headTiltYTgt = 0;
+    this.listening = false;
+    this.listenPhase = 0;
 
-    // Custom eye color (null = use emotion color)
-    this.customEyeColor = null;
+    this.idleTimer = 0;
+    this.idleWanderX = 0;
+    this.idleWanderY = 0;
+    this.idleWanderTgtX = 0;
+    this.idleWanderTgtY = 0;
+    this.nextIdleWander = 2000 + Math.random() * 4000;
+    this.idleTiltZ = 0;
+    this.idleTiltZTgt = 0;
 
-    this.resize();
-    requestAnimationFrame(this._loop.bind(this));
+    this.camAngle = Math.PI;
+    this.camPitch = 0.35;
+    this.camDist = 9;
+    this._lastDrag = null;
+
+    this.armRaiseR = 0; this.armRaiseTgtR = 0;
+    this.armRaiseL = 0; this.armRaiseTgtL = 0;
+
+    this.moveInput = { x: 0, z: 0 };
+    this.velocity = { x: 0, z: 0 };
+    this.targetRotY = Math.PI;
+
+    this._initScene();
+    this._buildRobot();
+    this.lastTS = performance.now();
+    this._animate = this._animate.bind(this);
+    requestAnimationFrame(this._animate);
   }
+
+  setEmotion(e) { this.emotion = e; }
+  setTalking(v) { this.talking = v; }
+  setAction(a) {
+    if (a === 'none') return;
+    this.action = a;
+    this.actionTimer = 0;
+    this.dancePhase = 0;
+  }
+  blink() { if (!this.blinking) { this.blinking = true; this.blinkAmt = 0; } }
+  setListening(v) { this.listening = v; }
+  setMoveDirection(x, z) { this.moveInput.x = x; this.moveInput.z = z; }
+  // Kids-specific stubs (no-op for 3D)
+  setEyeColor(hex) { /* no-op in 3D version */ }
+  gazeAt(nx, ny) { /* no-op in 3D version */ }
 
   resize() {
-    const size = Math.min(window.innerWidth * 0.82, 320);
-    this.canvas.width  = size;
-    this.canvas.height = size;
-    this.W = size; this.H = size;
-    this.CX = size/2; this.CY = size/2;
+    const w = this.container.clientWidth;
+    const h = this.container.clientHeight;
+    this.camera.aspect = w / h;
+    this.camera.updateProjectionMatrix();
+    this.renderer.setSize(w, h);
   }
 
-  setEmotion(e)       { this.emotion = e; }
-  setAction(a)        { if (a !== 'none') { this.action = a; this.actionTimer = 0; } }
-  setTalking(v)       { this.talking = v; }
-  setEyeColor(hex)    { this.customEyeColor = hex; }
-  gazeAt(nx, ny)      { this.tPupilX = nx; this.tPupilY = ny; }
+  _initScene() {
+    const w = this.container.clientWidth;
+    const h = this.container.clientHeight;
 
-  _rndBlink() { return 2000 + Math.random() * 5000; }
+    this.scene = new THREE.Scene();
+    this.scene.background = new THREE.Color(0x87CEEB);
+    this.scene.fog = new THREE.FogExp2(0x87CEEB, 0.018);
 
-  _loop(ts) {
+    this.camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 120);
+
+    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer.setSize(w, h);
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.container.appendChild(this.renderer.domElement);
+
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    this.scene.add(this.ambientLight);
+
+    this.headLight = new THREE.PointLight(0xffeecc, 1.0, 18);
+    this.headLight.castShadow = true;
+    this.scene.add(this.headLight);
+
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(5, 15, 8);
+    dirLight.castShadow = true;
+    dirLight.shadow.mapSize.set(1024, 1024);
+    dirLight.shadow.camera.near = 1;
+    dirLight.shadow.camera.far = 40;
+    dirLight.shadow.camera.left = -10;
+    dirLight.shadow.camera.right = 10;
+    dirLight.shadow.camera.top = 10;
+    dirLight.shadow.camera.bottom = -10;
+    this.scene.add(dirLight);
+
+    const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x999999, 0.5);
+    this.scene.add(hemiLight);
+
+    const grid = new THREE.GridHelper(60, 60, 0x8899AA, 0xA0AAB4);
+    grid.material.transparent = true;
+    grid.material.opacity = 0.45;
+    this.scene.add(grid);
+
+    const groundGeo = new THREE.PlaneGeometry(80, 80);
+    const groundMat = new THREE.MeshStandardMaterial({
+      color: 0x95988E, roughness: 0.90, metalness: 0.02
+    });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -0.01;
+    ground.receiveShadow = true;
+    this.scene.add(ground);
+  }
+
+  _buildRobot() {
+    this.robotGroup = new THREE.Group();
+    this.bodyPivot = new THREE.Group();
+    this.robotGroup.add(this.bodyPivot);
+
+    const bwB = 0.574, bwT = 0.406, bh = 0.364, bDepth = 0.91;
+    const bodyShape = new THREE.Shape();
+    const bcr = 0.06;
+    bodyShape.moveTo(-bwB + bcr, -bh);
+    bodyShape.lineTo(bwB - bcr, -bh);
+    bodyShape.quadraticCurveTo(bwB, -bh, bwB - 0.02, -bh + bcr);
+    bodyShape.lineTo(bwT + 0.02, bh - bcr);
+    bodyShape.quadraticCurveTo(bwT, bh, bwT - bcr, bh);
+    bodyShape.lineTo(-bwT + bcr, bh);
+    bodyShape.quadraticCurveTo(-bwT, bh, -bwT - 0.02, bh - bcr);
+    bodyShape.lineTo(-bwB + 0.02, -bh + bcr);
+    bodyShape.quadraticCurveTo(-bwB, -bh, -bwB + bcr, -bh);
+    const bodyGeo = new THREE.ExtrudeGeometry(bodyShape, {
+      depth: bDepth, bevelEnabled: true,
+      bevelThickness: 0.04, bevelSize: 0.04, bevelSegments: 2
+    });
+    bodyGeo.center();
+    this.bodyMat = new THREE.MeshStandardMaterial({
+      color: 0x8EBBA8, roughness: 0.60, metalness: 0.10,
+      emissive: 0x3A5A48, emissiveIntensity: 0.06,
+    });
+    this.bodyMesh = new THREE.Mesh(bodyGeo, this.bodyMat);
+    this.bodyMesh.position.y = 1.114;
+    this.bodyMesh.castShadow = true;
+    this.bodyPivot.add(this.bodyMesh);
+
+    const bodyEdges = new THREE.EdgesGeometry(bodyGeo, 20);
+    this.bodyLine = new THREE.LineSegments(bodyEdges,
+      new THREE.LineBasicMaterial({ color: 0xA0D0B8, transparent: true, opacity: 0.25 }));
+    this.bodyLine.position.copy(this.bodyMesh.position);
+    this.bodyPivot.add(this.bodyLine);
+
+    const hatchW = bwT * 1.3, hatchH = bh * 1.3;
+    const hatchGeo = new THREE.BoxGeometry(hatchW, hatchH, 0.05);
+    const hatchMat = new THREE.MeshStandardMaterial({
+      color: 0xC8DDD0, roughness: 0.55, metalness: 0.08
+    });
+    const hatch = new THREE.Mesh(hatchGeo, hatchMat);
+    hatch.position.set(0, 1.114, bDepth / 2 + 0.05);
+    this.bodyPivot.add(hatch);
+
+    for (const hy of [-0.15, 0.15]) {
+      const seamGeo = new THREE.BoxGeometry(hatchW * 0.92, 0.008, 0.008);
+      const seam = new THREE.Mesh(seamGeo, new THREE.MeshStandardMaterial({
+        color: 0x6A9A80, roughness: 0.6, metalness: 0.3
+      }));
+      seam.position.set(0, 1.114 + hy, bDepth / 2 + 0.076);
+      this.bodyPivot.add(seam);
+    }
+
+    const rivetMat = new THREE.MeshStandardMaterial({ color: 0xB0B4BB, roughness: 0.3, metalness: 0.8 });
+    const rivetGeo = new THREE.SphereGeometry(0.018, 6, 6);
+    const rZ = bDepth / 2 + 0.058;
+    const rivets = [
+      [-hatchW/2+0.04, bh*0.5], [hatchW/2-0.04, bh*0.5],
+      [-hatchW/2+0.04, -bh*0.5], [hatchW/2-0.04, -bh*0.5],
+      [-hatchW/2+0.04, 0], [hatchW/2-0.04, 0],
+      [0, bh*0.5], [0, -bh*0.5],
+    ];
+    for (const [rx, ry] of rivets) {
+      const r = new THREE.Mesh(rivetGeo, rivetMat);
+      r.position.set(rx, 1.114 + ry, rZ);
+      this.bodyPivot.add(r);
+    }
+
+    const hingeMat = new THREE.MeshStandardMaterial({ color: 0x9A9EA5, roughness: 0.3, metalness: 0.7 });
+    for (const hx of [-hatchW/2 + 0.05, hatchW/2 - 0.05]) {
+      const hinge = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.022, 0.022, 0.06, 8), hingeMat);
+      hinge.rotation.x = Math.PI / 2;
+      hinge.position.set(hx, 1.114 + hatchH/2 - 0.04, bDepth / 2 + 0.08);
+      this.bodyPivot.add(hinge);
+    }
+
+    for (const sx of [-1, 1]) {
+      for (let vi = 0; vi < 3; vi++) {
+        const vent = new THREE.Mesh(
+          new THREE.BoxGeometry(0.10, 0.014, 0.014),
+          new THREE.MeshStandardMaterial({ color: 0x3A4A42, roughness: 0.9, metalness: 0.1 })
+        );
+        vent.position.set(sx * (hatchW/2 + 0.12), 1.114 + (vi - 1) * 0.07, bDepth / 2 + 0.05);
+        this.bodyPivot.add(vent);
+      }
+    }
+
+    const topPlate = new THREE.Mesh(
+      new THREE.BoxGeometry(bwT * 1.75, 0.04, bDepth * 0.82),
+      new THREE.MeshStandardMaterial({ color: 0x7AAA98, roughness: 0.55, metalness: 0.15 })
+    );
+    topPlate.position.set(0, 1.114 + bh + 0.02, 0);
+    this.bodyPivot.add(topPlate);
+
+    const handleMat = new THREE.MeshStandardMaterial({ color: 0x7A9A8A, roughness: 0.4, metalness: 0.5 });
+    const handle = new THREE.Mesh(
+      new THREE.TorusGeometry(0.06, 0.015, 6, 12, Math.PI), handleMat);
+    handle.rotation.y = Math.PI / 2;
+    handle.position.set(0, 1.114 + bh + 0.10, -0.10);
+    this.bodyPivot.add(handle);
+
+    const bumper = new THREE.Mesh(
+      new THREE.BoxGeometry(bwB * 2.05, 0.06, bDepth * 0.90),
+      new THREE.MeshStandardMaterial({ color: 0x5A7A6A, roughness: 0.7, metalness: 0.20 })
+    );
+    bumper.position.set(0, 1.114 - bh - 0.01, 0);
+    this.bodyPivot.add(bumper);
+
+    const neckGeo = new THREE.CylinderGeometry(0.08, 0.10, 0.7, 8);
+    const metalMat = new THREE.MeshStandardMaterial({
+      color: 0x7A9A8A, roughness: 0.4, metalness: 0.5
+    });
+    const neck = new THREE.Mesh(neckGeo, metalMat);
+    neck.position.y = 1.958;
+    this.bodyPivot.add(neck);
+
+    const ringGeo = new THREE.TorusGeometry(0.11, 0.025, 8, 16);
+    const ring = new THREE.Mesh(ringGeo, metalMat.clone());
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 1.608;
+    this.bodyPivot.add(ring);
+
+    this.eyeUnit = new THREE.Group();
+    this.eyeUnit.position.y = 2.508;
+    this._buildEyes();
+    this.bodyPivot.add(this.eyeUnit);
+
+    this._buildArm(1);
+    this._buildArm(-1);
+
+    this.cheekLeds = [];
+    for (const sx of [-1, 1]) {
+      const cheekLed = new THREE.Mesh(
+        new THREE.SphereGeometry(0.10, 16, 16),
+        new THREE.MeshBasicMaterial({ color: 0xFFB0C0, transparent: true, opacity: 0.50 })
+      );
+      cheekLed.position.set(sx * 0.55, -0.28, 0.20);
+      this.eyeUnit.add(cheekLed);
+      this.cheekLeds.push(cheekLed);
+    }
+
+    this._buildTrack(1);
+    this._buildTrack(-1);
+
+    this.robotGroup.rotation.y = Math.PI;
+    this.scene.add(this.robotGroup);
+  }
+
+  _buildEyes() {
+    this.eyes = {};
+    const metalMat = new THREE.MeshStandardMaterial({
+      color: 0x8EBBA8, roughness: 0.30, metalness: 0.35
+    });
+
+    const headCaseGeo = new THREE.BoxGeometry(1.50, 0.80, 0.38);
+    const headCaseMat = new THREE.MeshStandardMaterial({
+      color: 0x7EAB98, roughness: 0.55, metalness: 0.12
+    });
+    const headCase = new THREE.Mesh(headCaseGeo, headCaseMat);
+    headCase.position.set(0, -0.02, -0.06);
+    headCase.castShadow = true;
+    this.eyeUnit.add(headCase);
+
+    const backPlate = new THREE.Mesh(
+      new THREE.BoxGeometry(1.44, 0.74, 0.04),
+      new THREE.MeshStandardMaterial({ color: 0x5A7A6A, roughness: 0.60, metalness: 0.15 })
+    );
+    backPlate.position.set(0, -0.02, -0.27);
+    this.eyeUnit.add(backPlate);
+
+    const topRidge = new THREE.Mesh(
+      new THREE.BoxGeometry(1.30, 0.04, 0.30),
+      new THREE.MeshStandardMaterial({ color: 0x6A9A88, roughness: 0.50, metalness: 0.20 })
+    );
+    topRidge.position.set(0, 0.38, -0.08);
+    this.eyeUnit.add(topRidge);
+
+    const bridgeGeo = new THREE.CylinderGeometry(0.06, 0.06, 0.35, 8);
+    const bridge = new THREE.Mesh(bridgeGeo, metalMat);
+    bridge.rotation.z = Math.PI / 2;
+    bridge.position.set(0, 0, 0.05);
+    this.eyeUnit.add(bridge);
+
+    for (const side of ['left', 'right']) {
+      const sign = side === 'left' ? -1 : 1;
+      const g = new THREE.Group();
+      g.position.set(sign * 0.34, 0, 0);
+
+      const tubeGeo = new THREE.CylinderGeometry(0.30, 0.33, 0.45, 64, 1, true);
+      const tubeMat = new THREE.MeshStandardMaterial({
+        color: 0x6A8A7A, roughness: 0.5, metalness: 0.20
+      });
+      const tube = new THREE.Mesh(tubeGeo, tubeMat);
+      tube.rotation.x = Math.PI / 2;
+      tube.castShadow = true;
+      g.add(tube);
+
+      const backCap = new THREE.Mesh(
+        new THREE.CircleGeometry(0.33, 64),
+        new THREE.MeshBasicMaterial({ color: 0x2A3A32 })
+      );
+      backCap.position.z = -0.225;
+      g.add(backCap);
+
+      const eyeOutline = new THREE.Mesh(
+        new THREE.CircleGeometry(0.30, 64),
+        new THREE.MeshBasicMaterial({ color: 0x3A4A44 })
+      );
+      eyeOutline.position.z = 0.220;
+      g.add(eyeOutline);
+
+      const lensBack = new THREE.Mesh(
+        new THREE.CircleGeometry(0.27, 64),
+        new THREE.MeshBasicMaterial({ color: 0xE8EDF0 })
+      );
+      lensBack.position.z = 0.222;
+      g.add(lensBack);
+
+      const irisOuter = new THREE.Mesh(
+        new THREE.CircleGeometry(0.21, 64),
+        new THREE.MeshBasicMaterial({ color: 0x2277AA })
+      );
+      irisOuter.position.z = 0.225;
+      g.add(irisOuter);
+
+      const lens = new THREE.Mesh(
+        new THREE.CircleGeometry(0.17, 64),
+        new THREE.MeshBasicMaterial({ color: 0x3399DD })
+      );
+      lens.position.z = 0.228;
+      g.add(lens);
+
+      const pupilGroup = new THREE.Group();
+      pupilGroup.position.z = 0.232;
+      const pupil = new THREE.Mesh(
+        new THREE.CircleGeometry(0.10, 32),
+        new THREE.MeshBasicMaterial({ color: 0x080818 })
+      );
+      pupilGroup.add(pupil);
+
+      const highlight = new THREE.Mesh(
+        new THREE.CircleGeometry(0.05, 16),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.95 })
+      );
+      highlight.position.set(0.06, 0.06, 0.001);
+      pupilGroup.add(highlight);
+
+      const highlight2 = new THREE.Mesh(
+        new THREE.CircleGeometry(0.025, 10),
+        new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.7 })
+      );
+      highlight2.position.set(-0.04, -0.04, 0.001);
+      pupilGroup.add(highlight2);
+
+      g.add(pupilGroup);
+
+      const lidGeo = new THREE.BoxGeometry(0.66, 0.32, 0.05);
+      const lidMat = new THREE.MeshStandardMaterial({
+        color: 0x7AA898, roughness: 0.40, metalness: 0.25
+      });
+      const eyelid = new THREE.Mesh(lidGeo, lidMat);
+      eyelid.position.set(0, 0.42, 0.16);
+      g.add(eyelid);
+
+      const lowerLid = new THREE.Mesh(lidGeo.clone(), lidMat.clone());
+      lowerLid.position.set(0, -0.42, 0.16);
+      g.add(lowerLid);
+
+      this.eyeUnit.add(g);
+      this.eyes[side] = { group: g, tube, lens, lensBack, pupil: pupilGroup, highlight, eyelid, lowerLid };
+    }
+  }
+
+  _buildArm(sideSign) {
+    const armGroup = new THREE.Group();
+    const ax = sideSign * 0.50;
+
+    const metalMat = new THREE.MeshStandardMaterial({
+      color: 0x6A8878, roughness: 0.45, metalness: 0.45
+    });
+    const jointMat = new THREE.MeshStandardMaterial({
+      color: 0x556A60, roughness: 0.35, metalness: 0.55
+    });
+    const handMat = new THREE.MeshStandardMaterial({
+      color: 0xB8CCC0, roughness: 0.40, metalness: 0.20
+    });
+
+    const bracket = new THREE.Mesh(
+      new THREE.BoxGeometry(0.22, 0.14, 0.18), metalMat);
+    bracket.position.set(ax, 1.40, 0);
+    armGroup.add(bracket);
+
+    const upperLen = 0.60;
+    const foreLen  = 0.525;
+    const shoulderTiltX = -0.7;
+    const shoulderTiltZ = sideSign * 0.25;
+    const elbowBend = -0.8;
+
+    const shoulderPivot = new THREE.Group();
+    shoulderPivot.position.set(ax + sideSign * 0.04, 1.37, 0);
+    shoulderPivot.rotation.x = shoulderTiltX;
+    shoulderPivot.rotation.z = shoulderTiltZ;
+
+    shoulderPivot.add(new THREE.Mesh(
+      new THREE.SphereGeometry(0.12, 16, 16), jointMat));
+
+    const upperCyl = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.09, 0.085, upperLen, 12), metalMat);
+    upperCyl.position.y = -upperLen / 2;
+    shoulderPivot.add(upperCyl);
+
+    const elbowPivot = new THREE.Group();
+    elbowPivot.position.y = -upperLen;
+    elbowPivot.rotation.x = elbowBend;
+
+    elbowPivot.add(new THREE.Mesh(
+      new THREE.SphereGeometry(0.10, 12, 12), jointMat));
+
+    const foreCyl = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.085, 0.07, foreLen, 12), metalMat);
+    foreCyl.position.y = -foreLen / 2;
+    elbowPivot.add(foreCyl);
+
+    const handGroup = new THREE.Group();
+    handGroup.position.y = -foreLen;
+    handGroup.rotation.x = -(shoulderTiltX + elbowBend);
+
+    handGroup.add(new THREE.Mesh(
+      new THREE.SphereGeometry(0.08, 10, 10), jointMat));
+
+    const palm = new THREE.Mesh(
+      new THREE.BoxGeometry(0.20, 0.10, 0.20), handMat);
+    palm.position.y = -0.07;
+    handGroup.add(palm);
+
+    for (const fo of [-0.06, 0, 0.06]) {
+      const finger = new THREE.Mesh(
+        new THREE.BoxGeometry(0.055, 0.08, 0.045), handMat);
+      finger.position.set(0, -0.15, fo);
+      handGroup.add(finger);
+      const tip = new THREE.Mesh(
+        new THREE.SphereGeometry(0.030, 8, 8), handMat);
+      tip.position.set(0, -0.20, fo);
+      handGroup.add(tip);
+    }
+
+    const thumb = new THREE.Mesh(
+      new THREE.BoxGeometry(0.045, 0.08, 0.05), handMat);
+    thumb.position.set(sideSign * 0.09, -0.05, 0);
+    thumb.rotation.z = sideSign * 0.5;
+    handGroup.add(thumb);
+
+    elbowPivot.add(handGroup);
+    shoulderPivot.add(elbowPivot);
+    armGroup.add(shoulderPivot);
+    this.bodyPivot.add(armGroup);
+
+    if (sideSign === 1) {
+      this.shoulderPivotR = shoulderPivot;
+      this.elbowPivotR = elbowPivot;
+      this.handGroupR = handGroup;
+    } else {
+      this.shoulderPivotL = shoulderPivot;
+      this.elbowPivotL = elbowPivot;
+      this.handGroupL = handGroup;
+    }
+  }
+
+  _updateArmPose(sideSign, raise) {
+    const pivot = sideSign === 1 ? this.shoulderPivotR : this.shoulderPivotL;
+    const elbow = sideSign === 1 ? this.elbowPivotR : this.elbowPivotL;
+    const hand  = sideSign === 1 ? this.handGroupR : this.handGroupL;
+    if (!pivot) return;
+
+    const defSX = -0.7, raiseSX = -2.8;
+    const defSZ = 0.25, raiseSZ = 0.35;
+    const defEX = -0.8, raiseEX = 0.3;
+
+    const sx = defSX + (raiseSX - defSX) * raise;
+    const sz = sideSign * (defSZ + (raiseSZ - defSZ) * raise);
+    const ex = defEX + (raiseEX - defEX) * raise;
+
+    pivot.rotation.x = sx;
+    pivot.rotation.z = sz;
+    elbow.rotation.x = ex;
+    hand.rotation.x = -(sx + ex);
+  }
+
+  _buildTrack(sideSign) {
+    const trackGroup = new THREE.Group();
+    const tx = sideSign * 0.77;
+    const trackW = 0.32;
+
+    const botHalf = 0.72;
+    const topHalf = 0.30;
+    const hH = 0.375;
+    const cr = 0.09;
+    const beltY = 0.375;
+
+    const shape = new THREE.Shape();
+    shape.moveTo(-botHalf + cr, -hH);
+    shape.lineTo(botHalf - cr, -hH);
+    shape.quadraticCurveTo(botHalf, -hH, botHalf - 0.04, -hH + cr);
+    shape.lineTo(topHalf + 0.04, hH - cr);
+    shape.quadraticCurveTo(topHalf, hH, topHalf - cr, hH);
+    shape.lineTo(-topHalf + cr, hH);
+    shape.quadraticCurveTo(-topHalf, hH, -topHalf - 0.04, hH - cr);
+    shape.lineTo(-botHalf + 0.04, -hH + cr);
+    shape.quadraticCurveTo(-botHalf, -hH, -botHalf + cr, -hH);
+
+    const beltGeo = new THREE.ExtrudeGeometry(shape, { depth: trackW, bevelEnabled: false });
+    const beltMat = new THREE.MeshStandardMaterial({
+      color: 0x3A4A42, roughness: 0.85, metalness: 0.25,
+      emissive: 0x0A1A12, emissiveIntensity: 0.08,
+    });
+    const belt = new THREE.Mesh(beltGeo, beltMat);
+    belt.rotation.y = Math.PI / 2;
+    belt.position.set(tx - trackW / 2, beltY, 0);
+    belt.castShadow = true;
+    trackGroup.add(belt);
+
+    const beltEdges = new THREE.EdgesGeometry(beltGeo);
+    const beltLine = new THREE.LineSegments(beltEdges,
+      new THREE.LineBasicMaterial({ color: 0x6AAA90, transparent: true, opacity: 0.25 }));
+    beltLine.rotation.y = Math.PI / 2;
+    beltLine.position.set(tx - trackW / 2, beltY, 0);
+    trackGroup.add(beltLine);
+
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x4A5A52, roughness: 0.50, metalness: 0.45 });
+    const hubMat = new THREE.MeshStandardMaterial({ color: 0x8EBBA8, roughness: 0.35, metalness: 0.5 });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x4A5A50, roughness: 0.5, metalness: 0.4 });
+
+    const spR = 0.17;
+    const spY = beltY + hH - spR * 0.6;
+    const spZ = -(topHalf * 0.75);
+    const sprocket = new THREE.Mesh(
+      new THREE.CylinderGeometry(spR, spR, trackW + 0.04, 20), wheelMat);
+    sprocket.rotation.z = Math.PI / 2;
+    sprocket.position.set(tx, spY, spZ);
+    trackGroup.add(sprocket);
+    const spHub = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.05, 0.05, trackW + 0.08, 8), hubMat);
+    spHub.rotation.z = Math.PI / 2;
+    spHub.position.set(tx, spY, spZ);
+    trackGroup.add(spHub);
+    const spTeeth = new THREE.Mesh(
+      new THREE.TorusGeometry(spR + 0.01, 0.015, 6, 20), darkMat);
+    spTeeth.position.set(tx, spY, spZ);
+    trackGroup.add(spTeeth);
+    for (let a = 0; a < 3; a++) {
+      const angle = (a / 3) * Math.PI;
+      const spokeGeo = new THREE.BoxGeometry(trackW * 0.6, 0.025, spR * 1.6);
+      const spoke = new THREE.Mesh(spokeGeo, hubMat);
+      spoke.position.set(tx, spY, spZ);
+      spoke.rotation.x = angle;
+      trackGroup.add(spoke);
+    }
+
+    const idR = 0.13;
+    const idY = beltY + hH - idR * 0.55;
+    const idZ = topHalf * 0.75;
+    const idler = new THREE.Mesh(
+      new THREE.CylinderGeometry(idR, idR, trackW + 0.02, 16), wheelMat);
+    idler.rotation.z = Math.PI / 2;
+    idler.position.set(tx, idY, idZ);
+    trackGroup.add(idler);
+    const idHub = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.04, trackW + 0.06, 8), hubMat);
+    idHub.rotation.z = Math.PI / 2;
+    idHub.position.set(tx, idY, idZ);
+    trackGroup.add(idHub);
+
+    const rwR = 0.11;
+    const rwCount = 4;
+    const rwSpan = botHalf * 1.4;
+    for (let i = 0; i < rwCount; i++) {
+      const frac = (i + 0.5) / rwCount;
+      const rwZ = -rwSpan / 2 + frac * rwSpan;
+      const rwY = beltY - hH + rwR + 0.015;
+      const rw = new THREE.Mesh(
+        new THREE.CylinderGeometry(rwR, rwR, trackW + 0.02, 14), wheelMat);
+      rw.rotation.z = Math.PI / 2;
+      rw.position.set(tx, rwY, rwZ);
+      trackGroup.add(rw);
+      const rwHub = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.03, 0.03, trackW + 0.06, 6), hubMat);
+      rwHub.rotation.z = Math.PI / 2;
+      rwHub.position.set(tx, rwY, rwZ);
+      trackGroup.add(rwHub);
+    }
+
+    const rrR = 0.045;
+    for (const rrZ of [-0.06, 0.06]) {
+      const rr = new THREE.Mesh(
+        new THREE.CylinderGeometry(rrR, rrR, trackW - 0.04, 8), darkMat);
+      rr.rotation.z = Math.PI / 2;
+      rr.position.set(tx, beltY + hH + rrR * 0.3, rrZ);
+      trackGroup.add(rr);
+    }
+
+    const linkMat = new THREE.MeshStandardMaterial({ color: 0x3A4A42, roughness: 0.9, metalness: 0.3 });
+    const linkCount = 14;
+    for (let i = 0; i < linkCount; i++) {
+      const frac = (i + 0.5) / linkCount;
+      const lz = -botHalf * 0.92 + frac * botHalf * 1.84;
+      const link = new THREE.Mesh(
+        new THREE.BoxGeometry(trackW + 0.06, 0.032, 0.055), linkMat);
+      link.position.set(tx, beltY - hH - 0.016, lz);
+      trackGroup.add(link);
+    }
+
+    const armMat = new THREE.MeshStandardMaterial({ color: 0x5A7A6A, roughness: 0.5, metalness: 0.45 });
+    for (let i = 0; i < rwCount; i++) {
+      const frac = (i + 0.5) / rwCount;
+      const aZ = -rwSpan / 2 + frac * rwSpan;
+      const aY1 = beltY - hH + rwR + 0.015;
+      const aY2 = beltY + 0.10;
+      const armLen = aY2 - aY1;
+      const arm = new THREE.Mesh(
+        new THREE.BoxGeometry(0.022, armLen, 0.022), armMat);
+      arm.position.set(tx, (aY1 + aY2) / 2, aZ);
+      trackGroup.add(arm);
+    }
+
+    const outerX = tx + sideSign * (trackW / 2 + 0.005);
+    for (let i = 0; i < 16; i++) {
+      const frac = i / 16;
+      const tz = -botHalf * 0.88 + frac * botHalf * 1.76;
+      const pts = [
+        new THREE.Vector3(outerX, beltY - hH + 0.03, tz),
+        new THREE.Vector3(outerX, beltY + hH - 0.03, tz)
+      ];
+      const lg = new THREE.BufferGeometry().setFromPoints(pts);
+      trackGroup.add(new THREE.Line(lg,
+        new THREE.LineBasicMaterial({ color: 0x5A7A6A, transparent: true, opacity: 0.2 })));
+    }
+
+    this.bodyPivot.add(trackGroup);
+  }
+
+  _rndBlink() {
+    const rates = {
+      idle: [3000, 5000], happy: [1800, 3500], excited: [1200, 2500],
+      thinking: [5000, 9000], sad: [4000, 8000], surprised: [7000, 12000], angry: [1500, 3000],
+    };
+    const [min, range] = rates[this.emotion] || [3000, 5000];
+    return min + Math.random() * range;
+  }
+
+  _animate(ts) {
     const dt = Math.min(0.05, (ts - this.lastTS) / 1000);
     this.lastTS = ts;
     this._update(dt);
-    this._render();
-    requestAnimationFrame(this._loop.bind(this));
+    this._updateEyes();
+    this._updateColors();
+    this._updateCamera();
+    this.renderer.render(this.scene, this.camera);
+    requestAnimationFrame(this._animate);
   }
 
   _update(dt) {
-    const lerp = 1 - Math.exp(-9 * dt);
-    this.pupilX += (this.tPupilX - this.pupilX) * lerp;
-    this.pupilY += (this.tPupilY - this.pupilY) * lerp;
+    const isSleep = this.emotion === 'sleep';
+    const lerp = 1 - Math.exp(-8 * dt);
 
-    this.bobPhase += dt * (this.talking ? 4 : 1.4);
-    this.bobY = Math.sin(this.bobPhase) * (this.W * 0.014);
+    const bobSpeed = isSleep ? 0.5 : this.talking ? 4.0 : 1.2;
+    const bobAmp = isSleep ? 0.02 : 0.04;
+    this.bobPhase += dt * bobSpeed;
+    this.bodyPivot.position.y = Math.max(0, Math.sin(this.bobPhase) * bobAmp);
 
-    this.blinkTimer += dt * 1000;
-    if (!this.blinking && this.blinkTimer > this.blinkNext) {
-      this.blinking = true; this.blinkAmt = 0;
-      this.blinkTimer = 0; this.blinkNext = this._rndBlink();
-    }
-    if (this.blinking) {
-      this.blinkAmt += dt * 10;
-      if (this.blinkAmt >= 1) { this.blinkAmt = 1; this.blinking = false; }
+    if (this.emotion === 'excited') {
+      this.excitedPhase += dt * 7.5;
+      this.excitedY = Math.abs(Math.sin(this.excitedPhase)) * 0.12;
     } else {
-      this.blinkAmt = Math.max(0, this.blinkAmt - dt * 10);
+      this.excitedPhase = 0;
+      this.excitedY += (0 - this.excitedY) * Math.min(1, dt * 10);
+    }
+    this.bodyPivot.position.y += this.excitedY;
+
+    if (!isSleep) {
+      this.blinkTimer += dt * 1000;
+      if (!this.blinking && this.blinkTimer > this.blinkNext) {
+        this.blinking = true; this.blinkAmt = 0;
+        this.blinkTimer = 0; this.blinkNext = this._rndBlink();
+      }
+      if (this.blinking) {
+        this.blinkAmt += dt * 12;
+        if (this.blinkAmt >= 1) { this.blinkAmt = 1; this.blinking = false; }
+      } else {
+        this.blinkAmt = Math.max(0, this.blinkAmt - dt * 12);
+      }
+    } else {
+      this.blinkAmt = 0;
     }
 
     if (this.action !== 'none') {
       this.actionTimer += dt;
       if (this.action === 'nod') {
-        this.headTiltTgt = Math.sin(this.actionTimer * Math.PI / 0.3) * 0.14;
-        if (this.actionTimer > 0.7) { this.action = 'none'; this.headTiltTgt = 0; }
+        this.headTiltXTgt = Math.sin(this.actionTimer * Math.PI / 0.3) * 0.15;
+        if (this.actionTimer > 0.7) { this.action = 'none'; this.headTiltXTgt = 0; }
       } else if (this.action === 'shake') {
-        this.headTiltTgt = Math.sin(this.actionTimer * Math.PI * 3.2) * 0.1;
-        if (this.actionTimer > 0.9) { this.action = 'none'; this.headTiltTgt = 0; }
+        this.headTiltYTgt = Math.sin(this.actionTimer * Math.PI * 3) * 0.12;
+        if (this.actionTimer > 0.9) { this.action = 'none'; this.headTiltYTgt = 0; }
+      } else if (this.action === 'forward') {
+        const ry = this.robotGroup.rotation.y;
+        this.robotGroup.position.x += Math.sin(ry) * 2.5 * dt;
+        this.robotGroup.position.z += Math.cos(ry) * 2.5 * dt;
+        if (this.actionTimer > 1.8) { this.action = 'none'; }
+      } else if (this.action === 'backward') {
+        const ry = this.robotGroup.rotation.y;
+        this.robotGroup.position.x -= Math.sin(ry) * 2.0 * dt;
+        this.robotGroup.position.z -= Math.cos(ry) * 2.0 * dt;
+        if (this.actionTimer > 1.5) { this.action = 'none'; }
+      } else if (this.action === 'turn_right') {
+        this.targetRotY -= dt * 3.0;
+        if (this.actionTimer > 0.6) { this.action = 'none'; }
+      } else if (this.action === 'turn_left') {
+        this.targetRotY += dt * 3.0;
+        if (this.actionTimer > 0.6) { this.action = 'none'; }
+      } else if (this.action === 'turn_around') {
+        this.targetRotY += dt * 3.5;
+        if (this.actionTimer > 1.0) { this.action = 'none'; }
+      } else if (this.action === 'spin') {
+        this.targetRotY += dt * 8.0;
+        this.bodyPivot.position.y = Math.abs(Math.sin(this.actionTimer * 6)) * 0.10;
+        if (this.actionTimer > 2.5) { this.action = 'none'; }
+      } else if (this.action === 'dance') {
+        this.dancePhase = (this.dancePhase || 0) + dt;
+        const dp = this.dancePhase;
+        this.bodyPivot.position.y = Math.abs(Math.sin(dp * 5)) * 0.15;
+        this.bodyPivot.position.x = Math.sin(dp * 3) * 0.12;
+        this.headTiltXTgt = Math.sin(dp * 4) * 0.12;
+        this.headTiltYTgt = Math.cos(dp * 3) * 0.10;
+        this.targetRotY += Math.sin(dp * 2) * dt * 1.5;
+        if (this.actionTimer > 4.0) {
+          this.action = 'none';
+          this.headTiltXTgt = 0; this.headTiltYTgt = 0;
+          this.bodyPivot.position.x = 0;
+        }
+      } else if (this.action === 'look_up') {
+        this.headTiltXTgt = -0.30;
+        if (this.actionTimer > 2.5) { this.action = 'none'; this.headTiltXTgt = 0; }
+      } else if (this.action === 'look_down') {
+        this.headTiltXTgt = 0.30;
+        if (this.actionTimer > 2.5) { this.action = 'none'; this.headTiltXTgt = 0; }
+      } else if (this.action === 'look_right') {
+        this.headTiltYTgt = 0.40;
+        if (this.actionTimer > 2.5) { this.action = 'none'; this.headTiltYTgt = 0; }
+      } else if (this.action === 'look_left') {
+        this.headTiltYTgt = -0.40;
+        if (this.actionTimer > 2.5) { this.action = 'none'; this.headTiltYTgt = 0; }
+      } else if (this.action === 'raise_right') {
+        this.armRaiseTgtL = 1;
+        if (this.actionTimer > 3.0) { this.action = 'none'; this.armRaiseTgtL = 0; }
+      } else if (this.action === 'raise_left') {
+        this.armRaiseTgtR = 1;
+        if (this.actionTimer > 3.0) { this.action = 'none'; this.armRaiseTgtR = 0; }
+      } else if (this.action === 'raise_both') {
+        this.armRaiseTgtR = 1; this.armRaiseTgtL = 1;
+        if (this.actionTimer > 3.0) { this.action = 'none'; this.armRaiseTgtR = 0; this.armRaiseTgtL = 0; }
+      } else if (this.action === 'jump') {
+        const jt = this.actionTimer;
+        if (jt < 0.4) {
+          this.bodyPivot.position.y = Math.sin(jt / 0.4 * Math.PI) * 0.5;
+        } else if (jt < 0.8) {
+          this.bodyPivot.position.y = Math.sin((jt - 0.4) / 0.4 * Math.PI) * 0.35;
+        } else if (jt < 1.1) {
+          this.bodyPivot.position.y = Math.sin((jt - 0.8) / 0.3 * Math.PI) * 0.15;
+        }
+        if (this.actionTimer > 1.2) { this.action = 'none'; }
       }
     }
-    this.headTilt += (this.headTiltTgt - this.headTilt) * lerp;
-    if (this.talking) this.talkPhase += dt * 12;
+    this.headTiltX += (this.headTiltXTgt - this.headTiltX) * lerp;
+    this.headTiltY += (this.headTiltYTgt - this.headTiltY) * lerp;
+    this.eyeUnit.rotation.x = this.headTiltX;
+    this.eyeUnit.rotation.y = this.headTiltY;
+
+    this.armRaiseR += (this.armRaiseTgtR - this.armRaiseR) * lerp;
+    this.armRaiseL += (this.armRaiseTgtL - this.armRaiseL) * lerp;
+    this._updateArmPose(1, this.armRaiseR);
+    this._updateArmPose(-1, this.armRaiseL);
+
+    if (!isSleep && this.action === 'none' && !this.talking) {
+      this.idleTimer += dt * 1000;
+      if (this.idleTimer > this.nextIdleWander) {
+        this.idleTimer = 0;
+        this.nextIdleWander = 2000 + Math.random() * 5000;
+        this.idleWanderTgtX = (Math.random() - 0.5) * 0.08;
+        this.idleWanderTgtY = (Math.random() - 0.5) * 0.06;
+      }
+      this.idleWanderX += (this.idleWanderTgtX - this.idleWanderX) * lerp * 0.3;
+      this.idleWanderY += (this.idleWanderTgtY - this.idleWanderY) * lerp * 0.3;
+    } else {
+      this.idleWanderX *= 0.95; this.idleWanderY *= 0.95;
+    }
+    this.eyeUnit.rotation.z = 0;
+
+    if (this.talking) this.talkPhase += dt * 10;
+    if (this.listening) this.listenPhase += dt * 8;
+
+    const ca = this.camAngle;
+    const fwd = [-Math.sin(ca), -Math.cos(ca)];
+    const rgt = [Math.cos(ca), -Math.sin(ca)];
+    const wx = this.moveInput.x * rgt[0] + this.moveInput.z * fwd[0];
+    const wz = this.moveInput.x * rgt[1] + this.moveInput.z * fwd[1];
+
+    const speed = 4.0;
+    const accel = 12.0;
+    const friction = 8.0;
+
+    if (Math.abs(this.moveInput.x) > 0.01 || Math.abs(this.moveInput.z) > 0.01) {
+      this.velocity.x += (wx * speed - this.velocity.x) * Math.min(1, accel * dt);
+      this.velocity.z += (wz * speed - this.velocity.z) * Math.min(1, accel * dt);
+      this.targetRotY = Math.atan2(wx, wz) + Math.PI;
+    } else {
+      this.velocity.x += (0 - this.velocity.x) * Math.min(1, friction * dt);
+      this.velocity.z += (0 - this.velocity.z) * Math.min(1, friction * dt);
+    }
+
+    this.robotGroup.position.x += this.velocity.x * dt;
+    this.robotGroup.position.z += this.velocity.z * dt;
+
+    let angleDiff = this.targetRotY - this.robotGroup.rotation.y;
+    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+    this.robotGroup.rotation.y += angleDiff * (1 - Math.exp(-10 * dt));
   }
 
-  _render() {
-    const ctx = this.ctx;
-    const { W, CX, CY, bobY, headTilt } = this;
+  _updateEyes() {
+    const em = this.emotion;
+    let lidClose = this.blinkAmt * 0.95;
 
-    ctx.clearRect(0, 0, W, W);
+    if (em === 'sleep') lidClose = 0.95;
+    else if (em === 'sad') lidClose = Math.max(lidClose, 0.35);
+    else if (em === 'happy') lidClose = Math.max(lidClose, 0.25);
+    else if (em === 'angry') lidClose = Math.max(lidClose, 0.5);
 
-    ctx.save();
-    ctx.translate(CX, CY + bobY);
-    ctx.rotate(headTilt);
-    ctx.translate(-CX, -(CY + bobY));
+    for (const [side, eye] of Object.entries(this.eyes)) {
+      const isRight = side === 'right';
 
-    this._drawHead(ctx, CX, CY + bobY);
-    this._drawEyes(ctx, CX, CY + bobY);
-    this._drawAntenna(ctx, CX, CY + bobY);
-    if (this.talking) this._drawMouth(ctx, CX, CY + bobY);
-    ctx.restore();
-  }
+      const openY = 0.42;
+      const closedY = 0.08;
+      const upperY = openY - lidClose * (openY - closedY);
+      eye.eyelid.position.y = upperY;
 
-  _emotionColors() {
-    const map = {
-      idle:      { border:'#66aaff', halo:'rgba(80,140,255,.1)',  iris1:'#55aaff', iris2:'#113388' },
-      happy:     { border:'#44ffaa', halo:'rgba(60,255,160,.1)',  iris1:'#33ffbb', iris2:'#115533' },
-      excited:   { border:'#ffee00', halo:'rgba(255,230,0,.12)',  iris1:'#ffee44', iris2:'#664400' },
-      thinking:  { border:'#aa88ff', halo:'rgba(160,120,255,.1)', iris1:'#bb99ff', iris2:'#332266' },
-      sad:       { border:'#5599ee', halo:'rgba(60,120,220,.08)', iris1:'#6699dd', iris2:'#112244' },
-      surprised: { border:'#ff9900', halo:'rgba(255,150,0,.1)',   iris1:'#ffaa22', iris2:'#553300' },
-    };
-    return map[this.emotion] ?? map.idle;
-  }
+      const lowerOpenY = -0.42;
+      const lowerClosedY = -0.08;
+      const lowerY = lowerOpenY + lidClose * (lowerClosedY - lowerOpenY) * 0.25;
+      eye.lowerLid.position.y = lowerY;
 
-  _drawHead(ctx, cx, cy) {
-    const r = this.W * 0.41;
-    const ec = this._emotionColors();
+      if (em === 'angry') {
+        eye.eyelid.rotation.z = isRight ? 0.25 : -0.25;
+      } else if (em === 'sad') {
+        eye.eyelid.rotation.z = isRight ? -0.2 : 0.2;
+      } else {
+        eye.eyelid.rotation.z = 0;
+      }
 
-    // Glow
-    const grd = ctx.createRadialGradient(cx, cy, r*.6, cx, cy, r*1.2);
-    grd.addColorStop(0, ec.halo); grd.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.beginPath(); ctx.arc(cx, cy, r*1.2, 0, Math.PI*2);
-    ctx.fillStyle = grd; ctx.fill();
+      const gazeX = this.idleWanderX * 0.8;
+      const gazeY = this.idleWanderY * 0.6;
+      eye.pupil.position.x = gazeX;
+      eye.pupil.position.y = gazeY;
 
-    // Body
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
-    const bg = ctx.createRadialGradient(cx - r*.2, cy - r*.2, 0, cx, cy, r);
-    bg.addColorStop(0, '#1a2a44'); bg.addColorStop(1, '#050d1e');
-    ctx.fillStyle = bg;
-    ctx.shadowColor = ec.border; ctx.shadowBlur = 22;
-    ctx.fill(); ctx.shadowBlur = 0;
+      eye.lens.visible = true;
+      eye.lensBack.visible = true;
+      eye.pupil.visible = lidClose < 0.85;
 
-    // Border
-    ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI*2);
-    ctx.strokeStyle = ec.border; ctx.lineWidth = 2.5;
-    ctx.shadowColor = ec.border; ctx.shadowBlur = 14;
-    ctx.stroke(); ctx.shadowBlur = 0;
-  }
-
-  _drawEyes(ctx, cx, cy) {
-    const sp   = this.W * 0.21;
-    const eyeY = cy - this.W * 0.04;
-    const eyeR = this.W * 0.148;
-
-    const scaleMap = {
-      idle:0.95, happy:0.75, excited:1.2, thinking:0.68,
-      sad:0.8, surprised:1.25
-    };
-    const eyeSY = scaleMap[this.emotion] ?? 1;
-    const blink  = 1 - this.blinkAmt * 0.98;
-    const finalSY = eyeSY * blink;
-
-    this._drawOneEye(ctx, cx - sp, eyeY, eyeR, finalSY);
-    this._drawOneEye(ctx, cx + sp, eyeY, eyeR, finalSY);
-
-    if (this.emotion === 'thinking') this._drawBrows(ctx, cx, eyeY, sp, eyeR);
-    if (this.emotion === 'happy' || this.emotion === 'excited') this._drawCheeks(ctx, cx, eyeY, sp, eyeR);
-  }
-
-  _drawOneEye(ctx, x, y, r, scY) {
-    const ec = this._emotionColors();
-
-    ctx.save();
-    ctx.translate(x, y); ctx.scale(1, scY); ctx.translate(-x, -y);
-
-    // White
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
-    ctx.fillStyle = '#ddf0ff';
-    ctx.shadowColor = ec.border; ctx.shadowBlur = 8;
-    ctx.fill(); ctx.shadowBlur = 0;
-
-    // Clip
-    ctx.save();
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2); ctx.clip();
-
-    const ir  = r * 0.62;
-    const pOff = r * 0.22;
-    const px = x + (this.emotion === 'thinking' ? -pOff*.5 : this.pupilX * pOff);
-    const py = y + (this.emotion === 'sad' ? pOff*.3 :
-                    this.emotion === 'thinking' ? -pOff*.3 : this.pupilY * pOff);
-
-    // Iris — use custom color if set
-    const iris1 = this.customEyeColor || ec.iris1;
-    const iris2 = this.customEyeColor ? this._darken(this.customEyeColor) : ec.iris2;
-
-    const ig = ctx.createRadialGradient(px - ir*.2, py - ir*.2, 0, px, py, ir);
-    ig.addColorStop(0, iris1);
-    ig.addColorStop(1, iris2);
-    ctx.beginPath(); ctx.arc(px, py, ir, 0, Math.PI*2);
-    ctx.fillStyle = ig;
-    ctx.shadowColor = iris1; ctx.shadowBlur = 10;
-    ctx.fill(); ctx.shadowBlur = 0;
-
-    // Pupil
-    const pr = ir * 0.4;
-    ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI*2);
-    ctx.fillStyle = '#00080e'; ctx.fill();
-
-    // Highlights
-    ctx.beginPath(); ctx.arc(px - pr*.38, py - pr*.38, pr*.3, 0, Math.PI*2);
-    ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(px + pr*.2, py - pr*.1, pr*.14, 0, Math.PI*2);
-    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.fill();
-
-    // Excited sparkles
-    if (this.emotion === 'excited') {
-      for (let i=0; i<4; i++) {
-        const a = (i/4)*Math.PI*2 + this.bobPhase * 2;
-        ctx.beginPath();
-        ctx.arc(px + Math.cos(a)*ir*.8, py + Math.sin(a)*ir*.8, 2.5, 0, Math.PI*2);
-        ctx.fillStyle = `rgba(255,240,80,${.6 + Math.sin(this.bobPhase*5+i)*.3})`;
-        ctx.fill();
+      if (em === 'thinking' && !isRight) {
+        eye.eyelid.position.y = openY - 0.5 * (openY - closedY);
+      }
+      if (em === 'excited') {
+        eye.eyelid.position.y = Math.min(eye.eyelid.position.y + 0.05, openY + 0.06);
+      }
+      if (em === 'surprised') {
+        eye.eyelid.position.y = openY + 0.06;
+        eye.lowerLid.position.y = lowerOpenY - 0.03;
       }
     }
 
-    ctx.restore(); // unclip
+    if (em === 'sad') {
+      this.eyeUnit.rotation.x += (-0.1 - this.eyeUnit.rotation.x) * 0.05;
+    } else if (em === 'happy') {
+      this.eyeUnit.rotation.x += (0.06 - this.eyeUnit.rotation.x) * 0.05;
+    }
+  }
 
-    // Happy squish line
-    if (this.emotion === 'happy') {
-      ctx.beginPath();
-      ctx.ellipse(x, y + r*.9, r*.88, r*.35, 0, 0, Math.PI);
-      ctx.fillStyle = '#ddf0ff'; ctx.fill();
+  _updateColors() {
+    const col = EMOTION_COLORS[this.emotion] || EMOTION_COLORS.idle;
+    const primary = new THREE.Color(col.primary);
+    const lensCol = new THREE.Color(col.lens);
+    const bodyCol = new THREE.Color(col.body);
+    const cheekCol = new THREE.Color(col.cheek);
+
+    this.headLight.color.copy(primary);
+    this.headLight.position.set(
+      this.robotGroup.position.x,
+      this.robotGroup.position.y + 3.5,
+      this.robotGroup.position.z
+    );
+
+    let intensity = this.emotion === 'sleep' ? 0.4 : 1.5;
+    if (this.listening) {
+      intensity += Math.sin(this.listenPhase) * 0.5;
+    }
+    this.headLight.intensity = intensity;
+
+    this.bodyMat.color.copy(bodyCol);
+    this.bodyLine.material.color.copy(primary);
+
+    for (const eye of Object.values(this.eyes)) {
+      eye.lens.material.color.copy(lensCol);
     }
 
-    ctx.restore(); // unscale
-  }
-
-  _drawBrows(ctx, cx, cy, sp, r) {
-    const browY = cy - r * 1.38;
-    const draw = (bx, ang) => {
-      ctx.save(); ctx.translate(bx, browY); ctx.rotate(ang);
-      ctx.beginPath(); ctx.moveTo(-r*.65, 0); ctx.lineTo(r*.65, 0);
-      ctx.strokeStyle = '#aabbff'; ctx.lineWidth = 4; ctx.lineCap = 'round';
-      ctx.shadowColor = '#aabbff'; ctx.shadowBlur = 5;
-      ctx.stroke(); ctx.shadowBlur = 0; ctx.restore();
-    };
-    draw(cx - sp, -0.2); draw(cx + sp, 0.3);
-  }
-
-  _drawCheeks(ctx, cx, cy, sp, r) {
-    const pulse = .25 + Math.sin(this.bobPhase*2)*.06;
-    [cx - sp*1.35, cx + sp*1.35].forEach(bx => {
-      ctx.beginPath();
-      ctx.ellipse(bx, cy + r*.85, r*.55, r*.24, 0, 0, Math.PI*2);
-      ctx.fillStyle = `rgba(255,100,160,${pulse})`; ctx.fill();
+    const isSleep = this.emotion === 'sleep';
+    const isHappy = this.emotion === 'happy' || this.emotion === 'excited';
+    this.cheekLeds.forEach(led => {
+      led.material.color.copy(cheekCol);
+      const baseOp = isSleep ? 0.10 : isHappy ? 0.60 : 0.40;
+      led.material.opacity = baseOp + Math.sin(this.bobPhase * 2) * 0.12;
     });
   }
 
-  _drawAntenna(ctx, cx, cy) {
-    const r    = this.W * 0.41;
-    const topY = cy - r;
-    const tipY = topY - this.W * 0.14;
-    const ec   = this._emotionColors();
-    const p    = .6 + Math.sin(this.bobPhase * 3.5) * .4;
+  _updateCamera() {
+    const rx = this.robotGroup.position.x;
+    const ry = this.robotGroup.position.y;
+    const rz = this.robotGroup.position.z;
 
-    ctx.beginPath(); ctx.moveTo(cx, topY); ctx.lineTo(cx, tipY);
-    ctx.strokeStyle = 'rgba(100,170,255,.5)'; ctx.lineWidth = 3;
-    ctx.shadowColor = ec.border; ctx.shadowBlur = 6; ctx.stroke(); ctx.shadowBlur = 0;
+    const cx = rx + this.camDist * Math.sin(this.camAngle) * Math.cos(this.camPitch);
+    const cy = ry + this.camDist * Math.sin(this.camPitch) + 1.2;
+    const cz = rz + this.camDist * Math.cos(this.camAngle) * Math.cos(this.camPitch);
 
-    // Ball
-    ctx.beginPath(); ctx.arc(cx, tipY, this.W * 0.028, 0, Math.PI*2);
-    ctx.fillStyle = ec.border.replace(')', `,${p})`).replace('#', 'rgba(') || ec.border;
-    ctx.shadowColor = ec.border; ctx.shadowBlur = 18 * p;
-    // Direct RGBA color for the antenna ball
-    const bR = parseInt(ec.border.slice(1,3),16);
-    const bG = parseInt(ec.border.slice(3,5),16);
-    const bB = parseInt(ec.border.slice(5,7),16);
-    ctx.fillStyle = `rgba(${bR},${bG},${bB},${p})`;
-    ctx.fill(); ctx.shadowBlur = 0;
-  }
-
-  _drawMouth(ctx, cx, cy) {
-    const r  = this.W * 0.41;
-    const my = cy + r * .48;
-    const mw = r * .3;
-    const op = (Math.sin(this.talkPhase) * .5 + .5) * .4 + .06;
-    ctx.beginPath();
-    ctx.ellipse(cx, my, mw, r * op, 0, 0, Math.PI*2);
-    ctx.fillStyle = '#000d1a'; ctx.fill();
-    ctx.strokeStyle = 'rgba(100,180,255,.3)'; ctx.lineWidth = 1.5; ctx.stroke();
-  }
-
-  _darken(hex, amt = .45) {
-    const r = parseInt(hex.slice(1,3), 16);
-    const g = parseInt(hex.slice(3,5), 16);
-    const b = parseInt(hex.slice(5,7), 16);
-    return `rgb(${Math.round(r*(1-amt))},${Math.round(g*(1-amt))},${Math.round(b*(1-amt))})`;
+    this.camera.position.lerp(new THREE.Vector3(cx, cy, cz), 0.06);
+    const lookAt = new THREE.Vector3(rx, ry + 1.6, rz);
+    this.camera.lookAt(lookAt);
   }
 }
 
@@ -801,7 +1498,7 @@ class KidsRobotRenderer {
 // ════════════════════════════════════════════════
 // APP STATE & CONTROLLERS
 // ════════════════════════════════════════════════
-const robotCanvas = document.getElementById('robot-canvas');
+const robotContainer = document.getElementById('robot-container');
 const bubble      = document.getElementById('speech-bubble');
 const bubText     = document.getElementById('bubble-text');
 const textInput   = document.getElementById('text-input');
@@ -813,7 +1510,7 @@ const nameDisplay = document.getElementById('robot-name-display');
 const namePanel   = document.getElementById('name-panel');
 const nameInput   = document.getElementById('name-input');
 
-const robot = new KidsRobotRenderer(robotCanvas);
+const robot = new RobotRenderer3D(robotContainer);
 
 let isBusy     = false;
 let robotName  = '秋山さん';
@@ -850,21 +1547,6 @@ COLORS.forEach((c, i) => {
 });
 // Set default eye color
 robot.setEyeColor(COLORS[0].hex);
-
-// ── Gaze tracking ────────────────────────────
-function updateGaze(cx, cy) {
-  const r  = robotCanvas.getBoundingClientRect();
-  const ox = r.left + r.width/2;
-  const oy = r.top  + r.height/2;
-  const dx = cx - ox, dy = cy - oy;
-  const d  = Math.sqrt(dx*dx + dy*dy) || 1;
-  const str = Math.min(1, d / (r.width * .6));
-  robot.gazeAt((dx/d)*str, (dy/d)*str);
-}
-document.addEventListener('mousemove', e => updateGaze(e.clientX, e.clientY));
-document.addEventListener('touchmove', e => {
-  updateGaze(e.touches[0].clientX, e.touches[0].clientY);
-}, { passive: true });
 
 window.addEventListener('resize', () => robot.resize());
 
@@ -979,7 +1661,7 @@ async function sendMessage(text) {
 
     // Confetti for excited/happy
     if (['excited', 'happy'].includes(data.emotion)) {
-      const r = robotCanvas.getBoundingClientRect();
+      const r = robotContainer.getBoundingClientRect();
       spawnConfetti(r, 18);
     }
 
@@ -1031,7 +1713,7 @@ async function setName() {
     const msg = `かしこまりました。${robotName}としてお仕えいたします。`;
     showBubble(msg); speak(msg);
     // Big confetti!
-    const r = robotCanvas.getBoundingClientRect();
+    const r = robotContainer.getBoundingClientRect();
     spawnConfetti(r, 32);
   } catch { /* ignore */ }
 }
@@ -1043,7 +1725,7 @@ function triggerEmotion(em, msg) {
   showBubble(msg);
   speak(msg);
   if (['excited', 'happy', 'surprised'].includes(em)) {
-    const r = robotCanvas.getBoundingClientRect();
+    const r = robotContainer.getBoundingClientRect();
     spawnConfetti(r, 14);
   }
 }
@@ -1183,7 +1865,7 @@ if (SR) {
 }
 
 // ── Canvas interactions ───────────────────────
-robotCanvas.addEventListener('click', () => {
+robotContainer.addEventListener('click', () => {
   robot.blink?.();
   const msgs = [
     'なあに？よんだ？',
@@ -1194,15 +1876,15 @@ robotCanvas.addEventListener('click', () => {
   const m = msgs[Math.floor(Math.random() * msgs.length)];
   robot.setEmotion('happy');
   showBubble(m); speak(m);
-  const r = robotCanvas.getBoundingClientRect();
+  const r = robotContainer.getBoundingClientRect();
   spawnConfetti(r, 8);
 });
 
-robotCanvas.addEventListener('dblclick', () => {
+robotContainer.addEventListener('dblclick', () => {
   robot.setEmotion('surprised');
   const m = 'わあ！ふたかいもさわった！びっくりしたよ！';
   showBubble(m); speak(m);
-  const r = robotCanvas.getBoundingClientRect();
+  const r = robotContainer.getBoundingClientRect();
   spawnConfetti(r, 22);
 });
 
@@ -1234,7 +1916,7 @@ async function initGreeting() {
     showBubble(data.message);
     setTimeout(() => {
       speak(data.message);
-      const r = robotCanvas.getBoundingClientRect();
+      const r = robotContainer.getBoundingClientRect();
       spawnConfetti(r, 20);
     }, 600);
   } catch {
