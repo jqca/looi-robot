@@ -1651,6 +1651,18 @@ async function sendMessage(text) {
     return;
   }
 
+  // ── ニュースパネルを閉じる ──
+  const CLOSE_RE = /閉じ|とじて|とじる|クローズ|close/i;
+  if (CLOSE_RE.test(text) && newsPanel.classList.contains('open')) {
+    newsPanel.classList.remove('open');
+    isBusy = true; robot.setEmotion('happy'); setStatus('speaking');
+    speak('かしこまりました。', () => {
+      isBusy = false; resetSleepTimer(); resetProactiveTimer();
+      setTimeout(() => startListening(), 1200);
+    });
+    return;
+  }
+
   // ── ニュースリクエスト検出 ──
   if (detectNewsRequest(text)) {
     isBusy = true; setStatus('thinking'); robot.setEmotion('excited');
