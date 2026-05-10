@@ -1739,11 +1739,11 @@ function detectActionFromText(text) {
   if (/右.*回|turn.?right/.test(t)) return 'turn_right';
   if (/左.*回|turn.?left/.test(t)) return 'turn_left';
   if (/回って|回転/.test(t)) return 'spin';
-  // ── Arm raise ──
-  if (/両手.*挙|両手.*上|両腕.*挙|両腕.*上|万歳|ばんざい|raise.?both/.test(t)) return 'raise_both';
-  if (/右手.*挙|右手.*上|右腕.*挙|右腕.*上|raise.?right/.test(t)) return 'raise_right';
-  if (/左手.*挙|左手.*上|左腕.*挙|左腕.*上|raise.?left/.test(t)) return 'raise_left';
-  if (/手.*挙|手.*上げ/.test(t)) return 'raise_both';
+  // ── Arm raise (挙げて/上げて/あげて all covered) ──
+  if (/両手.*(?:挙|上|あげ)|両腕.*(?:挙|上|あげ)|万歳|ばんざい|raise.?both/.test(t)) return 'raise_both';
+  if (/右手.*(?:挙|上|あげ)|右腕.*(?:挙|上|あげ)|raise.?right/.test(t)) return 'raise_right';
+  if (/左手.*(?:挙|上|あげ)|左腕.*(?:挙|上|あげ)|raise.?left/.test(t)) return 'raise_left';
+  if (/手.*(?:挙げ|上げ|あげ)/.test(t)) return 'raise_both';
   // Movement
   if (/前.*進|前進|進んで|まっすぐ|forward/.test(t)) return 'forward';
   if (/後ろ.*下|バック|後退|backward/.test(t)) return 'backward';
