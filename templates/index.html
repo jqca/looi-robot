@@ -1137,13 +1137,12 @@ class RobotRenderer3D {
         // Head groove
         this.headTiltXTgt = Math.sin(dp * 4) * 0.12;
         this.headTiltYTgt = Math.cos(dp * 3) * 0.10;
-        this.idleTiltZTgt = Math.sin(dp * 2.5) * 0.15;
         // Gentle rotation sway
         this.targetRotY += Math.sin(dp * 2) * dt * 1.5;
         // End after ~4 seconds
         if (this.actionTimer > 4.0) {
           this.action = 'none';
-          this.headTiltXTgt = 0; this.headTiltYTgt = 0; this.idleTiltZTgt = 0;
+          this.headTiltXTgt = 0; this.headTiltYTgt = 0;
           this.bodyPivot.position.x = 0;
         }
 
@@ -1165,7 +1164,7 @@ class RobotRenderer3D {
     this.eyeUnit.rotation.x = this.headTiltX;
     this.eyeUnit.rotation.y = this.headTiltY;
 
-    // Idle curiosity — eye wander + head tilt
+    // Idle curiosity — eye wander (gaze only, no Z rotation)
     if (!isSleep && this.action === 'none' && !this.talking) {
       this.idleTimer += dt * 1000;
       if (this.idleTimer > this.nextIdleWander) {
@@ -1173,15 +1172,13 @@ class RobotRenderer3D {
         this.nextIdleWander = 2000 + Math.random() * 5000;
         this.idleWanderTgtX = (Math.random() - 0.5) * 0.08;
         this.idleWanderTgtY = (Math.random() - 0.5) * 0.06;
-        this.idleTiltZTgt = (Math.random() - 0.5) * 0.12;
       }
       this.idleWanderX += (this.idleWanderTgtX - this.idleWanderX) * lerp * 0.3;
       this.idleWanderY += (this.idleWanderTgtY - this.idleWanderY) * lerp * 0.3;
-      this.idleTiltZ += (this.idleTiltZTgt - this.idleTiltZ) * lerp * 0.2;
     } else {
-      this.idleWanderX *= 0.95; this.idleWanderY *= 0.95; this.idleTiltZ *= 0.95;
+      this.idleWanderX *= 0.95; this.idleWanderY *= 0.95;
     }
-    this.eyeUnit.rotation.z = this.idleTiltZ;
+    this.eyeUnit.rotation.z = 0;
 
     if (this.talking) this.talkPhase += dt * 10;
     if (this.listening) this.listenPhase += dt * 8;
