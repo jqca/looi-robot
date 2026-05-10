@@ -866,19 +866,19 @@ class RobotRenderer3D {
     // Shoulder bracket on body surface
     const bracket = new THREE.Mesh(
       new THREE.BoxGeometry(0.22, 0.14, 0.18), metalMat);
-    bracket.position.set(ax, 1.214, 0);
+    bracket.position.set(ax, 1.40, 0);
     armGroup.add(bracket);
 
     // ── Joint chain using nested Groups (guarantees connections) ──
     const upperLen = 0.60;
     const foreLen  = 0.525;
-    const shoulderTiltX = -0.8;            // ~46° forward (negative = toward +Z = face side)
-    const shoulderTiltZ = sideSign * 0.08; // ~5° outward (minimal to avoid track collision)
+    const shoulderTiltX = -0.7;            // ~40° forward (negative = toward +Z = face side)
+    const shoulderTiltZ = sideSign * 0.25; // ~14° outward (ハの字 pose)
     const elbowBend = -0.8;                // ~46° additional bend (same direction as face)
 
     // Shoulder pivot
     const shoulderPivot = new THREE.Group();
-    shoulderPivot.position.set(ax + sideSign * 0.04, 1.184, 0);
+    shoulderPivot.position.set(ax + sideSign * 0.04, 1.37, 0);
     shoulderPivot.rotation.x = shoulderTiltX;
     shoulderPivot.rotation.z = shoulderTiltZ;
 
