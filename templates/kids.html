@@ -10,7 +10,7 @@
 
   html, body {
     height: 100%; width: 100%;
-    background: #FFE4B5;
+    background: #F0E8D8;
     color: #4a3a2a;
     font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
                  'メイリオ', 'Meiryo', sans-serif;
@@ -89,7 +89,7 @@
 
   #start-overlay {
     position: fixed; inset: 0; z-index: 9999;
-    background: linear-gradient(180deg, #FFE4B5 0%, #FFDAA0 60%, #FFD090 100%);
+    background: linear-gradient(180deg, #F0E8D8 0%, #F5E0C8 60%, #F0D8B8 100%);
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: 18px; cursor: pointer;
@@ -225,8 +225,8 @@ class RobotRenderer3D {
     const h = this.container.clientHeight;
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xFFE4B5);
-    this.scene.fog = new THREE.FogExp2(0xFFE4B5, 0.022);
+    this.scene.background = new THREE.Color(0xF0E8D8);
+    this.scene.fog = new THREE.FogExp2(0xF0E8D8, 0.016);
 
     this.camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 120);
 
@@ -235,33 +235,40 @@ class RobotRenderer3D {
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.15;
     this.container.appendChild(this.renderer.domElement);
 
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
     this.scene.add(this.ambientLight);
 
     this.headLight = new THREE.PointLight(0xffeecc, 1.0, 18);
     this.headLight.castShadow = true;
     this.scene.add(this.headLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
-    dirLight.position.set(5, 15, 8);
+    const dirLight = new THREE.DirectionalLight(0xfff8ee, 1.0);
+    dirLight.position.set(4, 14, 6);
     dirLight.castShadow = true;
-    dirLight.shadow.mapSize.set(1024, 1024);
+    dirLight.shadow.mapSize.set(2048, 2048);
     dirLight.shadow.camera.near = 1;
     dirLight.shadow.camera.far = 40;
-    dirLight.shadow.camera.left = -10;
-    dirLight.shadow.camera.right = 10;
-    dirLight.shadow.camera.top = 10;
-    dirLight.shadow.camera.bottom = -10;
+    dirLight.shadow.camera.left = -12;
+    dirLight.shadow.camera.right = 12;
+    dirLight.shadow.camera.top = 12;
+    dirLight.shadow.camera.bottom = -12;
+    dirLight.shadow.bias = -0.001;
     this.scene.add(dirLight);
 
-    const hemiLight = new THREE.HemisphereLight(0xFFE4B5, 0xDDCCAA, 0.6);
+    const hemiLight = new THREE.HemisphereLight(0xFFF0E0, 0xDDCCAA, 0.7);
     this.scene.add(hemiLight);
 
-    // Warm wood floor
+    // Sunlight from window
+    const winLight = new THREE.DirectionalLight(0xFFF5E0, 0.6);
+    winLight.position.set(-3, 8, -12); this.scene.add(winLight);
+
+    // Light pine floor
     const groundGeo = new THREE.PlaneGeometry(80, 80);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0xE0C8A0, roughness: 0.80, metalness: 0.0 });
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0xE8D4B0, roughness: 0.65, metalness: 0.0 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.01; ground.receiveShadow = true;
     this.scene.add(ground);
@@ -271,147 +278,479 @@ class RobotRenderer3D {
 
   _buildKidsRoom() {
     const s = this.scene;
-    const mat = (c, opts) => new THREE.MeshStandardMaterial({ color: c, ...opts });
+    const M = (c, r, m) => new THREE.MeshStandardMaterial({ color: c, roughness: r !== undefined ? r : 0.7, metalness: m || 0 });
+    const ME = (c, ec, ei) => new THREE.MeshStandardMaterial({ color: c, emissive: ec, emissiveIntensity: ei, roughness: 0.6 });
+    const add = (mesh) => { s.add(mesh); return mesh; };
 
-    // ── Walls (pastel colors) ──
-    const wallBack = new THREE.Mesh(new THREE.BoxGeometry(24, 7, 0.3), mat(0xFFD4A0, { roughness: 0.95 }));
-    wallBack.position.set(0, 3.5, -10); wallBack.receiveShadow = true; s.add(wallBack);
-    const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 7, 22), mat(0xB8E8B8, { roughness: 0.95 }));
-    wallL.position.set(-12, 3.5, 1); s.add(wallL);
-    const wallR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 7, 22), mat(0xB8D4F0, { roughness: 0.95 }));
-    wallR.position.set(12, 3.5, 1); s.add(wallR);
+    // Helper: make a star shape
+    const makeStar = (outerR, innerR) => {
+      const pts = [];
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 === 0 ? outerR : innerR;
+        const a = (i * Math.PI / 5) - Math.PI / 2;
+        pts.push(new THREE.Vector2(Math.cos(a) * r, Math.sin(a) * r));
+      }
+      return new THREE.Shape(pts);
+    };
 
-    // ── Window on back wall ──
-    const winFrame = new THREE.Mesh(new THREE.BoxGeometry(3.5, 2.5, 0.05), mat(0xF5F0E0));
-    winFrame.position.set(-3, 4, -9.8); s.add(winFrame);
-    const winGlass = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 0.02),
-      new THREE.MeshStandardMaterial({ color: 0x88CCFF, emissive: 0x88CCFF, emissiveIntensity: 0.3, roughness: 0.1 }));
-    winGlass.position.set(-3, 4, -9.72); s.add(winGlass);
-    // Curtains
-    const curtainMat = mat(0xFF9999, { roughness: 0.95, side: THREE.DoubleSide });
-    const curtL = new THREE.Mesh(new THREE.BoxGeometry(0.6, 2.8, 0.04), curtainMat);
-    curtL.position.set(-4.6, 4, -9.7); s.add(curtL);
-    const curtR = new THREE.Mesh(new THREE.BoxGeometry(0.6, 2.8, 0.04), curtainMat);
-    curtR.position.set(-1.4, 4, -9.7); s.add(curtR);
-    const curtTop = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.2, 0.06), mat(0xDD7777));
-    curtTop.position.set(-3, 5.45, -9.7); s.add(curtTop);
+    // Helper: make a heart shape
+    const makeHeart = (sc) => {
+      const h = new THREE.Shape();
+      h.moveTo(0, 0.15 * sc);
+      h.bezierCurveTo(0, 0.3 * sc, -0.18 * sc, 0.35 * sc, -0.25 * sc, 0.2 * sc);
+      h.bezierCurveTo(-0.35 * sc, 0, 0, -0.2 * sc, 0, -0.3 * sc);
+      h.bezierCurveTo(0, -0.2 * sc, 0.35 * sc, 0, 0.25 * sc, 0.2 * sc);
+      h.bezierCurveTo(0.18 * sc, 0.35 * sc, 0, 0.3 * sc, 0, 0.15 * sc);
+      return h;
+    };
 
-    // ── Round rug ──
-    const rugGeo = new THREE.CircleGeometry(2.5, 32);
-    const rugMat = new THREE.MeshStandardMaterial({ color: 0xF0C880, roughness: 0.95 });
-    const rug = new THREE.Mesh(rugGeo, rugMat);
-    rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.01, 0.5); s.add(rug);
-    // Rug border ring
-    const rugBorder = new THREE.Mesh(new THREE.RingGeometry(2.3, 2.5, 32),
-      new THREE.MeshStandardMaterial({ color: 0xE8A050, roughness: 0.95 }));
-    rugBorder.rotation.x = -Math.PI / 2; rugBorder.position.set(0, 0.015, 0.5); s.add(rugBorder);
+    // ═══════════════════════════════════
+    // WALLS — warm pastel with wainscoting
+    // ═══════════════════════════════════
+    // Back wall — soft peach upper
+    add(new THREE.Mesh(new THREE.BoxGeometry(24, 7.5, 0.2), M(0xFFE0C8, 0.95))).position.set(0, 3.75, -10);
+    // Left wall — mint green
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 7.5, 22), M(0xC8EED0, 0.95))).position.set(-12, 3.75, 1);
+    // Right wall — soft lavender
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 7.5, 22), M(0xD8D0F0, 0.95))).position.set(12, 3.75, 1);
+    // Ceiling
+    add(new THREE.Mesh(new THREE.BoxGeometry(24.4, 0.12, 22.4), M(0xFAF8F5, 0.9))).position.set(0, 7.5, 1);
 
-    // ── Toy blocks (left) ──
-    const blockColors = [0xFF5555, 0x55BB55, 0x5555FF];
-    blockColors.forEach((c, i) => {
-      const block = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), mat(c, { roughness: 0.7 }));
-      block.position.set(-4.5 + i * 0.15, 0.25 + i * 0.5, -5.5);
-      block.rotation.y = (i - 1) * 0.2;
-      block.castShadow = true; s.add(block);
+    // Wainscoting — white lower panels
+    add(new THREE.Mesh(new THREE.BoxGeometry(24, 2.0, 0.06), M(0xFAFAFA, 0.85))).position.set(0, 1.0, -9.88);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.0, 22), M(0xFAFAFA, 0.85))).position.set(-11.88, 1.0, 1);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.0, 22), M(0xFAFAFA, 0.85))).position.set(11.88, 1.0, 1);
+    // Chair rail (divider strip)
+    const railMat = M(0xF0E8E0, 0.7);
+    add(new THREE.Mesh(new THREE.BoxGeometry(24, 0.06, 0.08), railMat)).position.set(0, 2.02, -9.86);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 22), railMat)).position.set(-11.86, 2.02, 1);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 22), railMat)).position.set(11.86, 2.02, 1);
+    // Baseboard
+    const trimMat = M(0xF5F0E8, 0.75);
+    add(new THREE.Mesh(new THREE.BoxGeometry(24, 0.1, 0.05), trimMat)).position.set(0, 0.05, -9.88);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.1, 22), trimMat)).position.set(-11.88, 0.05, 1);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.1, 22), trimMat)).position.set(11.88, 0.05, 1);
+
+    // ═══════════════════════════════════
+    // LARGE WINDOW — back wall with sunlight
+    // ═══════════════════════════════════
+    const frameMat = M(0xF5F0E8, 0.6, 0.05);
+    // Window frame (white wood)
+    add(new THREE.Mesh(new THREE.BoxGeometry(4.0, 3.2, 0.08), frameMat)).position.set(-3, 4.6, -9.88);
+    // Glass — bright sky with clouds feel
+    add(new THREE.Mesh(new THREE.BoxGeometry(3.5, 2.7, 0.02),
+      new THREE.MeshStandardMaterial({ color: 0xBBDDFF, emissive: 0x99CCEE, emissiveIntensity: 0.8, roughness: 0.05, transparent: true, opacity: 0.92 })
+    )).position.set(-3, 4.6, -9.82);
+    // Mullions (cross pattern)
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.7, 0.05), frameMat)).position.set(-3, 4.6, -9.80);
+    add(new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.06, 0.05), frameMat)).position.set(-3, 4.6, -9.80);
+    // Window sill
+    add(new THREE.Mesh(new THREE.BoxGeometry(4.4, 0.06, 0.20), M(0xF5F0E8, 0.6))).position.set(-3, 3.0, -9.78);
+
+    // Curtains — polka dot pink
+    const curtMat = M(0xFFB0B8, 0.95);
+    // Left curtain (gathered)
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 3.5, 0.06), curtMat)).position.set(-5.2, 4.5, -9.72);
+    // Right curtain
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 3.5, 0.06), curtMat)).position.set(-0.8, 4.5, -9.72);
+    // Curtain rod (white)
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 5.0, 8), M(0xF5F0E8, 0.5))).position.set(-3, 6.3, -9.72);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 5.0, 8), M(0xF5F0E8, 0.5))).position.set(-3, 6.3, -9.72);
+    // Rod finials
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), M(0xF5F0E8, 0.5))).position.set(-5.5, 6.3, -9.72);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), M(0xF5F0E8, 0.5))).position.set(-0.5, 6.3, -9.72);
+    // Curtain tie-backs (ribbon bows)
+    add(new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.02, 6, 12), M(0xFF8899, 0.8))).position.set(-5.2, 4.0, -9.68);
+    add(new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.02, 6, 12), M(0xFF8899, 0.8))).position.set(-0.8, 4.0, -9.68);
+
+    // Small flower pot on window sill
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.05, 0.1, 8), M(0xE8A070, 0.8))).position.set(-3.8, 3.1, -9.72);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 8), M(0x55AA55, 0.85))).position.set(-3.8, 3.22, -9.72);
+    // Tiny flower
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.03, 6, 6), ME(0xFF88AA, 0xFF88AA, 0.2))).position.set(-3.78, 3.32, -9.70);
+
+    // ═══════════════════════════════════
+    // BED — cozy child's bed (left side)
+    // ═══════════════════════════════════
+    const bedX = -7, bedZ = -6.5;
+    const woodMat = M(0xF0E8D8, 0.6, 0.03);
+    // Bed frame base
+    add(new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.12, 3.2), woodMat)).position.set(bedX, 0.35, bedZ);
+    // Side rails
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.40, 3.2), woodMat)).position.set(bedX - 0.86, 0.2, bedZ);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.40, 3.2), woodMat)).position.set(bedX + 0.86, 0.2, bedZ);
+    // Legs (4 rounded)
+    [[-0.80, -1.45], [0.80, -1.45], [-0.80, 1.45], [0.80, 1.45]].forEach(([dx, dz]) => {
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.35, 8), woodMat)).position.set(bedX + dx, 0.175, bedZ + dz);
+    });
+    // Headboard (arched top — cute house shape)
+    add(new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.0, 0.08), woodMat)).position.set(bedX, 0.9, bedZ - 1.56);
+    // Headboard arch (triangle roof shape)
+    const roofShape = new THREE.Shape();
+    roofShape.moveTo(-0.9, 0); roofShape.lineTo(0, 0.5); roofShape.lineTo(0.9, 0); roofShape.lineTo(-0.9, 0);
+    const roofGeo = new THREE.ExtrudeGeometry(roofShape, { depth: 0.08, bevelEnabled: false });
+    const roof = add(new THREE.Mesh(roofGeo, woodMat));
+    roof.position.set(bedX, 1.4, bedZ - 1.56);
+    // Headboard window cutout decoration (circle)
+    add(new THREE.Mesh(new THREE.RingGeometry(0.12, 0.16, 16), M(0xBBDDFF, 0.5))).position.set(bedX, 1.48, bedZ - 1.50);
+    // Footboard (lower)
+    add(new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.55, 0.08), woodMat)).position.set(bedX, 0.68, bedZ + 1.56);
+
+    // Mattress
+    add(new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.18, 2.9), M(0xFFFAF0, 0.9))).position.set(bedX, 0.50, bedZ);
+    // Fitted sheet (light blue)
+    add(new THREE.Mesh(new THREE.BoxGeometry(1.58, 0.04, 2.88), M(0xC8E0F8, 0.92))).position.set(bedX, 0.61, bedZ);
+    // Pillow
+    add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.14, 0.45), M(0xF8F0F0, 0.92))).position.set(bedX, 0.69, bedZ - 1.15);
+    // Pillow puff
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 8), M(0xF8F0F0, 0.92))).position.set(bedX, 0.72, bedZ - 1.15);
+    // Duvet/blanket (stars pattern — represented by coloured top)
+    add(new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.10, 1.8), M(0xFFB8C8, 0.9))).position.set(bedX, 0.67, bedZ + 0.3);
+    // Blanket fold edge
+    add(new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.12, 0.08), M(0xFFA0B0, 0.9))).position.set(bedX, 0.69, bedZ - 0.6);
+    // Small star decorations on blanket
+    [[-0.3, 0.0], [0.2, 0.4], [-0.1, 0.8], [0.4, -0.2]].forEach(([dx, dz]) => {
+      const stGeo = new THREE.ExtrudeGeometry(makeStar(0.06, 0.025), { depth: 0.01, bevelEnabled: false });
+      add(new THREE.Mesh(stGeo, ME(0xFFDD55, 0xFFDD55, 0.15))).position.set(bedX + dx, 0.73, bedZ + 0.3 + dz);
+    });
+    // Stuffed bunny on bed
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.10, 8, 8), M(0xF5E8E0, 0.9))).position.set(bedX + 0.5, 0.78, bedZ - 0.8);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), M(0xF5E8E0, 0.9))).position.set(bedX + 0.5, 0.90, bedZ - 0.8);
+    // Bunny ears
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.025, 0.12, 6), M(0xF5E8E0, 0.9))).position.set(bedX + 0.47, 1.00, bedZ - 0.8);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.025, 0.12, 6), M(0xF5E8E0, 0.9))).position.set(bedX + 0.53, 1.00, bedZ - 0.8);
+    // Bunny pink inner ears
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.015, 0.08, 6), M(0xFFBBCC, 0.9))).position.set(bedX + 0.47, 1.00, bedZ - 0.79);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.015, 0.08, 6), M(0xFFBBCC, 0.9))).position.set(bedX + 0.53, 1.00, bedZ - 0.79);
+
+    // Night light (star shape) — on wall above bed
+    const nlGeo = new THREE.ExtrudeGeometry(makeStar(0.22, 0.10), { depth: 0.04, bevelEnabled: false });
+    add(new THREE.Mesh(nlGeo, ME(0xFFEE88, 0xFFEE88, 0.4))).position.set(bedX, 3.8, -9.80);
+    add(new THREE.PointLight(0xFFEE88, 0.3, 5)).position.set(bedX, 3.8, -9.5);
+
+    // ═══════════════════════════════════
+    // BOOKSHELF — colourful cube storage
+    // ═══════════════════════════════════
+    const bsX = -5, bsZ = -9.2;
+    const bsW = 2.4, bsH = 2.4, bsD = 0.45;
+    const shelfWood = M(0xF0E8D8, 0.55, 0.03);
+    // Main frame
+    add(new THREE.Mesh(new THREE.BoxGeometry(bsW, bsH, bsD), shelfWood)).position.set(bsX, bsH / 2 + 0.02, bsZ);
+    // Horizontal dividers (3 rows → 2 dividers)
+    [0.82, 1.62].forEach(y => {
+      add(new THREE.Mesh(new THREE.BoxGeometry(bsW - 0.08, 0.04, bsD - 0.04), shelfWood)).position.set(bsX, y, bsZ);
+    });
+    // Vertical dividers (3 cols → 2 dividers)
+    [-0.40, 0.40].forEach(dx => {
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.04, bsH - 0.08, bsD - 0.04), shelfWood)).position.set(bsX + dx, bsH / 2 + 0.02, bsZ);
+    });
+    // Fabric bins (coloured boxes in some cubbies)
+    const binColors = [0xFF8888, 0x88CC88, 0x8888DD, 0xFFCC66, 0xCC88CC, 0xFFAA77];
+    [[bsX - 0.80, 0.44], [bsX + 0.0, 0.44], [bsX + 0.80, 0.44], [bsX - 0.80, 1.24], [bsX + 0.80, 1.24]].forEach(([x, y], i) => {
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.55, 0.38), M(binColors[i % binColors.length], 0.9))).position.set(x, y, bsZ + 0.02);
+    });
+    // Books standing in one cubby
+    [0x4488CC, 0xCC4466, 0x44AA66, 0xEEAA33, 0x8866AA].forEach((c, i) => {
+      const bk = add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.45, 0.28), M(c, 0.8)));
+      bk.position.set(bsX - 0.02 + i * 0.10, 1.88, bsZ + 0.05);
+      bk.rotation.z = (Math.random() - 0.5) * 0.06;
+    });
+    // Decorative items on top shelf
+    // — Small teddy bear
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), M(0xCC9966, 0.85))).position.set(bsX + 0.78, 2.06, bsZ + 0.05);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.09, 8, 8), M(0xCC9966, 0.85))).position.set(bsX + 0.78, 2.22, bsZ + 0.05);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), M(0xBB8855, 0.85))).position.set(bsX + 0.72, 2.28, bsZ + 0.05);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 6), M(0xBB8855, 0.85))).position.set(bsX + 0.84, 2.28, bsZ + 0.05);
+    // Bear eyes + nose
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.015, 6, 6), M(0x222222, 0.5))).position.set(bsX + 0.75, 2.24, bsZ + 0.14);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.015, 6, 6), M(0x222222, 0.5))).position.set(bsX + 0.81, 2.24, bsZ + 0.14);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.018, 6, 6), M(0x332222, 0.5))).position.set(bsX + 0.78, 2.20, bsZ + 0.15);
+
+    // — Toy rocket
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.07, 0.28, 8), M(0xEE4444, 0.6))).position.set(bsX - 0.75, 2.10, bsZ + 0.05);
+    add(new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.10, 8), M(0xFF6644, 0.6))).position.set(bsX - 0.75, 2.29, bsZ + 0.05);
+    // Rocket window
+    add(new THREE.Mesh(new THREE.CircleGeometry(0.025, 8), ME(0x88CCFF, 0x88CCFF, 0.3))).position.set(bsX - 0.75, 2.12, bsZ + 0.20);
+
+    // ═══════════════════════════════════
+    // PLAY TABLE — round with cute stools
+    // ═══════════════════════════════════
+    const ptX = 4.5, ptZ = -5.5;
+    // Round table top (white with coloured edge)
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.85, 0.85, 0.05, 24), M(0xFAFAFA, 0.7))).position.set(ptX, 0.52, ptZ);
+    add(new THREE.Mesh(new THREE.TorusGeometry(0.85, 0.03, 8, 24), M(0x77BBDD, 0.6))).position.set(ptX, 0.52, ptZ);
+    // Table legs (4, angled slightly)
+    [[0.55, 0.55], [-0.55, 0.55], [0.55, -0.55], [-0.55, -0.55]].forEach(([dx, dz]) => {
+      const leg = add(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.52, 8), M(0xE8D8C0, 0.6)));
+      leg.position.set(ptX + dx, 0.26, ptZ + dz);
     });
 
-    // ── Big ball (right) ──
-    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.45, 14, 14), mat(0xFF8844, { roughness: 0.6 }));
-    ball.position.set(5, 0.45, -3.5); ball.castShadow = true; s.add(ball);
-    // Stripe on ball
-    const stripe = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.04, 6, 24),
-      mat(0xFFDD44));
-    stripe.position.set(5, 0.45, -3.5); stripe.rotation.x = Math.PI / 2; s.add(stripe);
-
-    // ── Small table ──
-    const tableTop = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.06, 1), mat(0xFFBB88, { roughness: 0.7 }));
-    tableTop.position.set(4.5, 0.5, -6); tableTop.castShadow = true; s.add(tableTop);
-    const tLegGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.5, 8);
-    const tLegMat = mat(0xDDA070);
-    [[-0.55, -0.35], [0.55, -0.35], [-0.55, 0.35], [0.55, 0.35]].forEach(([dx, dz]) => {
-      const tl = new THREE.Mesh(tLegGeo, tLegMat);
-      tl.position.set(4.5 + dx, 0.25, -6 + dz); s.add(tl);
+    // Small stool 1 (pink)
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.04, 16), M(0xFFB8C8, 0.8))).position.set(ptX + 1.2, 0.30, ptZ);
+    [[-0.15, -0.15], [0.15, -0.15], [0, 0.18]].forEach(([dx, dz]) => {
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.28, 8), M(0xE8D8C0, 0.6))).position.set(ptX + 1.2 + dx, 0.14, ptZ + dz);
     });
-    // Crayon box on table
-    const cBox = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.15, 0.2), mat(0xFF4444));
-    cBox.position.set(4.7, 0.61, -6); s.add(cBox);
-    // Crayons
-    [0xFF2222, 0x22BB22, 0x4444FF, 0xFFCC00].forEach((c, i) => {
-      const cr = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.22, 6), mat(c));
-      cr.position.set(4.2 + i * 0.08, 0.55, -5.8);
-      cr.rotation.z = Math.PI / 2 + (i - 1.5) * 0.05;
-      s.add(cr);
+    // Small stool 2 (light green)
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, 0.04, 16), M(0xB8E8B8, 0.8))).position.set(ptX - 1.1, 0.30, ptZ + 0.3);
+    [[-0.15, -0.15], [0.15, -0.15], [0, 0.18]].forEach(([dx, dz]) => {
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.28, 8), M(0xE8D8C0, 0.6))).position.set(ptX - 1.1 + dx, 0.14, ptZ + 0.3 + dz);
     });
 
-    // ── Toy shelf (left back) ──
-    const shelfMat = mat(0xDDB888, { roughness: 0.8 });
-    const tShelf = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.8, 0.5), shelfMat);
-    tShelf.position.set(-6, 0.9, -7); tShelf.receiveShadow = true; s.add(tShelf);
-    // Shelf divider
-    const shDiv = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.04, 0.45), shelfMat);
-    shDiv.position.set(-6, 0.9, -7); s.add(shDiv);
-    // Colorful books on shelf
-    [0xFF6688, 0x44BBDD, 0x88DD44, 0xFFAA33].forEach((c, i) => {
-      const bk = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.32, 0.25), mat(c));
-      bk.position.set(-6.35 + i * 0.22, 1.35 + (i % 2) * 0.02, -7);
-      bk.rotation.z = (Math.random() - 0.5) * 0.1;
-      s.add(bk);
+    // Items on table
+    // Crayon box
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.12, 0.18), M(0xFFDD44, 0.7))).position.set(ptX + 0.2, 0.61, ptZ - 0.15);
+    // Individual crayons (scattered)
+    [0xFF3333, 0x33BB33, 0x3355FF, 0xFF8800, 0xDD44DD].forEach((c, i) => {
+      const cr = add(new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.18, 6), M(c, 0.6)));
+      cr.position.set(ptX - 0.2 + i * 0.1, 0.56, ptZ + 0.15);
+      cr.rotation.z = Math.PI / 2; cr.rotation.y = (i - 2) * 0.15;
     });
-    // Toy bear on lower shelf
-    const bearBody = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), mat(0xCC9966));
-    bearBody.position.set(-5.8, 0.38, -6.85); s.add(bearBody);
-    const bearHead = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), mat(0xCC9966));
-    bearHead.position.set(-5.8, 0.58, -6.85); s.add(bearHead);
-    const earL = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), mat(0xBB8855));
-    earL.position.set(-5.88, 0.66, -6.85); s.add(earL);
-    const earR = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), mat(0xBB8855));
-    earR.position.set(-5.72, 0.66, -6.85); s.add(earR);
+    // Drawing paper
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.003, 0.36), M(0xFFFFF0, 0.95))).position.set(ptX - 0.15, 0.555, ptZ + 0.0);
+    // Coloured scribble on paper (small circles)
+    add(new THREE.Mesh(new THREE.CircleGeometry(0.06, 8), M(0xFF6688, 0.9))).position.set(ptX - 0.22, 0.558, ptZ - 0.05);
+    add(new THREE.Mesh(new THREE.CircleGeometry(0.04, 8), M(0x66AAFF, 0.9))).position.set(ptX - 0.05, 0.558, ptZ + 0.05);
 
-    // ── Wall decorations: star ──
-    const starMat = new THREE.MeshStandardMaterial({ color: 0xFFDD44, emissive: 0xFFDD44, emissiveIntensity: 0.2 });
-    const starPts = [];
-    for (let i = 0; i < 10; i++) {
-      const r = i % 2 === 0 ? 0.4 : 0.18;
-      const a = (i * Math.PI / 5) - Math.PI / 2;
-      starPts.push(new THREE.Vector2(Math.cos(a) * r, Math.sin(a) * r));
+    // ═══════════════════════════════════
+    // TOY BOX — colourful chest
+    // ═══════════════════════════════════
+    const tbX = 7, tbZ = -3;
+    // Box body (bright yellow)
+    add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.65, 0.6), M(0xFFDD55, 0.7))).position.set(tbX, 0.325, tbZ);
+    // Lid (slightly open)
+    const lid = add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.06, 0.6), M(0xFFCC33, 0.65)));
+    lid.position.set(tbX, 0.68, tbZ - 0.1); lid.rotation.x = -0.25;
+    // Box edge trim (coloured stripe)
+    add(new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.04, 0.62), M(0xFF8844, 0.7))).position.set(tbX, 0.64, tbZ);
+    // Cute face on front
+    add(new THREE.Mesh(new THREE.CircleGeometry(0.04, 8), M(0x333333, 0.5))).position.set(tbX - 0.18, 0.40, tbZ + 0.31);
+    add(new THREE.Mesh(new THREE.CircleGeometry(0.04, 8), M(0x333333, 0.5))).position.set(tbX + 0.18, 0.40, tbZ + 0.31);
+    // Smile
+    add(new THREE.Mesh(new THREE.TorusGeometry(0.08, 0.015, 6, 12, Math.PI), M(0x333333, 0.5))).position.set(tbX, 0.28, tbZ + 0.31);
+    // Toys peeking out
+    // — Ball sticking up from box
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), M(0xFF6644, 0.6))).position.set(tbX + 0.3, 0.72, tbZ);
+    add(new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.015, 6, 16), M(0xFFDD44, 0.6))).position.set(tbX + 0.3, 0.72, tbZ);
+    // — Toy sword handle peeking up
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.30, 6), M(0x8B6914, 0.7))).position.set(tbX - 0.3, 0.80, tbZ);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.025, 0.025), M(0xCCBB44, 0.3, 0.5))).position.set(tbX - 0.3, 0.67, tbZ);
+
+    // ═══════════════════════════════════
+    // PLAY KITCHEN — right wall
+    // ═══════════════════════════════════
+    const pkX = 8, pkZ = -7.5;
+    // Kitchen body
+    add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 0.6), M(0xF5E8E0, 0.7))).position.set(pkX, 0.6, pkZ);
+    // Counter top
+    add(new THREE.Mesh(new THREE.BoxGeometry(1.44, 0.04, 0.64), M(0xE8E0D8, 0.5, 0.05))).position.set(pkX, 1.22, pkZ);
+    // Stove burners (2 circles)
+    [-0.25, 0.25].forEach(dx => {
+      add(new THREE.Mesh(new THREE.TorusGeometry(0.10, 0.015, 8, 16), M(0x444444, 0.4, 0.3))).position.set(pkX + dx, 1.25, pkZ);
+    });
+    // Knobs
+    [-0.35, -0.15, 0.15, 0.35].forEach(dx => {
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.02, 8), M(0xFFDD55, 0.5))).position.set(pkX + dx, 0.85, pkZ + 0.31);
+    });
+    // Oven door
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.5, 0.02), M(0xF0E0D0, 0.7))).position.set(pkX, 0.40, pkZ + 0.30);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.65, 0.35, 0.005),
+      new THREE.MeshStandardMaterial({ color: 0x888888, roughness: 0.1, metalness: 0.3, transparent: true, opacity: 0.5 })
+    )).position.set(pkX, 0.42, pkZ + 0.312);
+    // Oven handle
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.025, 0.025), M(0xDDD0C0, 0.4, 0.2))).position.set(pkX, 0.66, pkZ + 0.315);
+    // Tiny pot on stove
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.07, 0.08, 10), M(0xDD4444, 0.5, 0.2))).position.set(pkX - 0.25, 1.28, pkZ);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.01, 10), M(0xDD4444, 0.5, 0.2))).position.set(pkX - 0.25, 1.325, pkZ);
+
+    // ═══════════════════════════════════
+    // ROUND RUG — rainbow circles
+    // ═══════════════════════════════════
+    const rugColors = [0xFFAAAA, 0xFFDDAA, 0xFFFFAA, 0xAAFFAA, 0xAADDFF, 0xCCAAFF];
+    rugColors.forEach((c, i) => {
+      const r = 2.8 - i * 0.42;
+      if (r > 0) {
+        const rg = add(new THREE.Mesh(new THREE.CircleGeometry(r, 32), M(c, 0.95)));
+        rg.rotation.x = -Math.PI / 2; rg.position.set(0, 0.005 + i * 0.001, -0.5);
+      }
+    });
+
+    // ═══════════════════════════════════
+    // BLOCK TOWER — stacked colourful blocks
+    // ═══════════════════════════════════
+    const btX = -3, btZ = -2;
+    [
+      [0.5, 0xFF5555], [0.45, 0x55BB55], [0.40, 0x5588DD],
+      [0.35, 0xFFAA33], [0.30, 0xDD55DD], [0.25, 0x55DDDD]
+    ].forEach(([sz, c], i) => {
+      const b = add(new THREE.Mesh(new THREE.BoxGeometry(sz, 0.22, sz), M(c, 0.65)));
+      b.position.set(btX, 0.11 + i * 0.22, btZ);
+      b.rotation.y = i * 0.2;
+      b.castShadow = true;
+    });
+    // Knocked-over block nearby
+    const fallen = add(new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.22, 0.35), M(0xFFDD44, 0.65)));
+    fallen.position.set(btX + 0.8, 0.11, btZ + 0.3); fallen.rotation.y = 0.7; fallen.castShadow = true;
+
+    // ═══════════════════════════════════
+    // BIG BALL + small balls
+    // ═══════════════════════════════════
+    const ball = add(new THREE.Mesh(new THREE.SphereGeometry(0.35, 16, 16), M(0xFF6644, 0.55)));
+    ball.position.set(5, 0.35, -1.5); ball.castShadow = true;
+    add(new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.025, 8, 24), M(0xFFEE55, 0.5))).position.set(5, 0.35, -1.5);
+    // Small rubber balls
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), M(0x55BBFF, 0.6))).position.set(3.8, 0.12, -1.0);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.10, 10, 10), M(0xFF88DD, 0.6))).position.set(4.5, 0.10, -0.5);
+
+    // ═══════════════════════════════════
+    // WALL ART & DECORATIONS
+    // ═══════════════════════════════════
+
+    // Rainbow arch (above window area)
+    const rbColors = [0xFF6666, 0xFFAA44, 0xFFEE44, 0x66DD66, 0x44AAFF, 0x8866DD];
+    rbColors.forEach((c, i) => {
+      const rb = add(new THREE.Mesh(new THREE.TorusGeometry(1.6 - i * 0.12, 0.08, 8, 32, Math.PI), ME(c, c, 0.08)));
+      rb.position.set(3.5, 3.8, -9.78);
+    });
+
+    // ABC poster (framed)
+    add(new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.7, 0.03), M(0xF5E8D8, 0.6))).position.set(7, 3.5, -9.86);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.58, 0.01), M(0xFFFFE8, 0.9))).position.set(7, 3.5, -9.83);
+    // Coloured letter blocks on poster
+    [[0xFF5555, -0.25, 0.12], [0x55BB55, 0.0, 0.12], [0x5555FF, 0.25, 0.12],
+     [0xFFAA33, -0.12, -0.12], [0xDD44DD, 0.12, -0.12]].forEach(([c, dx, dy]) => {
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.005), M(c, 0.7))).position.set(7 + dx, 3.5 + dy, -9.82);
+    });
+
+    // Animal picture frame (giraffe — represented abstractly)
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.03), M(0xFFBB88, 0.6))).position.set(9, 4.0, -9.86);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.78, 0.01), M(0xFFFDE8, 0.9))).position.set(9, 4.0, -9.83);
+    // Giraffe body silhouette (simple shapes)
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.3, 8), M(0xEEBB44, 0.8))).position.set(9, 3.95, -9.82);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), M(0xEEBB44, 0.8))).position.set(9, 4.18, -9.82);
+    // Giraffe spots
+    add(new THREE.Mesh(new THREE.CircleGeometry(0.02, 6), M(0xBB8833, 0.8))).position.set(8.97, 3.92, -9.81);
+    add(new THREE.Mesh(new THREE.CircleGeometry(0.015, 6), M(0xBB8833, 0.8))).position.set(9.04, 3.98, -9.81);
+
+    // Stars and hearts scattered on walls
+    // Wall stars
+    [[2.5, 5.5, -9.78, 0.18], [8.5, 5.0, -9.78, 0.14], [-9.5, 4.5, -9.78, 0.15], [-1, 6.0, -9.78, 0.12]].forEach(([x, y, z, sz]) => {
+      const stGeo = new THREE.ExtrudeGeometry(makeStar(sz, sz * 0.42), { depth: 0.03, bevelEnabled: false });
+      add(new THREE.Mesh(stGeo, ME(0xFFDD55, 0xFFDD55, 0.25))).position.set(x, y, z);
+    });
+    // Wall hearts
+    [[6, 5.5, -9.78, 0.6], [-8, 5.2, -9.78, 0.5]].forEach(([x, y, z, sc]) => {
+      const hGeo = new THREE.ExtrudeGeometry(makeHeart(sc), { depth: 0.03, bevelEnabled: false });
+      add(new THREE.Mesh(hGeo, ME(0xFF88AA, 0xFF88AA, 0.15))).position.set(x, y, z);
+    });
+
+    // ═══════════════════════════════════
+    // BUNTING / GARLAND — across back wall
+    // ═══════════════════════════════════
+    const flagColors = [0xFF8888, 0xFFDD66, 0x88DDAA, 0x88BBFF, 0xDD88DD, 0xFFAA77];
+    for (let i = 0; i < 12; i++) {
+      const fx = -10 + i * 1.8;
+      const fy = 6.2 + Math.sin(i * 0.6) * 0.2;
+      const triShape = new THREE.Shape();
+      triShape.moveTo(-0.12, 0); triShape.lineTo(0.12, 0); triShape.lineTo(0, -0.25); triShape.lineTo(-0.12, 0);
+      const triGeo = new THREE.ExtrudeGeometry(triShape, { depth: 0.01, bevelEnabled: false });
+      add(new THREE.Mesh(triGeo, M(flagColors[i % flagColors.length], 0.85))).position.set(fx, fy, -9.76);
     }
-    const starShape = new THREE.Shape(starPts);
-    const starGeo = new THREE.ExtrudeGeometry(starShape, { depth: 0.05, bevelEnabled: false });
-    const star = new THREE.Mesh(starGeo, starMat);
-    star.position.set(3, 4.5, -9.75); s.add(star);
+    // String line for bunting
+    add(new THREE.Mesh(new THREE.BoxGeometry(22, 0.012, 0.012), M(0xDDCCBB, 0.8))).position.set(0, 6.25, -9.76);
 
-    // ── Wall decoration: small heart ──
-    const heartShape = new THREE.Shape();
-    heartShape.moveTo(0, 0.15);
-    heartShape.bezierCurveTo(0, 0.3, -0.18, 0.35, -0.25, 0.2);
-    heartShape.bezierCurveTo(-0.35, 0, 0, -0.2, 0, -0.3);
-    heartShape.bezierCurveTo(0, -0.2, 0.35, 0, 0.25, 0.2);
-    heartShape.bezierCurveTo(0.18, 0.35, 0, 0.3, 0, 0.15);
-    const heartGeo = new THREE.ExtrudeGeometry(heartShape, { depth: 0.04, bevelEnabled: false });
-    const heart = new THREE.Mesh(heartGeo, new THREE.MeshStandardMaterial({ color: 0xFF7799, emissive: 0xFF7799, emissiveIntensity: 0.15 }));
-    heart.position.set(5.5, 4, -9.75); heart.scale.set(0.7, 0.7, 0.7); s.add(heart);
-
-    // ── Rainbow arch (back wall) ──
-    const rainbow = new THREE.Mesh(new THREE.TorusGeometry(1.8, 0.12, 8, 32, Math.PI),
-      new THREE.MeshStandardMaterial({ color: 0xFF8888, emissive: 0xFF8888, emissiveIntensity: 0.1 }));
-    rainbow.position.set(0, 3.5, -9.7); s.add(rainbow);
-    const rainbow2 = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.1, 8, 32, Math.PI),
-      new THREE.MeshStandardMaterial({ color: 0xFFCC55, emissive: 0xFFCC55, emissiveIntensity: 0.1 }));
-    rainbow2.position.set(0, 3.5, -9.68); s.add(rainbow2);
-    const rainbow3 = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.1, 8, 32, Math.PI),
-      new THREE.MeshStandardMaterial({ color: 0x77DD77, emissive: 0x77DD77, emissiveIntensity: 0.1 }));
-    rainbow3.position.set(0, 3.5, -9.66); s.add(rainbow3);
-
-    // ── Cloud decorations (upper wall) ──
-    const cloudMat = mat(0xFFFFFF, { transparent: true, opacity: 0.7 });
-    const addCloud = (cx, cy, cz) => {
-      [[0, 0, 0.5], [-0.35, -0.05, 0.38], [0.3, 0.05, 0.35]].forEach(([dx, dy, r]) => {
-        const c = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 10), cloudMat);
-        c.position.set(cx + dx, cy + dy, cz); s.add(c);
+    // ═══════════════════════════════════
+    // CLOUD DECORATIONS — fluffy, detailed
+    // ═══════════════════════════════════
+    const cloudMat = new THREE.MeshStandardMaterial({ color: 0xFFFFFF, transparent: true, opacity: 0.75, roughness: 0.95 });
+    const addCloud = (cx, cy, cz, scale) => {
+      [[0, 0, 0.5], [-0.4, -0.08, 0.4], [0.35, -0.05, 0.38], [-0.15, 0.12, 0.32], [0.2, 0.10, 0.30]].forEach(([dx, dy, r]) => {
+        const c = add(new THREE.Mesh(new THREE.SphereGeometry(r * scale, 10, 10), cloudMat));
+        c.position.set(cx + dx * scale, cy + dy * scale, cz);
       });
     };
-    addCloud(-7, 5, -8);
-    addCloud(7, 5.3, -8.5);
+    addCloud(-8, 5.8, -9.0, 1.0);
+    addCloud(5, 6.2, -8.5, 0.8);
+    addCloud(9, 5.5, -7.5, 0.7);
+
+    // ═══════════════════════════════════
+    // ROCKING HORSE — classic toy
+    // ═══════════════════════════════════
+    const rhX = -3, rhZ = -6.5;
+    // Rockers (curved base)
+    [-0.25, 0.25].forEach(dz => {
+      add(new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.03, 8, 24, Math.PI), M(0x8B6914, 0.6))).position.set(rhX, 0.0, rhZ + dz);
+    });
+    // Body
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.35, 0.45), M(0xF5E8D0, 0.7))).position.set(rhX, 0.48, rhZ);
+    // Neck
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.35, 0.12), M(0xF5E8D0, 0.7))).position.set(rhX + 0.12, 0.72, rhZ);
+    // Head
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.16, 0.14), M(0xF5E8D0, 0.7))).position.set(rhX + 0.22, 0.85, rhZ);
+    // Handles
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.50, 6), M(0x8B6914, 0.5))).position.set(rhX + 0.15, 0.82, rhZ);
+    // Ears
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 0.03), M(0xF5E8D0, 0.7))).position.set(rhX + 0.26, 0.97, rhZ - 0.04);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.08, 0.03), M(0xF5E8D0, 0.7))).position.set(rhX + 0.26, 0.97, rhZ + 0.04);
+    // Eye
+    add(new THREE.Mesh(new THREE.CircleGeometry(0.015, 6), M(0x222222, 0.5))).position.set(rhX + 0.33, 0.87, rhZ + 0.04);
+    // Saddle (red)
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.04, 0.35), M(0xDD4444, 0.7))).position.set(rhX, 0.67, rhZ);
+    // Legs
+    [[-0.10, -0.18], [-0.10, 0.18], [0.10, -0.18], [0.10, 0.18]].forEach(([dx, dz]) => {
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.25, 6), M(0xF5E8D0, 0.7))).position.set(rhX + dx, 0.20, rhZ + dz);
+    });
+    // Tail (yarn — few thin cylinders)
+    [0, 0.04, -0.04].forEach(dz => {
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.18, 4), M(0xBB8855, 0.8))).position.set(rhX - 0.18, 0.55, rhZ + dz);
+    });
+
+    // ═══════════════════════════════════
+    // CEILING — cute pendant lights
+    // ═══════════════════════════════════
+    const lampColors = [0xFFBBCC, 0xBBDDFF, 0xCCFFCC];
+    [[-3, -4], [3, -6], [0, -1]].forEach(([x, z], i) => {
+      // Cord
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 1.5, 6), M(0xDDDDDD, 0.5))).position.set(x, 6.75, z);
+      // Shade (sphere or dome)
+      const shade = add(new THREE.Mesh(new THREE.SphereGeometry(0.30, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2),
+        new THREE.MeshStandardMaterial({ color: lampColors[i], emissive: lampColors[i], emissiveIntensity: 0.2, roughness: 0.8, side: THREE.DoubleSide })));
+      shade.position.set(x, 6.0, z); shade.rotation.x = Math.PI;
+      // Warm light
+      add(new THREE.PointLight(0xFFF0D8, 0.4, 8)).position.set(x, 5.8, z);
+    });
+
+    // ═══════════════════════════════════
+    // SMALL BOOKSHELF — near bed
+    // ═══════════════════════════════════
+    const sbX = -9.5, sbZ = -5;
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.35), M(0xF0E8D8, 0.6))).position.set(sbX, 0.6, sbZ);
+    [0.22, 0.62, 1.02].forEach(y => {
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.03, 0.32), M(0xF0E8D8, 0.6))).position.set(sbX, y, sbZ);
+    });
+    // Picture books (lying flat, colourful)
+    [[0xFF7788, 0.05], [0x77BBFF, 0.10], [0x88DD88, 0.15]].forEach(([c, y]) => {
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.04, 0.25), M(c, 0.8))).position.set(sbX, 0.24 + y, sbZ);
+    });
+    // Small clock on top
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 0.03, 16), M(0xFFDD88, 0.6))).position.set(sbX, 1.22, sbZ);
+    add(new THREE.Mesh(new THREE.CircleGeometry(0.10, 16), M(0xFFFFF0, 0.8))).position.set(sbX, 1.24, sbZ + 0.14);
+    // Clock hands
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.008, 0.06, 0.005), M(0x333333, 0.5))).position.set(sbX, 1.26, sbZ + 0.15);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.006, 0.04, 0.005), M(0xFF4444, 0.5))).position.set(sbX + 0.015, 1.24, sbZ + 0.15);
+
+    // ═══════════════════════════════════
+    // GROWTH CHART — on left wall
+    // ═══════════════════════════════════
+    const gcMat = M(0xFFF8E8, 0.85);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.02, 2.5, 0.30), gcMat)).position.set(-11.82, 2.5, -3);
+    // Measurement lines
+    [1.5, 2.0, 2.5, 3.0, 3.5].forEach(y => {
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.005, 0.20), M(0x888888, 0.5))).position.set(-11.81, y, -3);
+    });
+    // Cute animal topper
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), M(0xFFCC66, 0.8))).position.set(-11.80, 3.85, -3);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), M(0xFFCC66, 0.8))).position.set(-11.80, 3.92, -3.03);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), M(0xFFCC66, 0.8))).position.set(-11.80, 3.92, -2.97);
   }
 
   _buildRobot() {
