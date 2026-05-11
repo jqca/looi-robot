@@ -1507,7 +1507,7 @@ let currentAudio   = null;
 const SLEEP_MS      = 300_000;
 const PROACTIVE_MS  = 120_000;
 
-const WAKE_WORDS         = /起きて|おきて|起こして|おこして|おはよ|秋山|あきやま|ねえ|ねぇ|スタート|起動|きどう/;
+const WAKE_WORDS         = /起きて|おきて|掟|起こして|おこして|おはよ|秋山|あきやま|ねえ|ねぇ|ねー|hey|スタート|起動|きどう|起き|おき/;
 const WAKE_CONFIDENCE_MIN = 0.50;
 const SLEEP_WORDS         = /おやすみ|寝て|ねて|バイバイ|またね|終わり|おわり/;
 
@@ -1702,20 +1702,21 @@ function startWakeWordListening() {
   if (sleepRecRef) return;
   const sr = new SpeechRec();
   sleepRecRef = sr;
-  sr.lang = 'ja-JP'; sr.continuous = true; sr.interimResults = false;
+  sr.lang = 'ja-JP'; sr.continuous = true; sr.interimResults = true;
   sr.onresult = e => {
-    const last = e.results[e.results.length - 1];
-    if (!last.isFinal) return;
-    if (WAKE_WORDS.test(last[0].transcript)) wakeUp();
+    for (let i = 0; i < e.results.length; i++) {
+      const transcript = e.results[i][0].transcript;
+      if (WAKE_WORDS.test(transcript)) { wakeUp(); return; }
+    }
   };
   sr.onend = () => {
-    if (sleeping && sleepRecRef === sr) { sleepRecRef = null; setTimeout(startWakeWordListening, 2000); }
+    if (sleeping && sleepRecRef === sr) { sleepRecRef = null; setTimeout(startWakeWordListening, 500); }
   };
   sr.onerror = e => {
     if (e.error === 'not-allowed') return;
-    if (sleeping && sleepRecRef === sr) { sleepRecRef = null; setTimeout(startWakeWordListening, 3000); }
+    if (sleeping && sleepRecRef === sr) { sleepRecRef = null; setTimeout(startWakeWordListening, 1000); }
   };
-  try { sr.start(); } catch(e) { sleepRecRef = null; if (sleeping) setTimeout(startWakeWordListening, 3000); }
+  try { sr.start(); } catch(e) { sleepRecRef = null; if (sleeping) setTimeout(startWakeWordListening, 1000); }
 }
 
 // ════════════════════════════════════════════════════
