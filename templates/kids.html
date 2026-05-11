@@ -10,8 +10,8 @@
 
   html, body {
     height: 100%; width: 100%;
-    background: #87CEEB;
-    color: #2a3a4a;
+    background: #FFE4B5;
+    color: #4a3a2a;
     font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
                  'メイリオ', 'Meiryo', sans-serif;
     overflow: hidden;
@@ -89,7 +89,7 @@
 
   #start-overlay {
     position: fixed; inset: 0; z-index: 9999;
-    background: linear-gradient(180deg, #87CEEB 0%, #B0E0F0 60%, #d4f0d4 100%);
+    background: linear-gradient(180deg, #FFE4B5 0%, #FFDAA0 60%, #FFD090 100%);
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: 18px; cursor: pointer;
@@ -225,8 +225,8 @@ class RobotRenderer3D {
     const h = this.container.clientHeight;
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x87CEEB);
-    this.scene.fog = new THREE.FogExp2(0x87CEEB, 0.018);
+    this.scene.background = new THREE.Color(0xFFE4B5);
+    this.scene.fog = new THREE.FogExp2(0xFFE4B5, 0.022);
 
     this.camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 120);
 
@@ -237,14 +237,14 @@ class RobotRenderer3D {
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.container.appendChild(this.renderer.domElement);
 
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
     this.scene.add(this.ambientLight);
 
     this.headLight = new THREE.PointLight(0xffeecc, 1.0, 18);
     this.headLight.castShadow = true;
     this.scene.add(this.headLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
     dirLight.position.set(5, 15, 8);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.set(1024, 1024);
@@ -256,23 +256,162 @@ class RobotRenderer3D {
     dirLight.shadow.camera.bottom = -10;
     this.scene.add(dirLight);
 
-    const hemiLight = new THREE.HemisphereLight(0x87CEEB, 0x999999, 0.5);
+    const hemiLight = new THREE.HemisphereLight(0xFFE4B5, 0xDDCCAA, 0.6);
     this.scene.add(hemiLight);
 
-    const grid = new THREE.GridHelper(60, 60, 0x8899AA, 0xA0AAB4);
-    grid.material.transparent = true;
-    grid.material.opacity = 0.45;
-    this.scene.add(grid);
-
+    // Warm wood floor
     const groundGeo = new THREE.PlaneGeometry(80, 80);
-    const groundMat = new THREE.MeshStandardMaterial({
-      color: 0x95988E, roughness: 0.90, metalness: 0.02
-    });
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0xE0C8A0, roughness: 0.80, metalness: 0.0 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
-    ground.rotation.x = -Math.PI / 2;
-    ground.position.y = -0.01;
-    ground.receiveShadow = true;
+    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.01; ground.receiveShadow = true;
     this.scene.add(ground);
+
+    this._buildKidsRoom();
+  }
+
+  _buildKidsRoom() {
+    const s = this.scene;
+    const mat = (c, opts) => new THREE.MeshStandardMaterial({ color: c, ...opts });
+
+    // ── Walls (pastel colors) ──
+    const wallBack = new THREE.Mesh(new THREE.BoxGeometry(24, 7, 0.3), mat(0xFFD4A0, { roughness: 0.95 }));
+    wallBack.position.set(0, 3.5, -10); wallBack.receiveShadow = true; s.add(wallBack);
+    const wallL = new THREE.Mesh(new THREE.BoxGeometry(0.3, 7, 22), mat(0xB8E8B8, { roughness: 0.95 }));
+    wallL.position.set(-12, 3.5, 1); s.add(wallL);
+    const wallR = new THREE.Mesh(new THREE.BoxGeometry(0.3, 7, 22), mat(0xB8D4F0, { roughness: 0.95 }));
+    wallR.position.set(12, 3.5, 1); s.add(wallR);
+
+    // ── Window on back wall ──
+    const winFrame = new THREE.Mesh(new THREE.BoxGeometry(3.5, 2.5, 0.05), mat(0xF5F0E0));
+    winFrame.position.set(-3, 4, -9.8); s.add(winFrame);
+    const winGlass = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 0.02),
+      new THREE.MeshStandardMaterial({ color: 0x88CCFF, emissive: 0x88CCFF, emissiveIntensity: 0.3, roughness: 0.1 }));
+    winGlass.position.set(-3, 4, -9.72); s.add(winGlass);
+    // Curtains
+    const curtainMat = mat(0xFF9999, { roughness: 0.95, side: THREE.DoubleSide });
+    const curtL = new THREE.Mesh(new THREE.BoxGeometry(0.6, 2.8, 0.04), curtainMat);
+    curtL.position.set(-4.6, 4, -9.7); s.add(curtL);
+    const curtR = new THREE.Mesh(new THREE.BoxGeometry(0.6, 2.8, 0.04), curtainMat);
+    curtR.position.set(-1.4, 4, -9.7); s.add(curtR);
+    const curtTop = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.2, 0.06), mat(0xDD7777));
+    curtTop.position.set(-3, 5.45, -9.7); s.add(curtTop);
+
+    // ── Round rug ──
+    const rugGeo = new THREE.CircleGeometry(2.5, 32);
+    const rugMat = new THREE.MeshStandardMaterial({ color: 0xF0C880, roughness: 0.95 });
+    const rug = new THREE.Mesh(rugGeo, rugMat);
+    rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.01, 0.5); s.add(rug);
+    // Rug border ring
+    const rugBorder = new THREE.Mesh(new THREE.RingGeometry(2.3, 2.5, 32),
+      new THREE.MeshStandardMaterial({ color: 0xE8A050, roughness: 0.95 }));
+    rugBorder.rotation.x = -Math.PI / 2; rugBorder.position.set(0, 0.015, 0.5); s.add(rugBorder);
+
+    // ── Toy blocks (left) ──
+    const blockColors = [0xFF5555, 0x55BB55, 0x5555FF];
+    blockColors.forEach((c, i) => {
+      const block = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.5), mat(c, { roughness: 0.7 }));
+      block.position.set(-4.5 + i * 0.15, 0.25 + i * 0.5, -5.5);
+      block.rotation.y = (i - 1) * 0.2;
+      block.castShadow = true; s.add(block);
+    });
+
+    // ── Big ball (right) ──
+    const ball = new THREE.Mesh(new THREE.SphereGeometry(0.45, 14, 14), mat(0xFF8844, { roughness: 0.6 }));
+    ball.position.set(5, 0.45, -3.5); ball.castShadow = true; s.add(ball);
+    // Stripe on ball
+    const stripe = new THREE.Mesh(new THREE.TorusGeometry(0.45, 0.04, 6, 24),
+      mat(0xFFDD44));
+    stripe.position.set(5, 0.45, -3.5); stripe.rotation.x = Math.PI / 2; s.add(stripe);
+
+    // ── Small table ──
+    const tableTop = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.06, 1), mat(0xFFBB88, { roughness: 0.7 }));
+    tableTop.position.set(4.5, 0.5, -6); tableTop.castShadow = true; s.add(tableTop);
+    const tLegGeo = new THREE.CylinderGeometry(0.05, 0.05, 0.5, 8);
+    const tLegMat = mat(0xDDA070);
+    [[-0.55, -0.35], [0.55, -0.35], [-0.55, 0.35], [0.55, 0.35]].forEach(([dx, dz]) => {
+      const tl = new THREE.Mesh(tLegGeo, tLegMat);
+      tl.position.set(4.5 + dx, 0.25, -6 + dz); s.add(tl);
+    });
+    // Crayon box on table
+    const cBox = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.15, 0.2), mat(0xFF4444));
+    cBox.position.set(4.7, 0.61, -6); s.add(cBox);
+    // Crayons
+    [0xFF2222, 0x22BB22, 0x4444FF, 0xFFCC00].forEach((c, i) => {
+      const cr = new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.22, 6), mat(c));
+      cr.position.set(4.2 + i * 0.08, 0.55, -5.8);
+      cr.rotation.z = Math.PI / 2 + (i - 1.5) * 0.05;
+      s.add(cr);
+    });
+
+    // ── Toy shelf (left back) ──
+    const shelfMat = mat(0xDDB888, { roughness: 0.8 });
+    const tShelf = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.8, 0.5), shelfMat);
+    tShelf.position.set(-6, 0.9, -7); tShelf.receiveShadow = true; s.add(tShelf);
+    // Shelf divider
+    const shDiv = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.04, 0.45), shelfMat);
+    shDiv.position.set(-6, 0.9, -7); s.add(shDiv);
+    // Colorful books on shelf
+    [0xFF6688, 0x44BBDD, 0x88DD44, 0xFFAA33].forEach((c, i) => {
+      const bk = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.32, 0.25), mat(c));
+      bk.position.set(-6.35 + i * 0.22, 1.35 + (i % 2) * 0.02, -7);
+      bk.rotation.z = (Math.random() - 0.5) * 0.1;
+      s.add(bk);
+    });
+    // Toy bear on lower shelf
+    const bearBody = new THREE.Mesh(new THREE.SphereGeometry(0.18, 8, 8), mat(0xCC9966));
+    bearBody.position.set(-5.8, 0.38, -6.85); s.add(bearBody);
+    const bearHead = new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), mat(0xCC9966));
+    bearHead.position.set(-5.8, 0.58, -6.85); s.add(bearHead);
+    const earL = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), mat(0xBB8855));
+    earL.position.set(-5.88, 0.66, -6.85); s.add(earL);
+    const earR = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), mat(0xBB8855));
+    earR.position.set(-5.72, 0.66, -6.85); s.add(earR);
+
+    // ── Wall decorations: star ──
+    const starMat = new THREE.MeshStandardMaterial({ color: 0xFFDD44, emissive: 0xFFDD44, emissiveIntensity: 0.2 });
+    const starPts = [];
+    for (let i = 0; i < 10; i++) {
+      const r = i % 2 === 0 ? 0.4 : 0.18;
+      const a = (i * Math.PI / 5) - Math.PI / 2;
+      starPts.push(new THREE.Vector2(Math.cos(a) * r, Math.sin(a) * r));
+    }
+    const starShape = new THREE.Shape(starPts);
+    const starGeo = new THREE.ExtrudeGeometry(starShape, { depth: 0.05, bevelEnabled: false });
+    const star = new THREE.Mesh(starGeo, starMat);
+    star.position.set(3, 4.5, -9.75); s.add(star);
+
+    // ── Wall decoration: small heart ──
+    const heartShape = new THREE.Shape();
+    heartShape.moveTo(0, 0.15);
+    heartShape.bezierCurveTo(0, 0.3, -0.18, 0.35, -0.25, 0.2);
+    heartShape.bezierCurveTo(-0.35, 0, 0, -0.2, 0, -0.3);
+    heartShape.bezierCurveTo(0, -0.2, 0.35, 0, 0.25, 0.2);
+    heartShape.bezierCurveTo(0.18, 0.35, 0, 0.3, 0, 0.15);
+    const heartGeo = new THREE.ExtrudeGeometry(heartShape, { depth: 0.04, bevelEnabled: false });
+    const heart = new THREE.Mesh(heartGeo, new THREE.MeshStandardMaterial({ color: 0xFF7799, emissive: 0xFF7799, emissiveIntensity: 0.15 }));
+    heart.position.set(5.5, 4, -9.75); heart.scale.set(0.7, 0.7, 0.7); s.add(heart);
+
+    // ── Rainbow arch (back wall) ──
+    const rainbow = new THREE.Mesh(new THREE.TorusGeometry(1.8, 0.12, 8, 32, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0xFF8888, emissive: 0xFF8888, emissiveIntensity: 0.1 }));
+    rainbow.position.set(0, 3.5, -9.7); s.add(rainbow);
+    const rainbow2 = new THREE.Mesh(new THREE.TorusGeometry(1.55, 0.1, 8, 32, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0xFFCC55, emissive: 0xFFCC55, emissiveIntensity: 0.1 }));
+    rainbow2.position.set(0, 3.5, -9.68); s.add(rainbow2);
+    const rainbow3 = new THREE.Mesh(new THREE.TorusGeometry(1.3, 0.1, 8, 32, Math.PI),
+      new THREE.MeshStandardMaterial({ color: 0x77DD77, emissive: 0x77DD77, emissiveIntensity: 0.1 }));
+    rainbow3.position.set(0, 3.5, -9.66); s.add(rainbow3);
+
+    // ── Cloud decorations (upper wall) ──
+    const cloudMat = mat(0xFFFFFF, { transparent: true, opacity: 0.7 });
+    const addCloud = (cx, cy, cz) => {
+      [[0, 0, 0.5], [-0.35, -0.05, 0.38], [0.3, 0.05, 0.35]].forEach(([dx, dy, r]) => {
+        const c = new THREE.Mesh(new THREE.SphereGeometry(r, 10, 10), cloudMat);
+        c.position.set(cx + dx, cy + dy, cz); s.add(c);
+      });
+    };
+    addCloud(-7, 5, -8);
+    addCloud(7, 5.3, -8.5);
   }
 
   _buildRobot() {
