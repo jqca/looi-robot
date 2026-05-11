@@ -308,28 +308,28 @@ class RobotRenderer3D {
     // WALLS — warm pastel with wainscoting
     // ═══════════════════════════════════
     // Back wall — soft peach upper
-    add(new THREE.Mesh(new THREE.BoxGeometry(24, 7.5, 0.2), M(0xFFE0C8, 0.95))).position.set(0, 3.75, -10);
+    add(new THREE.Mesh(new THREE.BoxGeometry(14, 7.5, 0.2), M(0xFFE0C8, 0.95))).position.set(0, 3.75, -10);
     // Left wall — mint green
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 7.5, 22), M(0xC8EED0, 0.95))).position.set(-12, 3.75, 1);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 7.5, 22), M(0xC8EED0, 0.95))).position.set(-7, 3.75, 1);
     // Right wall — soft lavender
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 7.5, 22), M(0xD8D0F0, 0.95))).position.set(12, 3.75, 1);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 7.5, 22), M(0xD8D0F0, 0.95))).position.set(7, 3.75, 1);
     // Ceiling
-    add(new THREE.Mesh(new THREE.BoxGeometry(24.4, 0.12, 22.4), M(0xFAF8F5, 0.9))).position.set(0, 7.5, 1);
+    add(new THREE.Mesh(new THREE.BoxGeometry(14.4, 0.12, 22.4), M(0xFAF8F5, 0.9))).position.set(0, 7.5, 1);
 
     // Wainscoting — white lower panels
-    add(new THREE.Mesh(new THREE.BoxGeometry(24, 2.0, 0.06), M(0xFAFAFA, 0.85))).position.set(0, 1.0, -9.88);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.0, 22), M(0xFAFAFA, 0.85))).position.set(-11.88, 1.0, 1);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.0, 22), M(0xFAFAFA, 0.85))).position.set(11.88, 1.0, 1);
+    add(new THREE.Mesh(new THREE.BoxGeometry(14, 2.0, 0.06), M(0xFAFAFA, 0.85))).position.set(0, 1.0, -9.88);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.0, 22), M(0xFAFAFA, 0.85))).position.set(-6.88, 1.0, 1);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.0, 22), M(0xFAFAFA, 0.85))).position.set(6.88, 1.0, 1);
     // Chair rail (divider strip)
     const railMat = M(0xF0E8E0, 0.7);
-    add(new THREE.Mesh(new THREE.BoxGeometry(24, 0.06, 0.08), railMat)).position.set(0, 2.02, -9.86);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 22), railMat)).position.set(-11.86, 2.02, 1);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 22), railMat)).position.set(11.86, 2.02, 1);
+    add(new THREE.Mesh(new THREE.BoxGeometry(14, 0.06, 0.08), railMat)).position.set(0, 2.02, -9.86);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 22), railMat)).position.set(-6.86, 2.02, 1);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.06, 22), railMat)).position.set(6.86, 2.02, 1);
     // Baseboard
     const trimMat = M(0xF5F0E8, 0.75);
-    add(new THREE.Mesh(new THREE.BoxGeometry(24, 0.1, 0.05), trimMat)).position.set(0, 0.05, -9.88);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.1, 22), trimMat)).position.set(-11.88, 0.05, 1);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.1, 22), trimMat)).position.set(11.88, 0.05, 1);
+    add(new THREE.Mesh(new THREE.BoxGeometry(14, 0.1, 0.05), trimMat)).position.set(0, 0.05, -9.88);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.1, 22), trimMat)).position.set(-6.88, 0.05, 1);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.1, 22), trimMat)).position.set(6.88, 0.05, 1);
 
     // ═══════════════════════════════════
     // LARGE WINDOW — back wall with sunlight
@@ -372,7 +372,7 @@ class RobotRenderer3D {
     // ═══════════════════════════════════
     // BED — cozy child's bed (left side)
     // ═══════════════════════════════════
-    const bedX = -7, bedZ = -6.5;
+    const bedX = -5.5, bedZ = -6.5;
     const woodMat = M(0xF0E8D8, 0.6, 0.03);
     // Bed frame base
     add(new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.12, 3.2), woodMat)).position.set(bedX, 0.35, bedZ);
@@ -514,7 +514,7 @@ class RobotRenderer3D {
     // ═══════════════════════════════════
     // TOY BOX — colourful chest
     // ═══════════════════════════════════
-    const tbX = 7, tbZ = -3;
+    const tbX = 5.8, tbZ = -3;
     // Box body (bright yellow)
     add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.65, 0.6), M(0xFFDD55, 0.7))).position.set(tbX, 0.325, tbZ);
     // Lid (slightly open)
@@ -538,7 +538,7 @@ class RobotRenderer3D {
     // ═══════════════════════════════════
     // PLAY KITCHEN — right wall
     // ═══════════════════════════════════
-    const pkX = 8, pkZ = -7.5;
+    const pkX = 6, pkZ = -7.5;
     // Kitchen body
     add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.2, 0.6), M(0xF5E8E0, 0.7))).position.set(pkX, 0.6, pkZ);
     // Counter top
@@ -613,32 +613,32 @@ class RobotRenderer3D {
     });
 
     // ABC poster (framed)
-    add(new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.7, 0.03), M(0xF5E8D8, 0.6))).position.set(7, 3.5, -9.86);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.58, 0.01), M(0xFFFFE8, 0.9))).position.set(7, 3.5, -9.83);
+    add(new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.7, 0.03), M(0xF5E8D8, 0.6))).position.set(5, 3.5, -9.86);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.58, 0.01), M(0xFFFFE8, 0.9))).position.set(5, 3.5, -9.83);
     // Coloured letter blocks on poster
     [[0xFF5555, -0.25, 0.12], [0x55BB55, 0.0, 0.12], [0x5555FF, 0.25, 0.12],
      [0xFFAA33, -0.12, -0.12], [0xDD44DD, 0.12, -0.12]].forEach(([c, dx, dy]) => {
-      add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.005), M(c, 0.7))).position.set(7 + dx, 3.5 + dy, -9.82);
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 0.005), M(c, 0.7))).position.set(5 + dx, 3.5 + dy, -9.82);
     });
 
     // Animal picture frame (giraffe — represented abstractly)
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.03), M(0xFFBB88, 0.6))).position.set(9, 4.0, -9.86);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.78, 0.01), M(0xFFFDE8, 0.9))).position.set(9, 4.0, -9.83);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.03), M(0xFFBB88, 0.6))).position.set(6.2, 4.0, -9.86);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.58, 0.78, 0.01), M(0xFFFDE8, 0.9))).position.set(6.2, 4.0, -9.83);
     // Giraffe body silhouette (simple shapes)
-    add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.3, 8), M(0xEEBB44, 0.8))).position.set(9, 3.95, -9.82);
-    add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), M(0xEEBB44, 0.8))).position.set(9, 4.18, -9.82);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.3, 8), M(0xEEBB44, 0.8))).position.set(6.2, 3.95, -9.82);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), M(0xEEBB44, 0.8))).position.set(6.2, 4.18, -9.82);
     // Giraffe spots
-    add(new THREE.Mesh(new THREE.CircleGeometry(0.02, 6), M(0xBB8833, 0.8))).position.set(8.97, 3.92, -9.81);
-    add(new THREE.Mesh(new THREE.CircleGeometry(0.015, 6), M(0xBB8833, 0.8))).position.set(9.04, 3.98, -9.81);
+    add(new THREE.Mesh(new THREE.CircleGeometry(0.02, 6), M(0xBB8833, 0.8))).position.set(6.17, 3.92, -9.81);
+    add(new THREE.Mesh(new THREE.CircleGeometry(0.015, 6), M(0xBB8833, 0.8))).position.set(6.24, 3.98, -9.81);
 
     // Stars and hearts scattered on walls
     // Wall stars
-    [[2.5, 5.5, -9.78, 0.18], [8.5, 5.0, -9.78, 0.14], [-9.5, 4.5, -9.78, 0.15], [-1, 6.0, -9.78, 0.12]].forEach(([x, y, z, sz]) => {
+    [[2.5, 5.5, -9.78, 0.18], [5.5, 5.0, -9.78, 0.14], [-5.5, 4.5, -9.78, 0.15], [-1, 6.0, -9.78, 0.12]].forEach(([x, y, z, sz]) => {
       const stGeo = new THREE.ExtrudeGeometry(makeStar(sz, sz * 0.42), { depth: 0.03, bevelEnabled: false });
       add(new THREE.Mesh(stGeo, ME(0xFFDD55, 0xFFDD55, 0.25))).position.set(x, y, z);
     });
     // Wall hearts
-    [[6, 5.5, -9.78, 0.6], [-8, 5.2, -9.78, 0.5]].forEach(([x, y, z, sc]) => {
+    [[5.5, 5.5, -9.78, 0.6], [-5.5, 5.2, -9.78, 0.5]].forEach(([x, y, z, sc]) => {
       const hGeo = new THREE.ExtrudeGeometry(makeHeart(sc), { depth: 0.03, bevelEnabled: false });
       add(new THREE.Mesh(hGeo, ME(0xFF88AA, 0xFF88AA, 0.15))).position.set(x, y, z);
     });
@@ -647,8 +647,8 @@ class RobotRenderer3D {
     // BUNTING / GARLAND — across back wall
     // ═══════════════════════════════════
     const flagColors = [0xFF8888, 0xFFDD66, 0x88DDAA, 0x88BBFF, 0xDD88DD, 0xFFAA77];
-    for (let i = 0; i < 12; i++) {
-      const fx = -10 + i * 1.8;
+    for (let i = 0; i < 9; i++) {
+      const fx = -6 + i * 1.5;
       const fy = 6.2 + Math.sin(i * 0.6) * 0.2;
       const triShape = new THREE.Shape();
       triShape.moveTo(-0.12, 0); triShape.lineTo(0.12, 0); triShape.lineTo(0, -0.25); triShape.lineTo(-0.12, 0);
@@ -656,7 +656,7 @@ class RobotRenderer3D {
       add(new THREE.Mesh(triGeo, M(flagColors[i % flagColors.length], 0.85))).position.set(fx, fy, -9.76);
     }
     // String line for bunting
-    add(new THREE.Mesh(new THREE.BoxGeometry(22, 0.012, 0.012), M(0xDDCCBB, 0.8))).position.set(0, 6.25, -9.76);
+    add(new THREE.Mesh(new THREE.BoxGeometry(13, 0.012, 0.012), M(0xDDCCBB, 0.8))).position.set(0, 6.25, -9.76);
 
     // ═══════════════════════════════════
     // CLOUD DECORATIONS — fluffy, detailed
@@ -668,9 +668,9 @@ class RobotRenderer3D {
         c.position.set(cx + dx * scale, cy + dy * scale, cz);
       });
     };
-    addCloud(-8, 5.8, -9.0, 1.0);
-    addCloud(5, 6.2, -8.5, 0.8);
-    addCloud(9, 5.5, -7.5, 0.7);
+    addCloud(-5.5, 5.8, -9.0, 1.0);
+    addCloud(3, 6.2, -8.5, 0.8);
+    addCloud(5.5, 5.5, -7.5, 0.7);
 
     // ═══════════════════════════════════
     // ROCKING HORSE — classic toy
@@ -722,7 +722,7 @@ class RobotRenderer3D {
     // ═══════════════════════════════════
     // SMALL BOOKSHELF — near bed
     // ═══════════════════════════════════
-    const sbX = -9.5, sbZ = -5;
+    const sbX = -6, sbZ = -5;
     add(new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.35), M(0xF0E8D8, 0.6))).position.set(sbX, 0.6, sbZ);
     [0.22, 0.62, 1.02].forEach(y => {
       add(new THREE.Mesh(new THREE.BoxGeometry(0.74, 0.03, 0.32), M(0xF0E8D8, 0.6))).position.set(sbX, y, sbZ);
@@ -742,15 +742,15 @@ class RobotRenderer3D {
     // GROWTH CHART — on left wall
     // ═══════════════════════════════════
     const gcMat = M(0xFFF8E8, 0.85);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.02, 2.5, 0.30), gcMat)).position.set(-11.82, 2.5, -3);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.02, 2.5, 0.30), gcMat)).position.set(-6.82, 2.5, -3);
     // Measurement lines
     [1.5, 2.0, 2.5, 3.0, 3.5].forEach(y => {
-      add(new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.005, 0.20), M(0x888888, 0.5))).position.set(-11.81, y, -3);
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.005, 0.20), M(0x888888, 0.5))).position.set(-6.81, y, -3);
     });
     // Cute animal topper
-    add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), M(0xFFCC66, 0.8))).position.set(-11.80, 3.85, -3);
-    add(new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), M(0xFFCC66, 0.8))).position.set(-11.80, 3.92, -3.03);
-    add(new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), M(0xFFCC66, 0.8))).position.set(-11.80, 3.92, -2.97);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), M(0xFFCC66, 0.8))).position.set(-6.80, 3.85, -3);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), M(0xFFCC66, 0.8))).position.set(-6.80, 3.92, -3.03);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), M(0xFFCC66, 0.8))).position.set(-6.80, 3.92, -2.97);
 
     // ═══════════════════════════════════
     // PLUSHIES & TOYS scattered around room
@@ -840,7 +840,7 @@ class RobotRenderer3D {
     add(new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), M(0xFFCC33, 0.85))).position.set(dkX + 0.15, 0.18, dkZ);
 
     // ── Green dinosaur plushie (near bed) ──
-    const diX = -8.5, diZ = -4.0;
+    const diX = -5.5, diZ = -4.0;
     // Body (roundish)
     add(new THREE.Mesh(new THREE.SphereGeometry(0.20, 10, 10), M(0x66BB66, 0.88))).position.set(diX, 0.20, diZ);
     // Head
