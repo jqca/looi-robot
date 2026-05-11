@@ -10,7 +10,7 @@
 
   html, body {
     height: 100%; width: 100%;
-    background: #c8d8e8;
+    background: #d8e4ea;
     color: #2a3a4a;
     font-family: 'Segoe UI', 'Noto Sans JP', sans-serif;
     overflow: hidden;
@@ -118,7 +118,7 @@
 
   #start-overlay {
     position: fixed; inset: 0; z-index: 9999;
-    background: linear-gradient(180deg, #d0dde8 0%, #e8eff5 50%, #c8d4e0 100%);
+    background: linear-gradient(180deg, #d8e4ea 0%, #e4eef4 50%, #d0dce4 100%);
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: 18px; cursor: pointer;
@@ -497,8 +497,8 @@ class RobotRenderer3D {
     const h = this.container.clientHeight;
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xd0dde8);
-    this.scene.fog = new THREE.FogExp2(0xd0dde8, 0.018);
+    this.scene.background = new THREE.Color(0xd8e4ea);
+    this.scene.fog = new THREE.FogExp2(0xd8e4ea, 0.014);
 
     this.camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 120);
 
@@ -508,39 +508,42 @@ class RobotRenderer3D {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.1;
+    this.renderer.toneMappingExposure = 1.2;
     this.container.appendChild(this.renderer.domElement);
 
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.85);
+    // Bright cool ambient
+    this.ambientLight = new THREE.AmbientLight(0xf0f4f8, 0.9);
     this.scene.add(this.ambientLight);
 
-    this.headLight = new THREE.PointLight(0xffeecc, 1.0, 18);
+    this.headLight = new THREE.PointLight(0xffffff, 0.8, 18);
     this.headLight.castShadow = true;
     this.scene.add(this.headLight);
 
-    const dirLight = new THREE.DirectionalLight(0xfff8ee, 1.0);
-    dirLight.position.set(3, 12, 6);
+    // Main directional (overhead)
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(0, 14, 2);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.set(2048, 2048);
     dirLight.shadow.camera.near = 1;
     dirLight.shadow.camera.far = 40;
-    dirLight.shadow.camera.left = -12;
-    dirLight.shadow.camera.right = 12;
-    dirLight.shadow.camera.top = 12;
-    dirLight.shadow.camera.bottom = -12;
+    dirLight.shadow.camera.left = -14;
+    dirLight.shadow.camera.right = 14;
+    dirLight.shadow.camera.top = 14;
+    dirLight.shadow.camera.bottom = -14;
     dirLight.shadow.bias = -0.001;
     this.scene.add(dirLight);
 
-    const hemiLight = new THREE.HemisphereLight(0xc8dff0, 0xb0a898, 0.7);
+    // Hemisphere — cool sky / warm ground
+    const hemiLight = new THREE.HemisphereLight(0xd0e8f0, 0xc0c0b8, 0.6);
     this.scene.add(hemiLight);
 
-    // Natural light from window side
-    const winLight = new THREE.DirectionalLight(0xe8f0ff, 0.5);
-    winLight.position.set(0, 8, -12); this.scene.add(winLight);
+    // Window daylight fill
+    const winLight = new THREE.DirectionalLight(0xe8f4ff, 0.6);
+    winLight.position.set(-5, 10, -12); this.scene.add(winLight);
 
-    // Office floor — medium grey
+    // Carpet tile floor — light grey
     const groundGeo = new THREE.PlaneGeometry(80, 80);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0x8A8A8A, roughness: 0.55, metalness: 0.05 });
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0xC0C4C8, roughness: 0.75, metalness: 0.0 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.01; ground.receiveShadow = true;
     this.scene.add(ground);
@@ -551,289 +554,258 @@ class RobotRenderer3D {
   _buildOffice() {
     const s = this.scene;
     const M = (c, r, m) => new THREE.MeshStandardMaterial({ color: c, roughness: r !== undefined ? r : 0.7, metalness: m || 0 });
+    const ME = (c, ec, ei) => new THREE.MeshStandardMaterial({ color: c, emissive: ec, emissiveIntensity: ei, roughness: 0.5 });
     const add = (mesh) => { s.add(mesh); return mesh; };
 
+    // Teal accent color
+    const TEAL = 0x2EA8B0;
+    const TEAL_DARK = 0x1E8890;
+    const tealMat = M(TEAL, 0.6, 0.05);
+    const whiteMat = M(0xF2F4F6, 0.85);
+    const whiteCleanMat = M(0xFAFAFA, 0.75);
+
     // ═══════════════════════════════════
-    // WALLS — bright modern interior
+    // WALLS — teal accent + white
     // ═══════════════════════════════════
-    // Back wall (light warm grey)
-    add(new THREE.Mesh(new THREE.BoxGeometry(24, 7.5, 0.2), M(0xEDE8E0, 0.95))).position.set(0, 3.75, -10);
-    // Left wall (accent: subtle warm white)
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 7.5, 22), M(0xE8E4DC, 0.95))).position.set(-12, 3.75, 1);
-    // Right wall
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 7.5, 22), M(0xE8E4DC, 0.95))).position.set(12, 3.75, 1);
+    // Back wall — upper teal
+    add(new THREE.Mesh(new THREE.BoxGeometry(24, 7.5, 0.2), tealMat)).position.set(0, 3.75, -10);
+    // Left wall — teal accent
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 7.5, 22), tealMat)).position.set(-12, 3.75, 1);
+    // Right wall — white/light grey
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 7.5, 22), M(0xE8EAEE, 0.9))).position.set(12, 3.75, 1);
+
     // Ceiling (white)
-    add(new THREE.Mesh(new THREE.BoxGeometry(24.4, 0.12, 22.4), M(0xF5F3F0, 0.9))).position.set(0, 7.5, 1);
+    add(new THREE.Mesh(new THREE.BoxGeometry(24.4, 0.12, 22.4), whiteCleanMat)).position.set(0, 7.5, 1);
 
-    // Baseboard (dark walnut trim)
-    const trimMat = M(0x5C4A3A, 0.6, 0.05);
-    add(new THREE.Mesh(new THREE.BoxGeometry(24, 0.12, 0.06), trimMat)).position.set(0, 0.06, -9.88);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 22), trimMat)).position.set(-11.88, 0.06, 1);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.12, 22), trimMat)).position.set(11.88, 0.06, 1);
+    // Ceiling — curved accent band (teal stripe)
+    add(new THREE.Mesh(new THREE.BoxGeometry(20, 0.06, 0.5), ME(TEAL, TEAL, 0.15))).position.set(0, 7.38, -4);
+    add(new THREE.Mesh(new THREE.BoxGeometry(20, 0.06, 0.5), ME(TEAL, TEAL, 0.15))).position.set(0, 7.38, -6);
+    // Curved ceiling ledge (simulated with box strips)
+    add(new THREE.Mesh(new THREE.BoxGeometry(20, 0.35, 0.08), whiteMat)).position.set(0, 7.18, -5);
+    add(new THREE.Mesh(new THREE.BoxGeometry(20, 0.06, 2.2), ME(TEAL_DARK, TEAL_DARK, 0.08))).position.set(0, 7.32, -5);
+
+    // Baseboard (white)
+    const trimMat = M(0xE0E2E5, 0.7);
+    add(new THREE.Mesh(new THREE.BoxGeometry(24, 0.10, 0.05), trimMat)).position.set(0, 0.05, -9.88);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.10, 22), trimMat)).position.set(-11.88, 0.05, 1);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.10, 22), trimMat)).position.set(11.88, 0.05, 1);
 
     // ═══════════════════════════════════
-    // PANORAMIC WINDOWS — back wall
+    // PANORAMIC WINDOWS — back wall (bright daylight)
     // ═══════════════════════════════════
-    const frameMat = M(0x3a3a3a, 0.3, 0.6);
-    // Large window — 3 panes
-    [-3.5, 0, 3.5].forEach(x => {
+    const frameMat = M(0xE0E2E5, 0.4, 0.1);
+    [-4, 0, 4].forEach(x => {
       // Frame
-      add(new THREE.Mesh(new THREE.BoxGeometry(3.2, 3.4, 0.08), frameMat)).position.set(x, 4.3, -9.88);
-      // Glass pane — bright sky
-      const glass = add(new THREE.Mesh(new THREE.BoxGeometry(2.8, 3.0, 0.02),
-        new THREE.MeshStandardMaterial({ color: 0xCCDDEE, emissive: 0x88BBDD, emissiveIntensity: 0.7, roughness: 0.05, metalness: 0.1, transparent: true, opacity: 0.9 })));
-      glass.position.set(x, 4.3, -9.82);
-      // Mullion (horizontal bar)
-      add(new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.04, 0.05), frameMat)).position.set(x, 4.3, -9.80);
+      add(new THREE.Mesh(new THREE.BoxGeometry(3.4, 3.8, 0.08), frameMat)).position.set(x, 4.5, -9.88);
+      // Glass — bright sky
+      add(new THREE.Mesh(new THREE.BoxGeometry(3.0, 3.4, 0.02),
+        new THREE.MeshStandardMaterial({ color: 0xDDEEFF, emissive: 0xAADDFF, emissiveIntensity: 0.9, roughness: 0.02, transparent: true, opacity: 0.92 })
+      )).position.set(x, 4.5, -9.82);
+      // Horizontal mullion
+      add(new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.04, 0.05), frameMat)).position.set(x, 4.5, -9.80);
     });
-    // Vertical mullions between panes
-    [-1.75, 1.75].forEach(x => {
-      add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 3.4, 0.06), frameMat)).position.set(x, 4.3, -9.85);
-    });
-
-    // ═══════════════════════════════════
-    // EXECUTIVE DESK — walnut + black steel
-    // ═══════════════════════════════════
-    const walnut = M(0x7A5C42, 0.45, 0.05);
-    const steel  = M(0x2A2A2A, 0.25, 0.7);
-    const dkY = 0.78;
-
-    // Desktop slab (thick, beveled feel)
-    const dTop = add(new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.06, 1.6), walnut));
-    dTop.position.set(0, dkY, -5.2); dTop.castShadow = true; dTop.receiveShadow = true;
-    // Desktop edge bevel (front strip darker)
-    add(new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.03, 0.04), M(0x6A4C36, 0.4, 0.05))).position.set(0, dkY - 0.02, -4.4);
-    // Left panel leg
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, dkY, 1.4), steel)).position.set(-1.7, dkY / 2, -5.2);
-    // Right panel leg
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, dkY, 1.4), steel)).position.set(1.7, dkY / 2, -5.2);
-    // Crossbar (bottom)
-    add(new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.04, 0.06), steel)).position.set(0, 0.08, -5.2);
-    // Cable management tray (under desk)
-    add(new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.03, 0.25), M(0x333333, 0.6, 0.3))).position.set(0, dkY - 0.08, -5.6);
-
-    // Drawer unit (left side)
-    const drw = M(0x7A5C42, 0.5, 0.03);
-    const drwG = new THREE.Group();
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.55, 1.0), drw)).position.set(-1.2, 0.3, -5.2);
-    // Drawer face lines (3 drawers)
-    [0.12, 0.32, 0.52].forEach(y => {
-      add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.005, 1.01), M(0x604830, 0.5))).position.set(-1.2, y, -5.2);
-    });
-    // Drawer handles
-    [0.2, 0.4, 0.56].forEach(y => {
-      add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.012, 0.02), M(0xC0B8A8, 0.2, 0.8))).position.set(-1.2, y, -4.69);
+    // Vertical mullions
+    [-2, 2].forEach(x => {
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 3.8, 0.06), frameMat)).position.set(x, 4.5, -9.85);
     });
 
     // ═══════════════════════════════════
-    // ULTRAWIDE MONITOR — slim bezel
+    // OPEN PLAN DESKS — white, 2 rows of 3
     // ═══════════════════════════════════
-    // Stand base (curved metal)
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.015, 0.28), M(0x888888, 0.15, 0.8))).position.set(0, dkY + 0.01, -5.6);
-    // Stand arm (vertical)
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.5, 0.05), M(0x888888, 0.15, 0.8))).position.set(0, dkY + 0.27, -5.6);
-    // Monitor body (slim)
-    add(new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.95, 0.04), M(0x1a1a1a, 0.4, 0.3))).position.set(0, dkY + 0.77, -5.62);
-    // Screen (bright, active)
-    add(new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.85, 0.005),
-      new THREE.MeshStandardMaterial({ color: 0x1a2a3a, emissive: 0x5588AA, emissiveIntensity: 0.5, roughness: 0.05 }))).position.set(0, dkY + 0.77, -5.59);
-    // Chin bezel
-    add(new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.015, 0.04), M(0xCCCCCC, 0.2, 0.5))).position.set(0, dkY + 0.34, -5.60);
+    const dkY = 0.76;
+    const deskWhite = M(0xF0F2F5, 0.6, 0.05);
+    const legMat = M(0xE0E2E5, 0.4, 0.15);
+    const screenMat = M(0xCCCCCC, 0.3, 0.3);
 
-    // ═══════════════════════════════════
-    // DESK ACCESSORIES
-    // ═══════════════════════════════════
-    // Keyboard (low-profile)
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.012, 0.22), M(0xE8E4E0, 0.8))).position.set(0, dkY + 0.01, -4.85);
-    // Trackpad
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.008, 0.16), M(0xE0DCDA, 0.6, 0.1))).position.set(0.55, dkY + 0.01, -4.85);
-
-    // Pen holder (cylindrical, dark leather)
-    add(new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.06, 0.12, 12), M(0x4A3A2A, 0.8))).position.set(0.85, dkY + 0.07, -5.0);
-    // Pens sticking out
-    [0, 0.02, -0.02].forEach((dx, i) => {
-      add(new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.14, 6), M([0x222222, 0x2244AA, 0xBB2222][i], 0.4))).position.set(0.85 + dx, dkY + 0.17, -5.0 + (i - 1) * 0.015);
-    });
-
-    // Coffee mug
-    add(new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.035, 0.1, 12), M(0xF0F0F0, 0.7))).position.set(-0.7, dkY + 0.055, -4.7);
-    // Mug handle
-    add(new THREE.Mesh(new THREE.TorusGeometry(0.025, 0.006, 6, 12, Math.PI), M(0xF0F0F0, 0.7))).position.set(-0.66, dkY + 0.055, -4.7);
-
-    // Small desk plant
-    add(new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.035, 0.06, 8), M(0xE8E0D0, 0.9))).position.set(0.95, dkY + 0.04, -5.5);
-    add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), M(0x4A8A4A, 0.9))).position.set(0.95, dkY + 0.1, -5.5);
-
-    // ═══════════════════════════════════
-    // EXECUTIVE CHAIR — mesh-back ergonomic
-    // ═══════════════════════════════════
-    const chairX = 3.8, chairZ = -4.8;
-    // 5-star base
-    for (let i = 0; i < 5; i++) {
-      const a = (i / 5) * Math.PI * 2;
-      const arm = add(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.03, 0.35), M(0x888888, 0.2, 0.7)));
-      arm.position.set(chairX + Math.sin(a) * 0.17, 0.025, chairZ + Math.cos(a) * 0.17);
-      arm.rotation.y = a;
-      // Caster
-      add(new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), M(0x333333, 0.3, 0.5))).position.set(
-        chairX + Math.sin(a) * 0.34, 0.02, chairZ + Math.cos(a) * 0.34);
-    }
-    // Gas cylinder
-    add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.42, 10), M(0x666666, 0.2, 0.6))).position.set(chairX, 0.25, chairZ);
-    // Seat (curved)
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.06, 0.52), M(0x2A2A2A, 0.85))).position.set(chairX, 0.50, chairZ);
-    // Seat cushion
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.04, 0.45), M(0x333333, 0.9))).position.set(chairX, 0.54, chairZ);
-    // Backrest frame
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.72, 0.03), M(0x333333, 0.8))).position.set(chairX, 0.92, chairZ - 0.26);
-    // Mesh pattern (2 horizontal bars to suggest mesh)
-    [0.72, 0.92, 1.12].forEach(y => {
-      add(new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.008, 0.02), M(0x555555, 0.6, 0.2))).position.set(chairX, y, chairZ - 0.24);
-    });
-    // Lumbar support
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.1, 0.04), M(0x444444, 0.7))).position.set(chairX, 0.68, chairZ - 0.24);
-    // Armrests
-    [-0.28, 0.28].forEach(dx => {
-      add(new THREE.Mesh(new THREE.CylinderGeometry(0.015, 0.015, 0.2, 8), M(0x666666, 0.2, 0.6))).position.set(chairX + dx, 0.56, chairZ - 0.1);
-      add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.015, 0.2), M(0x444444, 0.7))).position.set(chairX + dx, 0.66, chairZ - 0.08);
-    });
-    // Headrest
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.15, 0.03), M(0x333333, 0.85))).position.set(chairX, 1.38, chairZ - 0.26);
-
-    // ═══════════════════════════════════
-    // BOOKSHELF — open walnut shelving unit
-    // ═══════════════════════════════════
-    const bsX = -6.5, bsZ = -8.5;
-    const walnutShelf = M(0x8A6A4A, 0.5, 0.03);
-    // Frame — two side panels
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 3.2, 0.45), walnutShelf)).position.set(bsX - 0.8, 1.6, bsZ);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 3.2, 0.45), walnutShelf)).position.set(bsX + 0.8, 1.6, bsZ);
-    // Back panel (thin)
-    add(new THREE.Mesh(new THREE.BoxGeometry(1.54, 3.2, 0.03), M(0x9A7A5A, 0.6))).position.set(bsX, 1.6, bsZ - 0.21);
-    // Shelves (5 levels)
-    [0, 0.65, 1.3, 1.95, 2.6, 3.2].forEach(y => {
-      add(new THREE.Mesh(new THREE.BoxGeometry(1.54, 0.04, 0.45), walnutShelf)).position.set(bsX, y + 0.02, bsZ);
-    });
-    // Books — assorted sizes and colors (per shelf)
-    const bookSets = [
-      [[0.14, 0.50, 0x9B2335], [0.10, 0.42, 0x1A3A6A], [0.12, 0.48, 0x2E6B3A], [0.08, 0.36, 0xD4A843], [0.12, 0.44, 0x5A2D6A]],
-      [[0.10, 0.40, 0xAA4422], [0.14, 0.52, 0x223366], [0.10, 0.38, 0x8B6914], [0.12, 0.46, 0x4A6A4A]],
-      [[0.12, 0.50, 0x3A5A8A], [0.08, 0.34, 0xCC6633], [0.14, 0.48, 0x663344], [0.10, 0.42, 0x336644], [0.08, 0.30, 0x886644]],
-    ];
-    bookSets.forEach((books, shelfIdx) => {
-      let xOff = bsX - 0.65;
-      books.forEach(([w, h, c]) => {
-        const bk = add(new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.30), M(c, 0.8)));
-        bk.position.set(xOff + w / 2, 0.67 + shelfIdx * 0.65 + h / 2, bsZ);
-        bk.rotation.z = (Math.random() - 0.5) * 0.04;
-        xOff += w + 0.02;
+    const buildDesk = (cx, cz, facingBack) => {
+      // Desktop
+      const dt = add(new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.04, 1.2), deskWhite));
+      dt.position.set(cx, dkY, cz); dt.castShadow = true; dt.receiveShadow = true;
+      // Desktop front edge (subtle rounded look)
+      add(new THREE.Mesh(new THREE.BoxGeometry(2.4, 0.025, 0.03), M(0xDDDDE0, 0.5))).position.set(cx, dkY - 0.015, cz + (facingBack ? -0.58 : 0.58));
+      // 4 legs (white metal)
+      [[-1.05, -0.50], [1.05, -0.50], [-1.05, 0.50], [1.05, 0.50]].forEach(([dx, dz]) => {
+        add(new THREE.Mesh(new THREE.BoxGeometry(0.04, dkY, 0.04), legMat)).position.set(cx + dx, dkY / 2, cz + dz);
       });
+      // Side modesty panel
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.35, 1.1), M(0xE8EAF0, 0.7))).position.set(cx - 1.05, dkY - 0.20, cz);
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.35, 1.1), M(0xE8EAF0, 0.7))).position.set(cx + 1.05, dkY - 0.20, cz);
+
+      // Monitor
+      const mz = facingBack ? cz - 0.30 : cz + 0.30;
+      const mFace = facingBack ? 1 : -1;
+      // Stand
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.012, 0.20), screenMat)).position.set(cx, dkY + 0.01, mz);
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.35, 0.04), screenMat)).position.set(cx, dkY + 0.19, mz);
+      // Screen body (silver/grey)
+      add(new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.70, 0.03), screenMat)).position.set(cx, dkY + 0.56, mz);
+      // Screen face (dark, active)
+      add(new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.62, 0.005),
+        new THREE.MeshStandardMaterial({ color: 0x1a2a3a, emissive: 0x4488BB, emissiveIntensity: 0.4, roughness: 0.05 })
+      )).position.set(cx, dkY + 0.56, mz + mFace * 0.018);
+
+      // Keyboard
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.50, 0.01, 0.18), M(0xE8E8EA, 0.8))).position.set(cx, dkY + 0.01, cz + mFace * 0.15);
+      // Mouse
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.015, 0.10), M(0xE0E0E2, 0.6))).position.set(cx + 0.40, dkY + 0.01, cz + mFace * 0.18);
+    };
+
+    // Front row (facing back wall) — 3 desks
+    buildDesk(-3.5, -5.0, true);
+    buildDesk(0, -5.0, true);
+    buildDesk(3.5, -5.0, true);
+
+    // Back row (facing front) — 3 desks
+    buildDesk(-3.5, -7.5, false);
+    buildDesk(0, -7.5, false);
+    buildDesk(3.5, -7.5, false);
+
+    // Desk divider panels between facing rows
+    [-3.5, 0, 3.5].forEach(cx => {
+      add(new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.5, 0.02), M(0xD8DADD, 0.8))).position.set(cx, dkY + 0.27, -6.25);
     });
-    // Decorative object on top shelf — small globe
-    add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), M(0x5588AA, 0.4, 0.2))).position.set(bsX + 0.3, 2.85, bsZ);
-    add(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.015, 12), M(0x6A5A4A, 0.5, 0.3))).position.set(bsX + 0.3, 2.72, bsZ);
-    // Photo frame on shelf
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.20, 0.25, 0.02), M(0x333333, 0.3, 0.5))).position.set(bsX - 0.3, 2.78, bsZ + 0.1);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.21, 0.005), M(0xCCBBAA, 0.9))).position.set(bsX - 0.3, 2.78, bsZ + 0.12);
 
     // ═══════════════════════════════════
-    // FLOOR LAMP — arc lamp, brass + marble
+    // TEAL OFFICE CHAIRS — one per desk
     // ═══════════════════════════════════
-    const flX = 6.5, flZ = -5.5;
-    // Marble base
-    add(new THREE.Mesh(new THREE.CylinderGeometry(0.30, 0.32, 0.06, 16), M(0xE8E0D8, 0.3, 0.1))).position.set(flX, 0.03, flZ);
-    // Brass pole (slight curve via 2 segments)
-    add(new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 2.0, 10), M(0xC8A860, 0.25, 0.7))).position.set(flX, 1.03, flZ);
-    // Arc section (angled)
-    const arcPole = add(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.025, 1.2, 8), M(0xC8A860, 0.25, 0.7)));
-    arcPole.position.set(flX - 0.4, 2.4, flZ); arcPole.rotation.z = 0.45;
-    // Shade (drum, linen-like)
-    const shade = add(new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.28, 0.22, 16),
-      new THREE.MeshStandardMaterial({ color: 0xF5EDE0, emissive: 0xFFF0D8, emissiveIntensity: 0.3, roughness: 0.9, side: THREE.DoubleSide })));
-    shade.position.set(flX - 0.8, 2.65, flZ);
-    // Warm light
-    add(new THREE.PointLight(0xFFE8C8, 0.6, 10)).position.set(flX - 0.8, 2.7, flZ);
+    const buildChair = (cx, cz, rotY) => {
+      const chairMat = M(TEAL, 0.75, 0.05);
+      const baseMat = M(0x888888, 0.2, 0.7);
+      // 5-star base
+      for (let i = 0; i < 5; i++) {
+        const a = (i / 5) * Math.PI * 2 + rotY;
+        const armMesh = add(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.025, 0.28), baseMat));
+        armMesh.position.set(cx + Math.sin(a) * 0.14, 0.02, cz + Math.cos(a) * 0.14);
+        armMesh.rotation.y = a;
+        add(new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 6), M(0x444444, 0.3, 0.5))).position.set(
+          cx + Math.sin(a) * 0.28, 0.015, cz + Math.cos(a) * 0.28);
+      }
+      // Cylinder
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.38, 8), baseMat)).position.set(cx, 0.22, cz);
+      // Seat
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.05, 0.45), chairMat)).position.set(cx, 0.46, cz);
+      // Backrest
+      const br = add(new THREE.Mesh(new THREE.BoxGeometry(0.46, 0.60, 0.03), chairMat));
+      br.position.set(cx, 0.82, cz + (rotY > 1 ? -0.22 : 0.22));
+      // Mesh lines on backrest
+      [0.65, 0.82, 0.99].forEach(y => {
+        add(new THREE.Mesh(new THREE.BoxGeometry(0.40, 0.006, 0.02), M(TEAL_DARK, 0.6))).position.set(cx, y, cz + (rotY > 1 ? -0.20 : 0.20));
+      });
+      // Armrests
+      [-0.24, 0.24].forEach(dx => {
+        add(new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.16, 6), baseMat)).position.set(cx + dx, 0.52, cz);
+        add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.012, 0.16), M(0x555555, 0.5, 0.3))).position.set(cx + dx, 0.60, cz);
+      });
+    };
+
+    // Front row chairs (facing back wall)
+    buildChair(-3.5, -3.8, Math.PI);
+    buildChair(0, -3.8, Math.PI);
+    buildChair(3.5, -3.8, Math.PI);
+    // Back row chairs (facing front)
+    buildChair(-3.5, -8.7, 0);
+    buildChair(0, -8.7, 0);
+    buildChair(3.5, -8.7, 0);
 
     // ═══════════════════════════════════
-    // LARGE PLANT — fiddle leaf fig
+    // LARGE PLANT — white pot, lush green (left corner)
     // ═══════════════════════════════════
-    const plX = -5, plZ = -3.5;
-    // Modern pot (tapered white ceramic)
-    add(new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.22, 0.55, 14), M(0xF0EDE8, 0.6, 0.05))).position.set(plX, 0.275, plZ);
+    const plX = -10, plZ = -8;
+    // White ceramic pot
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.40, 0.32, 0.70, 14), M(0xF5F5F5, 0.55, 0.05))).position.set(plX, 0.35, plZ);
+    // Pot rim
+    add(new THREE.Mesh(new THREE.TorusGeometry(0.40, 0.025, 8, 16), M(0xEEEEEE, 0.5, 0.05))).position.set(plX, 0.70, plZ);
     // Soil
-    add(new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.04, 14), M(0x5A4A3A, 0.95))).position.set(plX, 0.54, plZ);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.38, 0.38, 0.04, 14), M(0x5A4A3A, 0.95))).position.set(plX, 0.69, plZ);
     // Trunk
-    add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.04, 0.8, 8), M(0x6A5A44, 0.8))).position.set(plX, 0.92, plZ);
-    // Foliage cluster (multiple spheres for volume)
-    [[0, 1.6, 0, 0.35], [-0.2, 1.45, 0.1, 0.25], [0.15, 1.5, -0.12, 0.28], [0.05, 1.75, 0.05, 0.22], [-0.12, 1.7, -0.08, 0.2]]
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 1.0, 8), M(0x6A5A44, 0.8))).position.set(plX, 1.18, plZ);
+    // Sub-branches
+    const brMat = M(0x6A5A44, 0.8);
+    const br1 = add(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.5, 6), brMat));
+    br1.position.set(plX - 0.15, 1.55, plZ); br1.rotation.z = 0.4;
+    const br2 = add(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.5, 6), brMat));
+    br2.position.set(plX + 0.12, 1.60, plZ + 0.08); br2.rotation.z = -0.35;
+    // Foliage (large lush clusters)
+    [[0, 1.9, 0, 0.45], [-0.3, 1.7, 0.15, 0.35], [0.25, 1.75, -0.15, 0.38],
+     [0.05, 2.15, 0.05, 0.30], [-0.20, 2.0, -0.10, 0.28], [0.15, 2.2, 0.12, 0.22],
+     [-0.35, 1.85, -0.05, 0.25]]
       .forEach(([dx, y, dz, r]) => {
-        add(new THREE.Mesh(new THREE.SphereGeometry(r, 8, 8), M(0x4A8848, 0.9))).position.set(plX + dx, y, plZ + dz);
+        add(new THREE.Mesh(new THREE.SphereGeometry(r, 10, 10), M(0x3D8844, 0.85))).position.set(plX + dx, y, plZ + dz);
       });
 
-    // ═══════════════════════════════════
-    // SIDEBOARD / CREDENZA — right wall
-    // ═══════════════════════════════════
-    const crX = 6.5, crZ = -8;
-    add(new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.8, 0.5), M(0x7A5C42, 0.45, 0.05))).position.set(crX, 0.42, crZ);
-    // Top surface
-    add(new THREE.Mesh(new THREE.BoxGeometry(2.04, 0.025, 0.54), M(0x886A4E, 0.35, 0.08))).position.set(crX, 0.83, crZ);
-    // Door lines
-    [-0.33, 0.33].forEach(dx => {
-      add(new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.7, 0.48), M(0x6A4C36, 0.5))).position.set(crX + dx, 0.4, crZ + 0.01);
-    });
-    // Handles (brass)
-    [-0.18, 0.18].forEach(dx => {
-      add(new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 0.12, 6), M(0xC8A860, 0.2, 0.7))).position.set(crX + dx, 0.42, crZ + 0.26);
-    });
-    // Decorative items on credenza
-    // Vase
-    add(new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 0.3, 12), M(0x2A4A6A, 0.4, 0.1))).position.set(crX - 0.5, 1.0, crZ);
-    // Art book (laid flat)
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.05, 0.28), M(0xEEEEEE, 0.8))).position.set(crX + 0.3, 0.86, crZ);
+    // Second plant — right side
+    const p2X = 10, p2Z = -3;
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.18, 0.45, 12), M(0xF5F5F5, 0.55, 0.05))).position.set(p2X, 0.225, p2Z);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.035, 0.6, 8), M(0x6A5A44, 0.8))).position.set(p2X, 0.72, p2Z);
+    [[0, 1.2, 0, 0.28], [-0.15, 1.1, 0.08, 0.22], [0.12, 1.15, -0.06, 0.20]]
+      .forEach(([dx, y, dz, r]) => {
+        add(new THREE.Mesh(new THREE.SphereGeometry(r, 8, 8), M(0x3D8844, 0.85))).position.set(p2X + dx, y, p2Z + dz);
+      });
 
-    // ═══════════════════════════════════
-    // CEILING — recessed panel lights
-    // ═══════════════════════════════════
-    [[-3.5, -4], [0, -4], [3.5, -4], [-3.5, -8], [0, -8], [3.5, -8]].forEach(([x, z]) => {
-      // Recessed housing
-      add(new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.04, 0.5), M(0xE8E4E0, 0.8))).position.set(x, 7.42, z);
-      // Light panel (bright emissive)
-      add(new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.02, 0.35),
-        new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xFFF8F0, emissiveIntensity: 0.6 }))).position.set(x, 7.40, z);
+    // Small desk plants (on some desks)
+    [[-3.5, -5.5], [3.5, -5.5], [0, -7.0]].forEach(([px, pz]) => {
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.03, 0.06, 8), M(0xF0F0F0, 0.7))).position.set(px + 0.9, dkY + 0.04, pz);
+      add(new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), M(0x4A9A4A, 0.85))).position.set(px + 0.9, dkY + 0.10, pz);
     });
 
     // ═══════════════════════════════════
-    // WALL ART — framed abstract (right area)
+    // CEILING — recessed circular downlights
     // ═══════════════════════════════════
-    // Frame
-    add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.0, 0.04), M(0x2A2A2A, 0.3, 0.5))).position.set(5, 3.8, -9.86);
-    // Canvas (abstract warm tones)
-    add(new THREE.Mesh(new THREE.BoxGeometry(1.25, 0.85, 0.01), M(0xD4A860, 0.9))).position.set(5, 3.8, -9.82);
-    // Abstract shapes on canvas
-    add(new THREE.Mesh(new THREE.CircleGeometry(0.2, 16), M(0xC85533, 0.9))).position.set(4.7, 3.9, -9.81);
-    add(new THREE.Mesh(new THREE.CircleGeometry(0.15, 16), M(0x3366AA, 0.9))).position.set(5.2, 3.7, -9.81);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.05, 0.01), M(0x2A5A3A, 0.9))).position.set(5.0, 3.55, -9.81);
-
-    // ═══════════════════════════════════
-    // WHITEBOARD / marker board — left area
-    // ═══════════════════════════════════
-    add(new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.2, 0.04), M(0xCCCCCC, 0.2, 0.4))).position.set(-5, 3.8, -9.86);
-    // Board surface (white)
-    add(new THREE.Mesh(new THREE.BoxGeometry(1.85, 1.05, 0.01), M(0xFAFAFA, 0.3, 0.1))).position.set(-5, 3.8, -9.82);
-    // Tray
-    add(new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.03, 0.06), M(0xAAAAAA, 0.3, 0.5))).position.set(-5, 3.2, -9.80);
-    // Markers in tray
-    [0xDD3333, 0x3333DD, 0x33AA33].forEach((c, i) => {
-      add(new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.14, 6), M(c, 0.5))).position.set(-5.2 + i * 0.15, 3.23, -9.78);
+    const dlPositions = [
+      [-4, -4], [0, -4], [4, -4],
+      [-4, -7], [0, -7], [4, -7],
+      [-8, -5.5], [8, -5.5],
+    ];
+    dlPositions.forEach(([x, z]) => {
+      // Recessed rim
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.03, 16), M(0xE8EAF0, 0.6, 0.1))).position.set(x, 7.44, z);
+      // Light disc (emissive)
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.01, 16),
+        new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xFFF8F0, emissiveIntensity: 0.7 })
+      )).position.set(x, 7.43, z);
     });
 
     // ═══════════════════════════════════
-    // AREA RUG — subtle under desk area
+    // WALL SCONCES — right wall (white fixtures)
     // ═══════════════════════════════════
-    const rugGeo = new THREE.PlaneGeometry(5, 4);
-    const rugMat = new THREE.MeshStandardMaterial({ color: 0xB8A890, roughness: 0.95 });
-    const rug = add(new THREE.Mesh(rugGeo, rugMat));
-    rug.rotation.x = -Math.PI / 2; rug.position.set(0, 0.005, -4);
+    [-6, -3, 0].forEach(z => {
+      // Bracket
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.15, 0.08), M(0x444444, 0.3, 0.5))).position.set(11.86, 3.5, z);
+      // Shade
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.10, 0.12, 10), M(0xE0E0E0, 0.6))).position.set(11.84, 3.55, z);
+      // Glow
+      add(new THREE.PointLight(0xffffff, 0.15, 4)).position.set(11.5, 3.6, z);
+    });
+
+    // ═══════════════════════════════════
+    // WALL DECORATIONS — framed art on right wall
+    // ═══════════════════════════════════
+    [[-7, 3.8], [-4, 4.0], [-1, 3.8]].forEach(([z, y]) => {
+      // Frame (white)
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.70, 0.55), M(0xF0F0F0, 0.6))).position.set(11.86, y, z);
+      // Art (light abstract)
+      add(new THREE.Mesh(new THREE.BoxGeometry(0.005, 0.58, 0.43), M(0xE8F0F0, 0.85))).position.set(11.87, y, z);
+    });
+
+    // ═══════════════════════════════════
+    // TEAL ACCENT STRIPE on left wall
+    // ═══════════════════════════════════
+    // Horizontal decorative bands
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 16), ME(TEAL_DARK, TEAL_DARK, 0.1))).position.set(-11.86, 5.0, -2);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 16), ME(TEAL_DARK, TEAL_DARK, 0.1))).position.set(-11.86, 5.3, -2);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.06, 16), ME(TEAL_DARK, TEAL_DARK, 0.1))).position.set(-11.86, 5.6, -2);
+
+    // ═══════════════════════════════════
+    // CARPET TILE pattern (subtle checker)
+    // ═══════════════════════════════════
+    for (let ix = -5; ix <= 5; ix++) {
+      for (let iz = -5; iz <= 0; iz++) {
+        if ((ix + iz) % 2 === 0) {
+          const tile = add(new THREE.Mesh(new THREE.PlaneGeometry(1.95, 1.95), M(0xB8BCC0, 0.8)));
+          tile.rotation.x = -Math.PI / 2; tile.position.set(ix * 2, 0.002, iz * 2 - 3);
+        }
+      }
+    }
   }
 
   _buildRobot() {
