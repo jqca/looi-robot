@@ -1,17 +1,61 @@
 # LOOI Robot
 
 AI音声対話ロボットアプリ。Flask + Edge TTS + Claude API。
-メイン（秘書モード）とキッズの2ページ構成。
+メイン（秘書モード「秋山さん」）とキッズ（「ノア」）の2ページ構成。
 
 ## Deploy
 
 - Branch: master
 - `git push origin master` で Railway 自動デプロイ
+- 本番URL: https://looi-robot-production.up.railway.app
+- キッズ: https://looi-robot-production.up.railway.app/kids
+
+## Architecture
+
+### Backend (app.py)
+- Flask + Claude API (claude-haiku-4-5)
+- Edge TTS（音声合成）: pitch/rate パラメータ対応
+- DuckDuckGo + wttr.in（ウェブ検索・天気）
+- PostgreSQL（会話履歴・記憶・タスク管理）
+- セッションベースのユーザー管理
+
+### Frontend
+- Three.js r128 (CDN global build) — 3Dロボット描画
+- Web Speech API — 音声認識（continuous mode）
+- 両ページとも同じ `RobotRenderer3D` クラスを使用
+
+### API Endpoints
+| Path | Method | Description |
+|------|--------|-------------|
+| `/api/chat` | POST | メイン会話（ウェブ検索付き） |
+| `/api/tts` | POST | Edge TTS音声合成（voice/pitch/rate対応） |
+| `/api/greet` | GET | メイン挨拶 |
+| `/api/news` | GET | Google News RSS取得 |
+| `/api/tasks` | GET/POST | タスク管理 |
+| `/api/kids/chat` | POST | キッズ会話 |
+| `/api/kids/greet` | GET | キッズ挨拶 |
+| `/api/kids/name` | POST | ロボット名変更 |
+
+## Characters
+
+### メイン: 秋山さん（秘書AI）
+- Voice: ja-JP-KeitaNeural（デフォルト）
+- 敬語・結論ファースト・「社長」と呼ぶ
+- スリープ/ウェイクワード対応
+- ウェイクワード: 起きて/おきて/掟/おはよ/秋山/ねえ/スタート 等
+- 5分無操作で自動スリープ → タップまたは声で起動
+
+### キッズ: ノア
+- Voice: ja-JP-NanamiNeural（pitch:+40Hz, rate:+15%）
+- ひらがな多め・元気・40文字以内
+- おやすみモード: 「おやすみ」「ねむい」等で sleep → タップで起動
+- 挨拶終了後に自動continuous listening開始
 
 ## Design System
 
 ### Theme
-- Dark mode, mobile-first (max-width: 480px)
+- Main: Dark mode, mobile-first (max-width: 480px)
+- Kids: Sky blue (#87CEEB) background, mobile-first
 
 ### Colors (index.html - Main)
 | Token | Value | Usage |
@@ -30,12 +74,12 @@ AI音声対話ロボットアプリ。Flask + Edge TTS + Claude API。
 ### Colors (kids.html)
 | Token | Value | Usage |
 |-------|-------|-------|
-| --bg | #06091a | Page background |
-| --bg2 | #0d1433 | Secondary bg |
-| --card | #111830 | Card background |
-| --text | #e8f0ff | Primary text |
-| --muted | #6080c0 | Muted text |
-| --radius | 20px | Border radius |
+| bg | #87CEEB | Page background (sky blue) |
+| listening | #ff4488 | Mic active |
+| thinking | #ffaa00 | Thinking indicator |
+| speaking | #44ffaa | Speaking indicator |
+| ready | #44aaff | Ready state |
+| sleeping | #6a5acd | Sleep state (purple) |
 
 ### Typography
 - Main: `Segoe UI`, fallback `Noto Sans JP`
@@ -45,10 +89,27 @@ AI音声対話ロボットアプリ。Flask + Edge TTS + Claude API。
 idle(blue), happy(green), excited(yellow), thinking(purple), sad(blue-gray), surprised(orange), sleep(dark)
 
 ### Component Patterns
-- Canvas: circular robot face, centered
+- 3D Robot: Three.js full-screen renderer, centered
 - Status bar: dot indicator + label
 - Text input: rounded pill shape, dark translucent bg
 - Start overlay: full-screen tap-to-start with pulse animation
+
+## Key Implementation Notes
+
+### Three.js 注意事項
+- Object.assign は rotation/position に使用禁止（Euler/Vector3 が壊れる）
+- 正しい方法: `mesh.rotation.z = value` / `mesh.position.set(x,y,z)`
+
+### Voice Interaction Flow
+1. ユーザータップ → unlockAudio() → initGreeting()
+2. 挨拶TTS完了後 → continuous listening 開始
+3. 音声認識 → sendMessage → /api/chat → TTS再生 → 再listening
+4. エラー時: 20秒安全タイムアウトで isBusy リセット
+
+### Wake Word Detection (Main)
+- スリープ中は別の SpeechRecognition インスタンスで常時監視
+- interimResults=true で中間結果も即判定
+- onend 後 500ms で自動再起動（途切れを最小化）
 
 ## 3D Robot Spatial Dependencies
 
