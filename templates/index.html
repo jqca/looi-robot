@@ -538,9 +538,9 @@ class RobotRenderer3D {
     const winLight = new THREE.DirectionalLight(0xe8f0ff, 0.5);
     winLight.position.set(0, 8, -12); this.scene.add(winLight);
 
-    // Herringbone wood floor
+    // Office floor — medium grey
     const groundGeo = new THREE.PlaneGeometry(80, 80);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0xC4A87A, roughness: 0.6, metalness: 0.0 });
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0x8A8A8A, roughness: 0.55, metalness: 0.05 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.01; ground.receiveShadow = true;
     this.scene.add(ground);

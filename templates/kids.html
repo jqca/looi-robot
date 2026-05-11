@@ -266,9 +266,9 @@ class RobotRenderer3D {
     const winLight = new THREE.DirectionalLight(0xFFF5E0, 0.6);
     winLight.position.set(-3, 8, -12); this.scene.add(winLight);
 
-    // Light pine floor
+    // Kids room floor — warm rose pink
     const groundGeo = new THREE.PlaneGeometry(80, 80);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0xE8D4B0, roughness: 0.65, metalness: 0.0 });
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0xD4909A, roughness: 0.65, metalness: 0.0 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.01; ground.receiveShadow = true;
     this.scene.add(ground);
@@ -751,6 +751,156 @@ class RobotRenderer3D {
     add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), M(0xFFCC66, 0.8))).position.set(-11.80, 3.85, -3);
     add(new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), M(0xFFCC66, 0.8))).position.set(-11.80, 3.92, -3.03);
     add(new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), M(0xFFCC66, 0.8))).position.set(-11.80, 3.92, -2.97);
+
+    // ═══════════════════════════════════
+    // PLUSHIES & TOYS scattered around room
+    // ═══════════════════════════════════
+
+    // ── Big pink bear plushie (sitting on rug) ──
+    const pbX = 1.5, pbZ = 0.5;
+    // Body
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.28, 10, 10), M(0xFFB0C0, 0.92))).position.set(pbX, 0.28, pbZ);
+    // Head
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.20, 10, 10), M(0xFFB0C0, 0.92))).position.set(pbX, 0.58, pbZ);
+    // Ears
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), M(0xFFB0C0, 0.92))).position.set(pbX - 0.14, 0.72, pbZ);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.07, 8, 8), M(0xFFB0C0, 0.92))).position.set(pbX + 0.14, 0.72, pbZ);
+    // Inner ears
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), M(0xFF8899, 0.9))).position.set(pbX - 0.14, 0.72, pbZ + 0.04);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.04, 6, 6), M(0xFF8899, 0.9))).position.set(pbX + 0.14, 0.72, pbZ + 0.04);
+    // Eyes
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), M(0x222222, 0.4))).position.set(pbX - 0.07, 0.62, pbZ + 0.17);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), M(0x222222, 0.4))).position.set(pbX + 0.07, 0.62, pbZ + 0.17);
+    // Eye highlights
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.010, 4, 4), M(0xFFFFFF, 0.3))).position.set(pbX - 0.06, 0.63, pbZ + 0.19);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.010, 4, 4), M(0xFFFFFF, 0.3))).position.set(pbX + 0.08, 0.63, pbZ + 0.19);
+    // Nose
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), M(0xDD6677, 0.7))).position.set(pbX, 0.57, pbZ + 0.19);
+    // Muzzle
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), M(0xFFCCD4, 0.92))).position.set(pbX, 0.54, pbZ + 0.15);
+    // Arms
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.10, 8, 8), M(0xFFB0C0, 0.92))).position.set(pbX - 0.28, 0.35, pbZ + 0.10);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.10, 8, 8), M(0xFFB0C0, 0.92))).position.set(pbX + 0.28, 0.35, pbZ + 0.10);
+    // Legs
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 8), M(0xFFB0C0, 0.92))).position.set(pbX - 0.14, 0.11, pbZ + 0.18);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 8), M(0xFFB0C0, 0.92))).position.set(pbX + 0.14, 0.11, pbZ + 0.18);
+    // Paw pads
+    add(new THREE.Mesh(new THREE.CircleGeometry(0.05, 8), M(0xFF8899, 0.9))).position.set(pbX - 0.14, 0.11, pbZ + 0.29);
+    add(new THREE.Mesh(new THREE.CircleGeometry(0.05, 8), M(0xFF8899, 0.9))).position.set(pbX + 0.14, 0.11, pbZ + 0.29);
+    // Bow tie
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.03), M(0xFF4466, 0.7))).position.set(pbX - 0.04, 0.45, pbZ + 0.18);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 0.03), M(0xFF4466, 0.7))).position.set(pbX + 0.04, 0.45, pbZ + 0.18);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 6), M(0xFF2244, 0.6))).position.set(pbX, 0.45, pbZ + 0.19);
+
+    // ── Toy robot (blue, standing near play table) ──
+    const trX = 3.0, trZ = -3.5;
+    // Body (boxy)
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.32, 0.22), M(0x5588CC, 0.55, 0.15))).position.set(trX, 0.30, trZ);
+    // Chest panel
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.12, 0.01), M(0xAADDFF, 0.4, 0.2))).position.set(trX, 0.32, trZ + 0.12);
+    // Chest buttons
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 6), ME(0xFF4444, 0xFF4444, 0.3))).position.set(trX - 0.04, 0.33, trZ + 0.13);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 6), ME(0x44FF44, 0x44FF44, 0.3))).position.set(trX + 0.04, 0.33, trZ + 0.13);
+    // Head
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.18, 0.18), M(0x5588CC, 0.55, 0.15))).position.set(trX, 0.55, trZ);
+    // Antenna
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.01, 0.01, 0.12, 6), M(0xCCCCCC, 0.3, 0.5))).position.set(trX, 0.70, trZ);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.025, 6, 6), ME(0xFF5555, 0xFF5555, 0.4))).position.set(trX, 0.77, trZ);
+    // Eyes (glowing)
+    add(new THREE.Mesh(new THREE.CircleGeometry(0.03, 8), ME(0xFFFF88, 0xFFFF88, 0.5))).position.set(trX - 0.05, 0.57, trZ + 0.10);
+    add(new THREE.Mesh(new THREE.CircleGeometry(0.03, 8), ME(0xFFFF88, 0xFFFF88, 0.5))).position.set(trX + 0.05, 0.57, trZ + 0.10);
+    // Mouth (smiley line)
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.01, 0.01), M(0x334466, 0.5))).position.set(trX, 0.50, trZ + 0.10);
+    // Arms (cylinders)
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.22, 8), M(0x4477BB, 0.5, 0.2))).position.set(trX - 0.20, 0.30, trZ);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.22, 8), M(0x4477BB, 0.5, 0.2))).position.set(trX + 0.20, 0.30, trZ);
+    // Hands (spheres)
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), M(0xCCCCCC, 0.3, 0.4))).position.set(trX - 0.20, 0.18, trZ);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), M(0xCCCCCC, 0.3, 0.4))).position.set(trX + 0.20, 0.18, trZ);
+    // Legs
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 0.10), M(0x4477BB, 0.55, 0.15))).position.set(trX - 0.07, 0.07, trZ);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.14, 0.10), M(0x4477BB, 0.55, 0.15))).position.set(trX + 0.07, 0.07, trZ);
+    // Feet
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.03, 0.14), M(0x446699, 0.5, 0.2))).position.set(trX - 0.07, 0.015, trZ + 0.02);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.10, 0.03, 0.14), M(0x446699, 0.5, 0.2))).position.set(trX + 0.07, 0.015, trZ + 0.02);
+
+    // ── Yellow duck plushie (near toy box) ──
+    const dkX = 6.2, dkZ = -1.8;
+    // Body
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), M(0xFFDD44, 0.85))).position.set(dkX, 0.16, dkZ);
+    // Head
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 10), M(0xFFDD44, 0.85))).position.set(dkX, 0.34, dkZ);
+    // Beak
+    add(new THREE.Mesh(new THREE.ConeGeometry(0.035, 0.07, 6), M(0xFF8822, 0.7))).position.set(dkX, 0.33, dkZ + 0.14);
+    // Eyes
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.015, 6, 6), M(0x111111, 0.4))).position.set(dkX - 0.05, 0.37, dkZ + 0.10);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.015, 6, 6), M(0x111111, 0.4))).position.set(dkX + 0.05, 0.37, dkZ + 0.10);
+    // Wing
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), M(0xFFCC33, 0.85))).position.set(dkX - 0.15, 0.18, dkZ);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.08, 8, 6), M(0xFFCC33, 0.85))).position.set(dkX + 0.15, 0.18, dkZ);
+
+    // ── Green dinosaur plushie (near bed) ──
+    const diX = -8.5, diZ = -4.0;
+    // Body (roundish)
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.20, 10, 10), M(0x66BB66, 0.88))).position.set(diX, 0.20, diZ);
+    // Head
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10), M(0x66BB66, 0.88))).position.set(diX + 0.18, 0.38, diZ);
+    // Snout
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 8, 8), M(0x77CC77, 0.88))).position.set(diX + 0.28, 0.36, diZ);
+    // Eyes
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 6), M(0x111111, 0.4))).position.set(diX + 0.22, 0.43, diZ + 0.10);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.02, 6, 6), M(0x111111, 0.4))).position.set(diX + 0.22, 0.43, diZ - 0.10);
+    // Back spikes
+    [-0.10, 0.0, 0.10].forEach(dx => {
+      add(new THREE.Mesh(new THREE.ConeGeometry(0.03, 0.08, 6), M(0x55AA55, 0.8))).position.set(diX + dx, 0.42, diZ);
+    });
+    // Tail
+    add(new THREE.Mesh(new THREE.ConeGeometry(0.06, 0.20, 8), M(0x66BB66, 0.88))).position.set(diX - 0.22, 0.16, diZ);
+    // Legs
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), M(0x66BB66, 0.88))).position.set(diX - 0.08, 0.06, diZ + 0.12);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), M(0x66BB66, 0.88))).position.set(diX + 0.08, 0.06, diZ + 0.12);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), M(0x66BB66, 0.88))).position.set(diX - 0.08, 0.06, diZ - 0.12);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.06, 6, 6), M(0x66BB66, 0.88))).position.set(diX + 0.08, 0.06, diZ - 0.12);
+    // Belly
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.12, 8, 8), M(0xAADDAA, 0.9))).position.set(diX, 0.14, diZ);
+
+    // ── Toy train on floor ──
+    const ttX = -1.5, ttZ = -4;
+    // Engine body
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.18, 0.16), M(0xDD3333, 0.6))).position.set(ttX, 0.12, ttZ);
+    // Cabin
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.14, 0.14), M(0xDD3333, 0.6))).position.set(ttX - 0.08, 0.22, ttZ);
+    // Chimney
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.03, 0.10, 6), M(0x222222, 0.5))).position.set(ttX + 0.08, 0.26, ttZ);
+    // Wheels
+    [[-0.08, -0.06], [-0.08, 0.06], [0.08, -0.06], [0.08, 0.06]].forEach(([dx, dz]) => {
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.02, 10), M(0x222222, 0.4, 0.3))).position.set(ttX + dx, 0.04, ttZ + dz + dz * 0.5);
+    });
+    // Cargo car
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.10, 0.14), M(0x4488CC, 0.6))).position.set(ttX - 0.30, 0.08, ttZ);
+    // Cargo car wheels
+    [[-0.06, -0.06], [-0.06, 0.06], [0.06, -0.06], [0.06, 0.06]].forEach(([dx, dz]) => {
+      add(new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.02, 8), M(0x222222, 0.4, 0.3))).position.set(ttX - 0.30 + dx, 0.03, ttZ + dz + dz * 0.5);
+    });
+    // Cargo blocks on car
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 0.06), M(0xFFDD44, 0.7))).position.set(ttX - 0.32, 0.16, ttZ);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 0.05), M(0x44DD44, 0.7))).position.set(ttX - 0.26, 0.155, ttZ);
+    // Coupler between cars
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.015, 0.015), M(0x888888, 0.4, 0.4))).position.set(ttX - 0.18, 0.06, ttZ);
+
+    // ── Stacking rings toy (near blocks) ──
+    const srX = -2, srZ = -1;
+    // Base pole
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.30, 8), M(0xE8D8C0, 0.6))).position.set(srX, 0.15, srZ);
+    // Rings (bottom to top, large to small)
+    [
+      [0.14, 0xFF5555, 0.04], [0.12, 0xFFAA33, 0.09], [0.10, 0xFFDD44, 0.14],
+      [0.08, 0x44BB44, 0.19], [0.06, 0x4488DD, 0.23]
+    ].forEach(([r, c, y]) => {
+      add(new THREE.Mesh(new THREE.TorusGeometry(r, 0.025, 8, 16), M(c, 0.6))).position.set(srX, y, srZ);
+    });
+    // Top ball
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 8), M(0xFF6688, 0.6))).position.set(srX, 0.30, srZ);
   }
 
   _buildRobot() {
