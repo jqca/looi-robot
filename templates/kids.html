@@ -10,7 +10,7 @@
 
   html, body {
     height: 100%; width: 100%;
-    background: #E8D8C0;
+    background: #B89A70;
     color: #4a3a2a;
     font-family: 'Hiragino Kaku Gothic ProN', 'Noto Sans JP',
                  'メイリオ', 'Meiryo', sans-serif;
@@ -89,7 +89,7 @@
 
   #start-overlay {
     position: fixed; inset: 0; z-index: 9999;
-    background: linear-gradient(180deg, #E8D8C0 0%, #E0D0B0 60%, #D8C8A8 100%);
+    background: linear-gradient(180deg, #B89A70 0%, #A88E65 60%, #9A7E58 100%);
     display: flex; flex-direction: column;
     align-items: center; justify-content: center;
     gap: 18px; cursor: pointer;
@@ -225,10 +225,10 @@ class RobotRenderer3D {
     const h = this.container.clientHeight;
 
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0xE8D8C0);
-    this.scene.fog = new THREE.FogExp2(0xE8D8C0, 0.016);
+    this.scene.background = new THREE.Color(0xC8A878);
+    this.scene.fog = new THREE.FogExp2(0xC8A878, 0.008);
 
-    this.camera = new THREE.PerspectiveCamera(50, w / h, 0.1, 120);
+    this.camera = new THREE.PerspectiveCamera(58, w / h, 0.1, 120);
 
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
     this.renderer.setSize(w, h);
@@ -236,17 +236,17 @@ class RobotRenderer3D {
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.15;
+    this.renderer.toneMappingExposure = 0.82;
     this.container.appendChild(this.renderer.domElement);
 
-    this.ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+    this.ambientLight = new THREE.AmbientLight(0xfff8ee, 0.35);
     this.scene.add(this.ambientLight);
 
     this.headLight = new THREE.PointLight(0xffeecc, 1.0, 18);
     this.headLight.castShadow = true;
     this.scene.add(this.headLight);
 
-    const dirLight = new THREE.DirectionalLight(0xfff8ee, 1.0);
+    const dirLight = new THREE.DirectionalLight(0xfff8ee, 0.55);
     dirLight.position.set(4, 14, 6);
     dirLight.castShadow = true;
     dirLight.shadow.mapSize.set(2048, 2048);
@@ -259,7 +259,7 @@ class RobotRenderer3D {
     dirLight.shadow.bias = -0.001;
     this.scene.add(dirLight);
 
-    const hemiLight = new THREE.HemisphereLight(0xFFF0E0, 0xDDCCAA, 0.7);
+    const hemiLight = new THREE.HemisphereLight(0xFFE8CC, 0xB89A70, 0.35);
     this.scene.add(hemiLight);
 
     // Sunlight from window
@@ -268,7 +268,7 @@ class RobotRenderer3D {
 
     // Kids room floor — natural wood
     const groundGeo = new THREE.PlaneGeometry(80, 80);
-    const groundMat = new THREE.MeshStandardMaterial({ color: 0xDCC8A8, roughness: 0.65, metalness: 0.0 });
+    const groundMat = new THREE.MeshStandardMaterial({ color: 0xB8A080, roughness: 0.6, metalness: 0.02 });
     const ground = new THREE.Mesh(groundGeo, groundMat);
     ground.rotation.x = -Math.PI / 2; ground.position.y = -0.01; ground.receiveShadow = true;
     this.scene.add(ground);
@@ -283,10 +283,10 @@ class RobotRenderer3D {
     const add = (mesh) => { s.add(mesh); return mesh; };
 
     // ── Color palette — warm natural wood ──
-    const PINE = 0xD4B896;
-    const PINE_LT = 0xE0CCA8;
-    const PINE_DK = 0xB89A70;
-    const FURN = 0xD8C4A0;
+    const PINE = 0xB89A70;
+    const PINE_LT = 0xCCB48C;
+    const PINE_DK = 0x8C6E48;
+    const FURN = 0xC0A474;
     const GREEN = 0x6AAA44;
     const BLUE = 0x4488BB;
     const woodMat = M(PINE, 0.75);
@@ -339,7 +339,7 @@ class RobotRenderer3D {
     // Sill
     add(new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.06, 0.25), furnMat)).position.set(0, 3.08, -9.78);
     // Curtains (natural linen)
-    const curtMat = M(0xE8D8C0, 0.95);
+    const curtMat = M(0xD8C8A0, 0.92);
     add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 3.0, 0.06), curtMat)).position.set(-2.0, 4.5, -9.72);
     add(new THREE.Mesh(new THREE.BoxGeometry(0.7, 3.0, 0.06), curtMat)).position.set(2.0, 4.5, -9.72);
     // Curtain rod (wood)
@@ -354,7 +354,7 @@ class RobotRenderer3D {
     // ═══════════════════════════════════
     // LOFT BED — wooden frame (left side)
     // ═══════════════════════════════════
-    const lbX = -4.5, lbZ = -7;
+    const lbX = -4.5, lbZ = 2;
     const postMat = furnMat;
     // 4 posts
     [[-1.0, -1.4], [1.0, -1.4], [-1.0, 1.4], [1.0, 1.4]].forEach(([dx, dz]) => {
@@ -408,7 +408,7 @@ class RobotRenderer3D {
     // ═══════════════════════════════════
     // STUDY DESK + BLUE CHAIR (right side)
     // ═══════════════════════════════════
-    const dkX = 4.5, dkZ = -7.5;
+    const dkX = 4.5, dkZ = 3;
     add(new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.05, 0.9), furnMat)).position.set(dkX, 0.72, dkZ);
     [[-0.90, -0.38], [0.90, -0.38], [-0.90, 0.38], [0.90, 0.38]].forEach(([dx, dz]) => {
       add(new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.72, 0.06), furnMat)).position.set(dkX + dx, 0.36, dkZ + dz);
@@ -453,7 +453,7 @@ class RobotRenderer3D {
     // ═══════════════════════════════════
     // BOOKSHELF — cube storage (back area)
     // ═══════════════════════════════════
-    const bsX = -2.5, bsZ = -9.2;
+    const bsX = -2, bsZ = -3;
     add(new THREE.Mesh(new THREE.BoxGeometry(2.0, 2.0, 0.40), furnMat)).position.set(bsX, 1.0, bsZ);
     [0.68, 1.34].forEach(y => {
       add(new THREE.Mesh(new THREE.BoxGeometry(1.94, 0.04, 0.36), furnMat)).position.set(bsX, y, bsZ);
@@ -469,7 +469,7 @@ class RobotRenderer3D {
     // ═══════════════════════════════════
     // STORAGE BENCH (right wall area)
     // ═══════════════════════════════════
-    const sbcX = 5.5, sbcZ = -3.5;
+    const sbcX = 4.5, sbcZ = -1;
     add(new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.65, 0.55), furnMat)).position.set(sbcX, 0.325, sbcZ);
     add(new THREE.Mesh(new THREE.BoxGeometry(1.84, 0.05, 0.58), M(PINE_LT, 0.6, 0.03))).position.set(sbcX, 0.68, sbcZ);
     add(new THREE.Mesh(new THREE.BoxGeometry(0.82, 0.52, 0.02), M(PINE_LT, 0.7))).position.set(sbcX - 0.44, 0.32, sbcZ + 0.28);
@@ -529,12 +529,12 @@ class RobotRenderer3D {
     // ═══════════════════════════════════
     // CEILING — warm pendant lights
     // ═══════════════════════════════════
-    [[-2, -4], [3, -6], [0, 0]].forEach(([x, z]) => {
+    [[-3, 2], [3, 3], [0, -2]].forEach(([x, z]) => {
       add(new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.008, 1.2, 6), M(0x888888, 0.4, 0.3))).position.set(x, 6.9, z);
       add(new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.30, 0.20, 12),
         new THREE.MeshStandardMaterial({ color: 0xF5E8D0, emissive: 0xFFEECC, emissiveIntensity: 0.25, roughness: 0.85 })
       )).position.set(x, 6.25, z);
-      add(new THREE.PointLight(0xFFEECC, 0.35, 8)).position.set(x, 6.1, z);
+      add(new THREE.PointLight(0xFFEECC, 0.6, 12)).position.set(x, 6.1, z);
     });
 
     // ═══════════════════════════════════
@@ -554,10 +554,10 @@ class RobotRenderer3D {
     // ═══════════════════════════════════
     // WALL SHELF (right wall)
     // ═══════════════════════════════════
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 1.5), furnMat)).position.set(6.85, 2.8, -4.1);
-    add(new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.22, 0.18), M(PINE_DK, 0.6))).position.set(6.83, 2.5, -4.4);
-    add(new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.03, 0.06, 8), M(0xE8A070, 0.7))).position.set(6.83, 2.40, -3.8);
-    add(new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), M(0x55AA55, 0.85))).position.set(6.83, 2.48, -3.8);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 1.5), furnMat)).position.set(6.85, 2.8, 1);
+    add(new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.22, 0.18), M(PINE_DK, 0.6))).position.set(6.83, 2.5, 0.7);
+    add(new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.03, 0.06, 8), M(0xE8A070, 0.7))).position.set(6.83, 2.40, 1.3);
+    add(new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 6), M(0x55AA55, 0.85))).position.set(6.83, 2.48, 1.3);
   }
 
   _buildRobot() {
