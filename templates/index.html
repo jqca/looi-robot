@@ -1483,11 +1483,15 @@ class RobotRenderer3D {
         const ry = this.robotGroup.rotation.y;
         this.robotGroup.position.x += Math.sin(ry) * 2.5 * dt;
         this.robotGroup.position.z += Math.cos(ry) * 2.5 * dt;
+        this.robotGroup.position.x = Math.max(-15, Math.min(15, this.robotGroup.position.x));
+        this.robotGroup.position.z = Math.max(-15, Math.min(15, this.robotGroup.position.z));
         if (this.actionTimer > 1.8) { this.action = 'none'; }
       } else if (this.action === 'backward') {
         const ry = this.robotGroup.rotation.y;
         this.robotGroup.position.x -= Math.sin(ry) * 2.0 * dt;
         this.robotGroup.position.z -= Math.cos(ry) * 2.0 * dt;
+        this.robotGroup.position.x = Math.max(-15, Math.min(15, this.robotGroup.position.x));
+        this.robotGroup.position.z = Math.max(-15, Math.min(15, this.robotGroup.position.z));
         if (this.actionTimer > 1.5) { this.action = 'none'; }
       } else if (this.action === 'turn_right') {
         this.targetRotY -= dt * 3.0;
@@ -1612,6 +1616,11 @@ class RobotRenderer3D {
 
     this.robotGroup.position.x += this.velocity.x * dt;
     this.robotGroup.position.z += this.velocity.z * dt;
+
+    // 移動範囲を±15ユニットに制限（画面外に出るのを防止）
+    const BOUNDS = 15;
+    this.robotGroup.position.x = Math.max(-BOUNDS, Math.min(BOUNDS, this.robotGroup.position.x));
+    this.robotGroup.position.z = Math.max(-BOUNDS, Math.min(BOUNDS, this.robotGroup.position.z));
 
     let angleDiff = this.targetRotY - this.robotGroup.rotation.y;
     while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
@@ -1738,7 +1747,7 @@ class RobotRenderer3D {
     const cy = ry + this.camDist * Math.sin(this.camPitch) + 1.2;
     const cz = rz + this.camDist * Math.cos(this.camAngle) * Math.cos(this.camPitch);
 
-    this.camera.position.lerp(new THREE.Vector3(cx, cy, cz), 0.06);
+    this.camera.position.lerp(new THREE.Vector3(cx, cy, cz), 0.15);
     const lookAt = new THREE.Vector3(rx, ry + 1.6, rz);
     this.camera.lookAt(lookAt);
   }
@@ -2475,7 +2484,7 @@ const taskAddBtn  = document.getElementById('task-add-btn');
 const taskListEl  = document.getElementById('task-list');
 let taskFilter    = 'pending';
 
-taskDueIn.value = new Date().toISOString().slice(0, 10);
+{ const n = new Date(); taskDueIn.value = `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`; }
 
 taskBtn.addEventListener('click', () => { taskPanel.classList.add('open'); loadTasks(); });
 taskClose.addEventListener('click', () => taskPanel.classList.remove('open'));
